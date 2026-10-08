@@ -1,0 +1,143 @@
+name: 生成数据并部署 Pages
+
+# 纯静态查阅站的完整流水线（没有服务器、没有数据库、没有 OAuth）：
+#   1. verify —— 4 个离线契约测试（生成器 / 静态站点 / 单行写入 / AI 草稿）
+#   2. build  —— 浅克隆翻译仓库 → 生成 public/data/** → 复制图片到 public/media/**
+#                → 校验每个图片地址都真的有文件 → 打包 Pages 产物
+#   3. deploy —— 发布到 GitHub Pages（产物里就是全部内容，仓库里不存数据）
+#
+# 仓库设置里把 Pages 的 Source 选成 "GitHub Actions" 即可；数据仓是公开仓库，无需任何 secret。
+
+on:
+  push:
+    # 接受 main 与 master：本地仓库当前在 master 上，别让首发部署因为分支名静默不触发
+    branches: [main, master]
+    paths:
+      - "public/**"
+      - "scripts/**"
+      - "test/**"
+      - "test_helpers/**"
+      - "docs/**"
+      - "package.json"
+      - ".github/workflows/portal.yml"
+  schedule:
+    # 每天 03:17 UTC 拉一次上游译文
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: portal-pages
+  cancel-in-progress: false
+
+env:
+  ASSETS_REPO: kohakunamori/MLTDTranslationAssets
+  CLIENT_REPO: kohakunamori/MLTDTranslationClient
+  ASSETS_REF: main
+  CLIENT_REF: main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 离线契约测试
+        run: npm test
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # 只看需要的目录：locales/lyrics/manifests 是文本，images 是图片字节。
+      # 上游仓库还有 400MB 的 generated/ 与本流程无关，sparse checkout 直接跳过。
+      - name: 浅克隆翻译仓库（只取需要的目录）
+        run: |
+          set -euo pipefail
+          clone() {
+            local repo="$1" ref="$2" dir="$3"; shift 3
+            git clone --depth 1 --filter=blob:none --sparse --branch "$ref" "https://github.com/${repo}.git" "$dir"
+            git -C "$dir" sparse-checkout set "$@"
+            echo "${repo} @ $(git -C "$dir" rev-parse HEAD)"
+          }
+          mkdir -p vendor
+          clone "$ASSETS_REPO" "$ASSETS_REF" vendor/MLTDTranslationAssets locales lyrics manifests images
+          clone "$CLIENT_REPO" "$CLIENT_REF" vendor/MLTDTranslationClient manifests
+
+      - name: 生成数据
+        run: |
+          set -euo pipefail
+          node scripts/build_data.mjs \
+            --assets-root vendor/MLTDTranslationAssets \
+            --client-root vendor/MLTDTranslationClient \
+            --out public/data \
+            --assets-repo "$ASSETS_REPO" \
+            --client-repo "$CLIENT_REPO" \
+            --ref "$ASSETS_REF"
+
+      # 图片不进 git 仓库跟踪，随 Pages 产物发布：清单里的 relative_path 是
+      # images/localized/<bundle>/<file>.png，生成器给出的是 media/localized/... 相对地址。
+      - name: 复制图片到站点
+        run: |
+          set -euo pipefail
+          src=vendor/MLTDTranslationAssets/images/localized
+          if [ ! -d "$src" ]; then
+            echo "::error::上游没有 images/localized 目录，图片页会全是占位符"
+            exit 1
+          fi
+          mkdir -p public/media
+          cp -R "$src" public/media/localized
+          echo "图片文件数：$(find public/media -type f -name '*.png' | wc -l)"
+
+      - name: 校验图片地址都有对应文件
+        run: |
+          node -e '
+            const fs = require("fs");
+            const images = JSON.parse(fs.readFileSync("public/data/images.json", "utf8"));
+            const published = images.tasks.filter((task) => task.localized_url);
+            const missing = published.filter((task) => !fs.existsSync(`public/${task.localized_url}`));
+            if (missing.length) {
+              console.error(`::error::${missing.length} 个图片地址没有文件，例如 ${missing[0].localized_url}`);
+              process.exit(1);
+            }
+            console.log(`图片齐全：${published.length} 个地址全部有文件`);
+          '
+
+      - name: 校验产物
+        run: |
+          set -euo pipefail
+          test -f public/data/portal.json
+          test -f public/index.html
+          node -e '
+            const portal = require("./public/data/portal.json");
+            console.log(`行 ${portal.totals.total} / 资源 ${portal.totals.bundles} / 文件 ${portal.totals.files} / 已译 ${portal.totals.progress_percent}%`);
+            if (!portal.totals.total) { console.error("::error::一条译文都没有，拒绝部署空站点"); process.exit(1); }
+          '
+          echo "产物大小：$(du -sh public | cut -f1)"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

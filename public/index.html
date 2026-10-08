@@ -1,1027 +1,339 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>剧场时光 - MLTD 汉化工作台</title>
-  <link rel="stylesheet" href="app.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MLTD 翻译查阅站</title>
+<meta name="description" content="MLTD 中文化翻译查阅：按分类浏览源文与译文对照，支持单行修改。" />
+<link rel="stylesheet" href="app.css" />
 </head>
 <body>
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-container">
-      <div class="logo-group" id="btn-home">
-        <div class="logo-badge">✦ MLTD</div>
-        <div class="logo-title">
-          <h1>剧场时光</h1>
-          <span>社区汉化协作工作台</span>
+
+<header class="app-header">
+  <div class="header-container">
+    <a class="logo-group" href="#overview" id="logo-home">
+      <span class="logo-badge">MLTD</span>
+      <span class="logo-title">
+        <h1>翻译查阅站</h1>
+        <p id="header-subtitle">正在载入数据…</p>
+      </span>
+    </a>
+    <nav class="header-actions" id="header-nav">
+      <button class="nav-btn" data-nav="overview">概览</button>
+      <button class="nav-btn" data-nav="catalogue">全部资源</button>
+      <button class="nav-btn" data-nav="images">图片</button>
+      <button class="nav-btn" data-nav="settings">设置</button>
+      <span class="write-chip" id="write-chip" title="未配置 GitHub Token，只能查看"></span>
+    </nav>
+  </div>
+</header>
+
+<div class="fatal" id="fatal" hidden>
+  <h2>数据载入失败</h2>
+  <p id="fatal-detail"></p>
+  <p class="hint">
+    静态数据由本仓 GitHub Actions 从翻译仓库生成到 <code>public/data/</code>。
+    本地想在浏览器里看，先跑 <code>npm run data:demo</code>（合成数据）或
+    <code>npm run data</code>（真实数据），再用 <code>npm run serve</code> 打开。
+  </p>
+</div>
+
+<main id="main">
+
+  <!-- ============================ 概览 ============================ -->
+  <section class="view" id="view-overview">
+    <div class="hero card">
+      <div class="hero-main">
+        <h2 id="hero-title">翻译进度总览</h2>
+        <p class="hero-meta" id="hero-meta"></p>
+        <div class="progress-row">
+          <div class="progress-track"><div class="progress-fill" id="hero-progress"></div></div>
+          <span class="progress-value" id="hero-progress-value">0%</span>
         </div>
+        <div class="stat-row" id="stat-row"></div>
       </div>
-      <nav class="nav-links">
-        <button class="nav-btn active" id="nav-lobby">任务大厅</button>
-        <button class="nav-btn" id="nav-selector">🔀 资源选择</button>
-        <button class="nav-btn" id="nav-reviewer" style="display:none;">提案与 PR</button>
-        <a href="https://github.com/kohakunamori/MLTDTranslationAssets" target="_blank" rel="noopener noreferrer" class="nav-btn nav-github" title="访问 GitHub 汉化数据仓库">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:text-bottom"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          GitHub 仓库 ↗
-        </a>
-      </nav>
-      <div class="user-status-pill" id="user-info">
-        <span>连接中...</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- View 1: Lobby -->
-  <main class="view-section active" id="view-lobby">
-    <div class="lobby-layout-wrapper">
-      <!-- 主内容区 (Main Column) -->
-      <div class="lobby-main-column">
-        <!-- 1. 🔍 搜索与随机 (首页置顶) -->
-        <section class="lobby-search-hero">
-          <div class="search-hero-header">
-            <h2 class="section-title" style="margin:0">🔍 检索与认领</h2>
-          </div>
-          <div class="search-filter-box">
-            <input type="text" class="search-input" id="search-keyword" placeholder="搜索原文、译文或任务 ID...">
-            <select class="search-select" id="search-status">
-              <option value="all">全部状态</option>
-              <option value="untranslated" selected>未翻译</option>
-              <option value="pending">待审核</option>
-              <option value="accepted">已采纳</option>
-            </select>
-            <button class="btn-primary" id="btn-do-search">搜索</button>
-            <button class="btn-secondary" id="btn-random-task">🎲 随机认领</button>
-          </div>
-        </section>
-
-        <!-- Unified resource hub: one overview, independent edit entry points. -->
-        <section class="resource-hub" id="resource-hub" aria-labelledby="resource-hub-title">
-          <div class="resource-hub-header">
-            <div>
-              <span class="resource-hub-eyebrow">资源总览</span>
-              <h2 class="section-title" id="resource-hub-title">Assets 与 Client 汉化资源</h2>
-              <p class="resource-hub-subtitle">版本、数量和状态直接来自当前 release summary；两个仓库保持独立发布，编辑入口分别进入对应工作流。</p>
-            </div>
-            <button class="btn-secondary resource-hub-refresh" id="btn-refresh-resource-hub" type="button">↻ 刷新清单</button>
-          </div>
-          <div class="resource-hub-grid" id="resource-hub-grid">
-            <article class="resource-channel-card is-loading" data-resource-channel="assets">
-              <div class="resource-channel-topline"><span class="resource-channel-icon">📦</span><span class="resource-channel-kind">Assets</span><span class="resource-channel-status" data-resource-status>读取中</span></div>
-              <h3>服务器资源汉化</h3>
-              <p>文本、歌词和普通图片，随 Assets 版本轴发布。</p>
-              <div class="resource-channel-metrics" data-resource-metrics>正在读取 release manifest…</div>
-              <div class="resource-channel-categories" data-resource-categories aria-live="polite"></div>
-              <div class="resource-channel-actions">
-                <button type="button" class="btn-primary" data-resource-entry="assets-text">进入文本工作台</button>
-                <button type="button" class="btn-secondary" data-resource-entry="assets-images">进入图片专区</button>
-              </div>
-            </article>
-            <article class="resource-channel-card is-loading" data-resource-channel="client">
-              <div class="resource-channel-topline"><span class="resource-channel-icon">📱</span><span class="resource-channel-kind">Client</span><span class="resource-channel-status" data-resource-status>读取中</span></div>
-              <h3>APK 内置汉化</h3>
-              <p>底栏等内置面由 Client manifest 管理，和 Assets 版本独立。</p>
-              <div class="resource-channel-metrics" data-resource-metrics>正在读取 release manifest…</div>
-              <div class="resource-channel-categories" data-resource-categories aria-live="polite"></div>
-              <div class="resource-channel-actions">
-                <button type="button" class="btn-primary" data-resource-entry="client">进入 Client 工作台</button>
-                <button type="button" class="btn-secondary" data-resource-entry="client">打开最新 Client</button>
-              </div>
-            </article>
-          </div>
-          <div class="resource-hub-source" id="resource-hub-source" role="status" aria-live="polite">分类和计数尚未读取。</div>
-        </section>
-
-        <!-- 2. 图片贴图专属专区 -->
-        <section class="lobby-images-section" id="lobby-images-section" style="display:none">
-          <div class="lyrics-header-card image-header-card">
-            <div class="lyrics-header-info">
-              <div class="lyrics-badge">🖼️ 图片汉化</div>
-              <h2>游戏图片资源汉化</h2>
-              <p>下载原图排版，上传后自动回填。点击卡片进入工作台。</p>
-            </div>
-            <div class="lyrics-stat-pill">
-              <span class="stat-count-pill" id="stat-img-total">— 张</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill" id="stat-img-not-needed">— 无需汉化</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill" id="stat-img-event">— 活动海报</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill" id="stat-img-costume">— 服装海报</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill" id="stat-img-tutorial">— 教学图解</span>
-            </div>
-          </div>
-
-          <!-- 图片专区工具栏 -->
-          <div class="image-toolbar-row">
-            <div class="domain-tabs" id="img-category-tabs">
-              <button class="domain-tab active" data-img-category="all">全部</button>
-              <button class="domain-tab" data-img-category="event">🎪 活动</button>
-              <button class="domain-tab" data-img-category="costume">👗 服装</button>
-              <button class="domain-tab" data-img-category="tutorial">📖 教学</button>
-            </div>
-            <div class="image-filters-right">
-              <input type="text" class="search-input" id="search-img-keyword" placeholder="搜索资源包或任务 ID...">
-              <select class="search-select" id="filter-img-status">
-                <option value="all">全部状态</option>
-                <option value="untranslated">⚪ 待汉化</option>
-                <option value="not_needed">🔵 无需汉化</option>
-                <option value="restored">🟡 待审核</option>
-                <option value="accepted">🟢 已采纳</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 图片任务卡片网格 -->
-          <div class="image-tasks-grid" id="image-tasks-grid">
-            <!-- Rendered dynamically by app.js -->
-          </div>
-
-          <!-- 分页器 -->
-          <div class="image-pagination" id="image-pagination">
-            <!-- Pagination controls -->
-          </div>
-        </section>
-
-        <!-- 4. 歌曲歌词专区（曲数与句数来自当前发布的摘要行） -->
-        <section class="lyrics-section" id="lyrics-section" style="display:none">
-          <div class="lyrics-header-card">
-            <div class="lyrics-header-info">
-              <div class="lyrics-badge">🎵 歌曲歌词</div>
-              <h2>全曲目双语歌词</h2>
-              <p>全曲打歌歌词，支持按单曲整轨双语对照校对与翻译；曲目清单取自当前正式发布的曲目束。</p>
-            </div>
-            <div class="lyrics-stat-pill">
-              <span class="stat-count-pill" id="lyrics-count-songs">—</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill" id="lyrics-count-slots">12,131 槽位</span>
-              <span class="dot">·</span>
-              <span class="stat-count-pill green" id="lyrics-count-rate">100% 映射</span>
-            </div>
-          </div>
-
-          <div class="lyrics-toolbar">
-            <input type="text" class="search-input" id="search-song-keyword" placeholder="搜索歌曲名（日文 / 中文 / 拼音）...">
-            <div class="type-tabs" id="song-type-tabs">
-              <button class="type-tab active" data-song-type="all">全部 <span id="song-type-count-all">—</span></button>
-              <button class="type-tab princess" data-song-type="Princess">Princess</button>
-              <button class="type-tab fairy" data-song-type="Fairy">Fairy</button>
-              <button class="type-tab angel" data-song-type="Angel">Angel</button>
-              <button class="type-tab" data-song-type="All">All / 765PRO</button>
-            </div>
-          </div>
-
-          <div class="songs-grid" id="songs-grid">
-            <!-- Rendered dynamically -->
-          </div>
-        </section>
-      </div>
-
-      <!-- 右侧边栏：项目进度与仓库信息 -->
-      <aside class="lobby-sidebar">
-        <!-- 项目进度面板 -->
-        <div class="sidebar-card stats-sidebar-card">
-          <div class="sidebar-card-header">
-            <h3>📊 翻译进度</h3>
-            <span class="sidebar-badge live-badge">实时</span>
-          </div>
-          <div class="sidebar-progress-box">
-            <div class="progress-bar-wrap">
-              <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-text-row">
-              <span id="stat-untranslated-label">待翻译: -</span>
-              <span id="stat-percent" class="pct-highlight">0.0%</span>
-            </div>
-          </div>
-          <div class="sidebar-stats-grid">
-            <div class="stat-mini-tile">
-              <div class="stat-mini-val primary" id="stat-total">-</div>
-              <div class="stat-mini-label">总条目</div>
-            </div>
-            <div class="stat-mini-tile">
-              <div class="stat-mini-val success" id="stat-accepted">-</div>
-              <div class="stat-mini-label">已采纳</div>
-            </div>
-            <div class="stat-mini-tile">
-              <div class="stat-mini-val warning" id="stat-pending">-</div>
-              <div class="stat-mini-label">待审核</div>
-            </div>
-            <div class="stat-mini-tile">
-              <div class="stat-mini-val" id="stat-contributors">-</div>
-              <div class="stat-mini-label">贡献者</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 独立发布：Client Release 面板 -->
-        <div class="sidebar-card release-sidebar-card" id="card-client-release">
-          <div class="sidebar-card-header">
-            <h3>📱 Client 发布</h3>
-            <span class="sidebar-badge candidate-badge" id="sidebar-client-status">candidate</span>
-          </div>
-          <div class="release-info-table">
-            <div class="release-info-row">
-              <span class="rel-label">版本：</span>
-              <strong id="sidebar-client-version">9.0.200</strong>
-              <span class="abi-tag" id="sidebar-client-abi">arm64-v8a</span>
-            </div>
-            <div class="release-info-row">
-              <span class="rel-label">Base APK：</span>
-              <code class="hash-short" id="sidebar-client-base-sha" title="4c8448e97eadf2220748835e04a458ffaa61e7c219e686d2eb50be64b76088c1">4c8448e9...</code>
-            </div>
-            <div class="release-info-row">
-              <span class="rel-label">内置资源：</span>
-              <code class="hash-short" id="sidebar-client-commit" title="e4894f75040d8745cbfae10986754bde29841f32">e4894f7...</code>
-            </div>
-            <div class="release-info-row">
-              <span class="rel-label">产物 SHA：</span>
-              <span class="rel-val-muted" id="sidebar-client-output-sha">待 Private Build</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 独立发布：Assets Release 面板 -->
-        <div class="sidebar-card release-sidebar-card" id="card-assets-release">
-          <div class="sidebar-card-header">
-            <h3>📦 Assets 资源</h3>
-            <span class="sidebar-badge canonical-badge" id="sidebar-assets-status">canonical</span>
-          </div>
-          <div class="release-info-table">
-            <div class="release-info-row">
-              <span class="rel-label">基准版本：</span>
-              <strong id="sidebar-assets-version">1077100</strong>
-              <span class="schema-tag" id="sidebar-assets-schema">Schema v1</span>
-            </div>
-            <div class="release-info-row">
-              <span class="rel-label">Manifest：</span>
-              <code class="hash-short" id="sidebar-assets-manifest-sha" title="6c1d816cd16cc020e71019fa6c14fe3803d415b4de1769481657f585636a00fe">6c1d816...</code>
-            </div>
-            <div class="release-info-row">
-              <span class="rel-label">资源 Commit：</span>
-              <code class="hash-short" id="sidebar-assets-commit">8bbd3c...</code>
-            </div>
-            <div class="release-reuse-summary">
-              <div class="reuse-title">跨版本复用统计 (Reuse)</div>
-              <div class="reuse-grid">
-                <div class="reuse-pill exact" title="精确一致复用">精确 <strong>11,065</strong></div>
-                <div class="reuse-pill verified" title="兼容验证复用">验证 <strong>0</strong></div>
-                <div class="reuse-pill suggested" title="建议复用">建议 <strong>0</strong></div>
-                <div class="reuse-pill blocked" title="阻断变更">阻断 <strong>0</strong></div>
-              </div>
-            </div>
-            <div class="release-status-note">
-              <span>⚠️ 1077500 已标记为 superseded，不属于合法发布版本</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 开源仓库面板 -->
-        <div class="sidebar-card ssot-sidebar-card repo-banner">
-          <div class="sidebar-card-header">
-            <h3>🛡️ 开源仓库</h3>
-            <span class="repo-badge">GitHub</span>
-          </div>
-          <div class="ssot-repo-info">
-            <div class="ssot-row">
-              <span class="ssot-label">文本与贴图：</span>
-              <a href="https://github.com/kohakunamori/MLTDTranslationAssets" target="_blank" rel="noopener noreferrer" class="ssot-link">MLTDTranslationAssets ↗</a>
-            </div>
-            <div class="ssot-row">
-              <span class="ssot-label">客户端内置：</span>
-              <a href="https://github.com/kohakunamori/MLTDTranslationClient" target="_blank" rel="noopener noreferrer" class="ssot-link">MLTDTranslationClient ↗</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- 翻译提示 -->
-        <div class="sidebar-card quick-guide-card">
-          <div class="sidebar-card-header">
-            <h3>⚡ 翻译提示</h3>
-          </div>
-          <ul class="sidebar-guide-list">
-            <li><strong>特殊字符</strong>：严禁半角 <code>|</code> 或 <code>^</code>，系统自动清洗为全角 <code>｜</code> 与 <code>＾</code>。</li>
-            <li><strong>占位变量</strong>：请保留 <code>{$P$}</code>、<code>\n</code> 与 <code>{0}</code>。</li>
-            <li><strong>图片汉化</strong>：按原图尺寸排版导出 PNG。</li>
-          </ul>
-        </div>
-      </aside>
-    </div>
-  </main>
-
-  <!-- View 2: Studio -->
-  <main class="view-section" id="view-studio">
-    <div class="studio-container-wide">
-      <div class="studio-top-nav">
-        <button class="back-btn" id="btn-studio-back">← 返回大厅</button>
-        <div class="studio-context">
-          <span class="badge category" id="studio-category-badge">剧情</span>
-          <span class="badge idol" id="studio-idol-badge">春日未来</span>
-          <span class="badge studio-mode" id="studio-mode-pill">🌟 剧情模式</span>
-          <span id="studio-index-display" class="index-pill">第 1 / 50 条</span>
-          <div class="studio-status-toggle">
-            <button class="status-toggle-btn active" data-status-filter="untranslated" title="仅查看未翻译条目">未翻译</button>
-            <button class="status-toggle-btn" data-status-filter="all" title="查看全部条目">全部</button>
-            <button class="status-toggle-btn" data-status-filter="accepted" title="查看已采纳条目">已采纳</button>
-          </div>
-        </div>
-        <button class="btn-tutorial-pill" id="btn-studio-tutorial">📖 标签规范</button>
-      </div>
-
-      <!-- ====================================================================
-           Layout A: Dedicated Lyrics Full-Track Studio (曲名 + 每行歌词打歌视轨)
-           ==================================================================== -->
-      <div class="studio-dedicated-layout" id="studio-lyrics-layout" style="display:none">
-        <div class="lyrics-dedicated-hero">
-          <div class="lyrics-dedicated-meta">
-            <span class="song-type-tag" id="lyrics-dedicated-type">All</span>
-            <div class="lyrics-dedicated-titles">
-              <h2 id="lyrics-dedicated-title-ja">Brand New Theater!</h2>
-              <div class="lyrics-dedicated-title-zh" id="lyrics-dedicated-title-zh">崭新的剧场！</div>
-            </div>
-            <div class="lyrics-dedicated-specs">
-              <span class="spec-pill" id="lyrics-dedicated-bundle">scrobj_001bra.unity3d</span>
-              <span class="spec-pill" id="lyrics-dedicated-bpm">BPM 178</span>
-              <span class="spec-pill highlight" id="lyrics-dedicated-progress">共 38 行歌词 · 100% 已对齐</span>
-            </div>
-          </div>
-          <div class="lyrics-dedicated-actions">
-            <div class="filter-pills">
-              <button class="filter-pill active" data-lyric-filter="all">全部行</button>
-              <button class="filter-pill" data-lyric-filter="untranslated">仅看未翻译</button>
-              <button class="filter-pill" data-lyric-filter="pending">待审核</button>
-            </div>
-            <button class="btn-secondary" id="btn-lyrics-back-catalog">🎵 返回全曲列表</button>
-          </div>
-        </div>
-
-        <!-- Full Lyrics Lines Track Table -->
-        <div class="lyrics-lines-container">
-          <div class="lyrics-lines-table-header">
-            <span class="col-slot">序号</span>
-            <span class="col-ja">🇯🇵 日文原版歌词 (按打歌拍子)</span>
-            <span class="col-zh">🇨🇳 简体中文译文 (就地输入 / 对齐)</span>
-            <span class="col-status">状态</span>
-            <span class="col-action">操作</span>
-          </div>
-          <div class="lyrics-lines-list" id="lyrics-lines-list">
-            <!-- Rendered dynamically by app.js: 1 row per lyric slot -->
-          </div>
-        </div>
-      </div>
-
-      <!-- ====================================================================
-           Layout B: Dedicated Mobile Chat / Blog Studio (拟真手机短信聊天流)
-           ==================================================================== -->
-      <div class="studio-dedicated-layout" id="studio-chat-layout" style="display:none">
-        <div class="chat-phone-viewport">
-          <div class="chat-phone-header">
-            <div class="phone-status-row">
-              <span>09:41</span>
-              <div class="phone-dynamic-island"></div>
-              <span>5G 📶 100%</span>
-            </div>
-            <div class="phone-contact-row">
-              <div class="contact-avatar" id="chat-contact-avatar">春</div>
-              <div class="contact-info">
-                <div class="contact-name" id="chat-contact-name">春日未来</div>
-                <div class="contact-status">剧场手机联络中 · 在线</div>
-              </div>
-            </div>
-          </div>
-          <div class="chat-messages-stream" id="chat-messages-stream">
-            <!-- Messages rendered dynamically -->
-          </div>
-        </div>
-      </div>
-
-      <!-- ====================================================================
-           Layout C: Dedicated Story AVG Visual Novel Studio (视觉小说剧幕流)
-           ==================================================================== -->
-      <div class="studio-dedicated-layout" id="studio-story-layout" style="display:none">
-        <div class="story-avg-theater">
-          <div class="story-theater-header">
-            <span class="scene-tag">🎭 剧场幕次剧本流</span>
-            <span class="scene-bundle" id="story-scene-bundle">event_0448_story_01.gtx</span>
-          </div>
-          <div class="story-dialogue-stream" id="story-dialogue-stream">
-            <!-- Dialogue lines rendered dynamically -->
-          </div>
-        </div>
-      </div>
-
-      <!-- ====================================================================
-           Layout D: Standard / Single-Card Studio (通用单条细修工作台)
-           ==================================================================== -->
-      <div class="studio-grid-layout" id="studio-standard-layout">
-        <!-- 左侧核心翻译区域 -->
-        <div class="studio-main-col">
-          <div class="studio-card main-workbench">
-            <div class="workbench-header">
-              <div class="source-speaker" id="studio-speaker-wrap">
-                <div class="speaker-avatar" id="studio-speaker-dot" style="background:#ea5b76">春</div>
-                <div class="speaker-meta">
-                  <span class="speaker-name" id="studio-speaker-name">春日未来</span>
-                  <span class="speaker-bundle" id="studio-bundle-name">event_0448_story_01.gtx</span>
-                </div>
-              </div>
-              <div class="workbench-quick-actions">
-                <button class="btn-mini btn-ai-action" id="btn-ai-translate" title="AI 辅助翻译 (Ctrl+K)">🤖 AI 翻译</button>
-                <button class="btn-mini btn-ai-config" id="btn-ai-config" title="配置 AI 接口">⚙️ AI 配置</button>
-                <button class="btn-mini" id="btn-toggle-context" style="display:none">📜 查看上下文</button>
-                <button class="btn-mini" id="btn-copy-source" title="复制原文到输入框">📋 复制原文</button>
-                <button class="btn-mini" id="btn-extract-skeleton" title="提取标签骨架">🏷️ 提取标签</button>
-              </div>
-            </div>
-
-            <!-- Mode Specific Custom Banner -->
-            <div class="studio-mode-banner" id="studio-mode-banner">
-              <!-- Rendered dynamically according to category mode -->
-            </div>
-
-            <!-- 原文展示区域 -->
-            <div class="source-box-wrap">
-              <div class="box-label">
-                <span>日文原文</span>
-                <span class="term-click-tip">💡 点击术语可直接填入</span>
-              </div>
-              <div class="source-box" id="studio-source-box">
-                <!-- Text rendered with safe .term-highlight -->
-              </div>
-            </div>
-
-            <!-- Term hints bar -->
-            <div class="term-hints-bar-wrap">
-              <div class="term-hints-title">🌟 推荐术语：</div>
-              <div class="term-hints-bar" id="term-hints-bar">
-                <!-- Generated hint chips -->
-              </div>
-            </div>
-
-            <!-- Existing translation comparison box -->
-            <div class="existing-trans-box-wrap" id="existing-trans-box-wrap" style="display:none">
-              <div class="box-label">
-                <span class="existing-title">💡 当前已有译文：</span>
-                <span class="existing-status-badge" id="existing-trans-status">已采纳</span>
-                <div style="flex:1"></div>
-                <button class="btn-mini" id="btn-use-existing" title="载入已有译文">✍️ 载入润色</button>
-                <button class="btn-mini btn-ai-action" id="btn-ai-polish" title="AI 润色">✨ AI 润色</button>
-              </div>
-              <div class="existing-trans-box" id="existing-trans-box"></div>
-            </div>
-
-            <!-- 译文输入区 -->
-            <div class="input-group">
-              <div class="input-header">
-                <label class="input-label" for="translation-input">中文译文</label>
-                <div class="input-tools">
-                  <button class="btn-text-tool btn-ai-tool" id="btn-ai-translate-tool" title="AI 翻译 (Ctrl+K)">🤖 AI 翻译</button>
-                  <button class="btn-text-tool" id="btn-fix-delims" title="将半角 | 与 ^ 转换为全角 ｜ 与 ＾">🔄 修复符号(|/^)</button>
-                  <span class="char-counter" id="char-counter">0 字</span>
-                </div>
-              </div>
-              <textarea
-                class="trans-textarea"
-                id="translation-input"
-                placeholder="请输入中文翻译... (Ctrl + Enter 提交)"
-              ></textarea>
-
-              <!-- 格式智能校验面板 -->
-              <div class="format-validation-panel" id="format-validation-panel">
-                <div class="validation-status-row" id="validation-status-row">
-                  <span class="val-badge val-ok" id="val-badge">✅ 格式正确</span>
-                  <span class="val-summary" id="val-summary">无保留符号，变量完整</span>
-                </div>
-                <div class="validation-details-list" id="validation-details-list" style="display:none">
-                  <!-- Detailed check items rendered dynamically -->
-                </div>
-              </div>
-            </div>
-
-            <div class="studio-actions">
-              <button class="btn-secondary" id="btn-studio-skip">下一条 (Alt+S)</button>
-              <button class="btn-primary" id="btn-studio-submit" disabled>提交 PR (Ctrl+Enter)</button>
-            </div>
-            <div class="pr-result-link" id="studio-pr-link" style="display:none"></div>
-          </div>
-        </div>
-
-        <!-- 右侧规范速查侧边栏 -->
-        <aside class="studio-sidebar-col">
-          <div class="guide-card">
-            <div class="guide-card-header">
-              <h3>📖 格式规范</h3>
-              <button class="guide-more-btn" id="btn-guide-more">完整规范 →</button>
-            </div>
-            <div class="guide-content">
-              <div class="guide-item">
-                <div class="guide-tag-badge">&lt;color&gt;</div>
-                <div class="guide-desc"><strong>颜色标签：</strong>成对保留，只翻译文字。如 <code>&lt;color=#ea5b76&gt;文字&lt;/color&gt;</code>。</div>
-              </div>
-              <div class="guide-item">
-                <div class="guide-tag-badge">{$P$}</div>
-                <div class="guide-desc"><strong>制作人：</strong><code>{$P$}さん</code> 请译为 <code>{$P$}先生</code> 或 <code>制作人</code>，勿删 <code>{$P$}</code>。</div>
-              </div>
-              <div class="guide-item">
-                <div class="guide-tag-badge">{0} / %s</div>
-                <div class="guide-desc"><strong>占位符：</strong>保留花括号与数字，可调换语序。</div>
-              </div>
-              <div class="guide-item">
-                <div class="guide-tag-badge">\n</div>
-                <div class="guide-desc"><strong>换行符：</strong>原文换行处请对应换行。</div>
-              </div>
-              <div class="guide-item alert">
-                <div class="guide-tag-badge red">严禁 | ^</div>
-                <div class="guide-desc"><strong>保留符：</strong>半角 <code>|</code> 与 <code>^</code> 会导致闪退，请用全角 <code>｜</code> 与 <code>＾</code>。</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="guide-card glossary-quick">
-            <div class="guide-card-header">
-              <h3>🌟 常用术语</h3>
-              <span class="guide-count" id="quick-terms-count">90 条</span>
-            </div>
-            <div class="quick-terms-list" id="quick-terms-list">
-              <!-- Rendered dynamically -->
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <!-- ====================================================================
-           Layout E: Dedicated Image Localization & Texture Restore Studio (图片汉化工作台)
-           ==================================================================== -->
-      <div class="studio-dedicated-layout" id="studio-image-layout" style="display:none">
-        <div class="studio-image-hero">
-          <div class="studio-image-header-info">
-            <span class="badge category" style="background:#2563eb;color:#fff;">🖼️ 贴图汉化</span>
-            <div class="studio-image-title-group">
-              <h2 id="studio-img-task-title">任务: -</h2>
-              <div class="studio-image-bundle-meta" id="studio-img-bundle-meta">尺寸: -</div>
-            </div>
-          </div>
-          <div class="studio-image-header-actions">
-            <button type="button" class="btn-mini btn-toggle-not-needed" id="btn-studio-img-toggle-status">
-              🚫 无需汉化
-            </button>
-            <button class="btn-secondary" id="btn-studio-img-prev">« 上一张</button>
-            <button class="btn-secondary" id="btn-studio-img-next">下一张 »</button>
-            <button class="btn-secondary" id="btn-studio-img-back-lobby">← 返回大厅</button>
-          </div>
-        </div>
-
-        <div class="studio-image-workbench-grid">
-          <!-- 左栏：原图预览与尺寸信息 -->
-          <div class="studio-image-card">
-            <div class="img-col-header">
-              <span class="col-title">📥 原图</span>
-              <span class="img-res-badge" id="studio-img-source-res">0×0</span>
-            </div>
-            <div class="img-display-frame">
-              <img id="studio-img-source-preview" src="" alt="原图" />
-            </div>
-            <div class="img-col-actions">
-              <a href="#" class="btn-secondary btn-download-img" id="btn-studio-download-source" download="source-composite.png">
-                📥 下载原图 PNG
-              </a>
-            </div>
-            <p class="img-guide-note">💡 提示：按原图尺寸排版，输出透明 PNG。</p>
-          </div>
-
-          <!-- 中栏：提交汉化图 -->
-          <div class="studio-image-card">
-            <div class="img-col-header">
-              <span class="col-title">📤 提交汉化图</span>
-              <span class="img-res-badge" id="studio-img-upload-res">未选择</span>
-            </div>
-            <div class="img-display-frame upload-dropzone" id="studio-img-upload-dropzone">
-              <div class="dropzone-prompt" id="studio-dropzone-prompt">
-                <span class="dropzone-icon">📁</span>
-                <p>点击选择或拖拽上传 PNG</p>
-                <span class="dropzone-sub">建议与原图尺寸一致</span>
-              </div>
-              <img id="studio-img-upload-preview" src="" alt="上传的中文图" style="display:none" />
-              <input type="file" id="studio-file-input-image" accept="image/png,image/jpeg,image/webp" style="display:none" />
-            </div>
-            <div class="img-col-actions">
-              <button type="button" class="btn-secondary" id="btn-studio-trigger-file">📁 选择图片</button>
-              <button type="button" class="btn-secondary" id="btn-studio-clear-img" style="display:none">✕ 清除</button>
-            </div>
-            <div class="aspect-ratio-status" id="studio-aspect-ratio-status">
-              <!-- 尺寸校验 -->
-            </div>
-          </div>
-
-          <!-- 右栏：回填预览与提交 -->
-          <div class="studio-image-card">
-            <div class="img-col-header">
-              <span class="col-title">🧩 回填预览</span>
-              <span class="img-res-badge" id="studio-img-restore-status">等待上传</span>
-            </div>
-            <div class="img-display-frame" id="studio-img-restore-frame">
-              <div class="dropzone-prompt" id="studio-restore-placeholder">
-                <span class="dropzone-icon">⚙️</span>
-                <p>上传汉化图后预览回填效果</p>
-              </div>
-              <canvas id="studio-restore-canvas" width="512" height="512" style="display:none; max-width:100%; max-height:100%; object-fit:contain;"></canvas>
-            </div>
-            <div class="img-col-actions" style="flex-direction:column; gap:0.5rem;">
-              <button type="button" class="btn-primary" id="btn-studio-submit-restore" disabled style="width:100%; padding:0.65rem;">
-                🚀 提交 PR
-              </button>
-              <span class="studio-restore-tip" style="font-size:0.78rem; color:var(--text-muted); text-align:center;">
-                比例通过后由门户创建 Pull Request；缩放与 Unity3D 回填由 CI 完成。
-              </span>
-              <div class="pr-result-link" id="studio-image-pr-link" style="display:none"></div>
-            </div>
-          </div>
-        </div>
+      <div class="hero-side">
+        <button class="btn btn-primary" id="hero-random-song">🎲 随机一首歌</button>
+        <button class="btn" id="hero-untranslated">🔍 只看未翻译</button>
+        <button class="btn" id="btn-reload-data">↻ 重新拉取数据</button>
       </div>
     </div>
-  </main>
 
-  <!-- View: Independent Releases -->
-  <main class="view-section" id="view-releases" style="display:none">
-    <div class="studio-container-wide">
-      <div class="studio-top-nav">
-        <button class="back-btn" id="btn-releases-back">← 返回大厅</button>
-        <h2>📦 独立版本发布与跨版本复用模型</h2>
-        <div class="releases-filter-tabs" id="releases-nav-tabs" style="margin-left:auto; display:flex; gap:0.5rem;">
-          <button class="domain-tab active" data-rel-tab="all">全部发布</button>
-          <button class="domain-tab" data-rel-tab="client">📱 Client 客户端</button>
-          <button class="domain-tab" data-rel-tab="assets">📦 Assets 资源</button>
-        </div>
-      </div>
+    <div class="section-head">
+      <h3>资源分类</h3>
+      <div class="domain-tabs" id="domain-tabs"></div>
+    </div>
+    <div class="category-grid" id="category-grid"></div>
+    <p class="empty" id="category-empty" hidden></p>
 
-      <!-- Release Architecture Banner -->
-      <div class="release-banner-card">
-        <div class="release-banner-icon">🛡️</div>
-        <div class="release-banner-content">
-          <h3>解耦发布规范 (Client / Assets Fully Decoupled)</h3>
-          <p>
-            客户端 APK 与资源包采用完全解耦的双发布轴：
-            <strong>Client</strong> 仅针对 <code>arm64-v8a</code> 单一架构，仅绑定 APK 内置汉化资源与基础 APK SHA-256；
-            <strong>Assets</strong> 由本地服务器在握手阶段通过 <code>server_schema_version</code> 进行契约协商下发，禁止跨版本版本号合成字符串。
-          </p>
-        </div>
-      </div>
+    <div class="section-head">
+      <h3>歌曲歌词</h3>
+      <input class="input" id="song-search" type="search" placeholder="按曲名 / 日文名 / 资源名筛选歌曲…" />
+    </div>
+    <div class="song-grid" id="song-grid"></div>
+    <p class="empty" id="song-grid-empty" hidden>没有匹配的歌曲。</p>
+  </section>
 
-      <!-- Releases Grid -->
-      <div class="releases-dual-grid">
-        <!-- Client Releases Column -->
-        <div class="release-col" id="col-client-releases">
-          <div class="release-col-header">
-            <h3>📱 Client 客户端发布</h3>
-            <span class="badge info">严格约束: arm64-v8a</span>
-          </div>
-          <div id="client-releases-list" class="release-cards-list">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
-
-        <!-- Assets Releases Column -->
-        <div class="release-col" id="col-assets-releases">
-          <div class="release-col-header">
-            <h3>📦 Assets 资源发布</h3>
-            <span class="badge success">基准版本: 1077100</span>
-          </div>
-          <div id="assets-releases-list" class="release-cards-list">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Cross-Version Reuse State Matrix -->
-      <div class="reuse-matrix-card">
-        <h3>🔄 跨版本翻译复用四态机制 (Cross-Version Translation Reuse)</h3>
-        <p class="reuse-matrix-desc">
-          所有多版本资源基于 <code>(logical_key, resource_kind, locale, source_sha256)</code> 唯一逻辑键跨版本流通，杜绝机械重复翻译。
-        </p>
-        <div class="matrix-grid">
-          <div class="matrix-tile exact">
-            <div class="tile-header">
-              <span class="tile-badge exact">Exact</span>
-              <h4>精确一致复用</h4>
-            </div>
-            <p>源文本 SHA-256 完全相同，自动直接复用，不产生新翻译任务。</p>
-            <div class="tile-count" id="matrix-count-exact">11,065 项</div>
-          </div>
-          <div class="matrix-tile verified">
-            <div class="tile-header">
-              <span class="tile-badge verified">Verified</span>
-              <h4>兼容验证复用</h4>
-            </div>
-            <p>源文本哈希不同，但经人工或自动化测试验证兼容并显式记录映射。</p>
-            <div class="tile-count" id="matrix-count-verified">0 项</div>
-          </div>
-          <div class="matrix-tile suggested">
-            <div class="tile-header">
-              <span class="tile-badge suggested">Suggested</span>
-              <h4>建议复用</h4>
-            </div>
-            <p>基于文本相似度或历史版本的复用建议，仅作为参考，严禁自动合入。</p>
-            <div class="tile-count" id="matrix-count-suggested">0 项</div>
-          </div>
-          <div class="matrix-tile blocked">
-            <div class="tile-header">
-              <span class="tile-badge blocked">Blocked</span>
-              <h4>变更阻断</h4>
-            </div>
-            <p>未经验证的源文本变化或二进制结构变更，强制阻断继承，保护游戏稳定性。</p>
-            <div class="tile-count" id="matrix-count-blocked">0 项</div>
-          </div>
-        </div>
+  <!-- ============================ 索引浏览 ============================ -->
+  <section class="view" id="view-catalogue" hidden>
+    <div class="view-head card">
+      <button class="btn btn-back" id="catalogue-back">← 返回概览</button>
+      <div class="view-title">
+        <h2 id="catalogue-title">全部资源</h2>
+        <p class="hero-meta" id="catalogue-meta"></p>
       </div>
     </div>
-  </main>
 
-  <!-- View 3: Proposals (read-only mirror of GitHub; review happens on the PR) -->
-  <main class="view-section" id="view-reviewer">
-    <div class="studio-container">
-      <div class="studio-top-nav">
-        <button class="back-btn" id="btn-reviewer-back">← 返回大厅</button>
-        <h2>🔀 提案与 Pull Request</h2>
-        <div class="admin-filter-group" style="margin-left:auto; display:flex; gap:0.5rem; align-items:center;">
-          <select class="search-select" id="admin-target-filter">
-            <option value="">全部仓库</option>
-            <option value="assets">Assets 仓库</option>
-            <option value="client">Client 仓库</option>
-          </select>
-          <button class="btn-secondary" id="btn-refresh-queue">🔄 刷新列表</button>
-        </div>
-      </div>
-
-      <p class="admin-review-note">
-        本页只展示提案与 PR 状态：审核权威是 GitHub Pull Request 自身，合并即在 GitHub 完成。
-        门户不在此接受译文、不回填，也不镜像一份独立的审核结论。
-      </p>
-
-      <div id="admin-proposal-list" class="admin-proposal-list" style="margin-top:1.5rem">
-        <!-- Rendered proposal cards -->
-      </div>
-    </div>
-  </main>
-
-  <!-- View: Repository → version → resource selector (independent Client / Assets axes) -->
-  <main class="view-section" id="view-selector">
-    <div class="studio-container-wide">
-      <div class="studio-top-nav">
-        <button class="back-btn" id="btn-selector-back">← 返回大厅</button>
-        <h2>🔀 仓库 / 版本 / 资源选择</h2>
-      </div>
-
-      <p class="admin-review-note">
-        两个通道是相互独立的发布轴：Assets 走服务器下发通道，Client 走 APK 内置通道。
-        选定版本后选择条目，门户向服务读取该条目的提交绑定（目标仓库、路径、基线 commit），
-        再交给工作台编辑；编辑只会改写该条目标所对应的那一行/槽位，并由 Pull Request 审核。
-      </p>
-
-      <div class="selector-toolbar">
-        <div class="domain-tabs" id="selector-channel-tabs">
-          <button class="domain-tab active" data-selector-channel="assets">📦 Assets 资源</button>
-          <button class="domain-tab" data-selector-channel="client">📱 Client 客户端</button>
-        </div>
-        <select class="search-select" id="selector-release">
-          <option value="">选择版本…</option>
+    <div class="filters card">
+      <label class="field">
+        <span>分类</span>
+        <select class="input" id="filter-category"></select>
+      </label>
+      <label class="field">
+        <span>偶像</span>
+        <select class="input" id="filter-idol"><option value="">全部</option></select>
+      </label>
+      <label class="field">
+        <span>状态</span>
+        <select class="input" id="filter-status">
+          <option value="">全部</option>
+          <option value="untranslated">含未翻译</option>
+          <option value="pending">含待确认</option>
+          <option value="complete">已全部翻译</option>
         </select>
-      </div>
-      <p class="selector-channel-note" id="selector-channel-note"></p>
+      </label>
+      <label class="field grow">
+        <span>关键字</span>
+        <input class="input" id="filter-keyword" type="search" placeholder="资源名 / 曲名 / item_key" />
+      </label>
+      <label class="field">
+        <span>排序</span>
+        <select class="input" id="filter-sort">
+          <option value="default">默认顺序</option>
+          <option value="progress-asc">进度从低到高</option>
+          <option value="progress-desc">进度从高到低</option>
+          <option value="size-desc">行数从多到少</option>
+          <option value="name">名称</option>
+        </select>
+      </label>
+    </div>
 
-      <div class="selector-layout">
-        <section class="selector-list-col">
-          <div class="selector-col-header">
-            <span>资源条目</span>
-            <span class="selector-status" id="selector-status"></span>
-          </div>
-          <div class="selector-items" id="selector-items">
-            <!-- Rendered by app.js -->
-          </div>
-          <button type="button" class="btn-secondary selector-more" id="selector-more" disabled>已到底部</button>
-        </section>
-        <aside class="selector-detail-col">
-          <div class="selector-col-header"><span>提交绑定</span></div>
-          <div id="selector-selection">
-            <p style="color:var(--text-muted)">选择左侧条目以读取它的提交绑定</p>
-          </div>
-        </aside>
+    <p class="empty" id="catalogue-empty" hidden>没有匹配的资源。</p>
+    <div class="bundle-list" id="bundle-list"></div>
+    <div class="pager" id="catalogue-pager"></div>
+  </section>
+
+  <!-- ============================ 对照阅读 ============================ -->
+  <section class="view" id="view-read" hidden>
+    <div class="view-head card">
+      <button class="btn btn-back" id="read-back">← 返回列表</button>
+      <div class="view-title">
+        <h2 id="read-title">—</h2>
+        <p class="hero-meta" id="read-meta"></p>
+      </div>
+      <div class="read-counts" id="read-counts"></div>
+    </div>
+
+    <div class="card page-bar" id="read-pagebar">
+      <div class="page-nav" id="read-page-nav" hidden>
+        <button class="btn" id="read-page-prev" type="button">‹ 上一页</button>
+        <label class="field page-field">
+          <span>数据页</span>
+          <select class="input" id="read-page-select"></select>
+        </label>
+        <span class="page-total" id="read-page-total"></span>
+        <button class="btn" id="read-page-next" type="button">下一页 ›</button>
+        <span class="page-info" id="read-page-info"></span>
+      </div>
+      <span class="page-window" id="read-window"></span>
+    </div>
+
+    <div class="filters card read-toolbar">
+      <label class="field grow">
+        <span>本资源内搜索</span>
+        <input class="input" id="read-search" type="search" placeholder="日文 / 中文 / item_key" />
+      </label>
+      <label class="field">
+        <span>状态</span>
+        <select class="input" id="read-status">
+          <option value="">全部</option>
+          <option value="untranslated">未翻译</option>
+          <option value="pending">待确认</option>
+          <option value="accepted">已确认</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>显示</span>
+        <select class="input" id="read-display">
+          <option value="both">日中对照</option>
+          <option value="source">仅日文</option>
+          <option value="translation">仅中文</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>字号</span>
+        <select class="input" id="read-size">
+          <option value="normal">标准</option>
+          <option value="large">大</option>
+          <option value="xlarge">特大</option>
+        </select>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" id="read-highlight" checked />
+        <span>高亮术语与偶像名</span>
+      </label>
+    </div>
+
+    <p class="empty" id="read-empty" hidden>没有匹配的句子。</p>
+    <ol class="line-list" id="line-list"></ol>
+    <div class="pager" id="read-pager"></div>
+  </section>
+
+  <!-- ============================ 图片 ============================ -->
+  <section class="view" id="view-images" hidden>
+    <div class="view-head card">
+      <div class="view-title">
+        <h2>图片本地化</h2>
+        <p class="hero-meta" id="images-meta"></p>
       </div>
     </div>
-  </main>
 
-  <!-- Footer -->
-  <footer class="app-footer">
-    <div class="footer-container">
-      <div class="footer-left">
-        <p><strong>剧场时光 MLTD 汉化工作台</strong> · 社区开源协作平台</p>
-        <p class="footer-subtext">数据来自 <a href="https://github.com/kohakunamori/MLTDTranslationAssets" target="_blank" rel="noopener noreferrer">MLTDTranslationAssets</a> / <a href="https://github.com/kohakunamori/MLTDTranslationClient" target="_blank" rel="noopener noreferrer">MLTDTranslationClient</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank" rel="noopener noreferrer">CC-BY-NC-SA 4.0</a></p>
-      </div>
-      <div class="footer-links">
-        <a href="https://github.com/kohakunamori/MLTDTranslationAssets" target="_blank" rel="noopener noreferrer">GitHub 仓库</a>
-        <a href="https://github.com/kohakunamori/MLTDTranslationAssets/tree/main/glossary" target="_blank" rel="noopener noreferrer">术语表</a>
-        <a href="https://github.com/kohakunamori/MLTDTranslationAssets/pulls" target="_blank" rel="noopener noreferrer">提交 PR</a>
+    <div class="filters card">
+      <div class="domain-tabs" id="image-category-tabs"></div>
+      <label class="field grow">
+        <span>关键字</span>
+        <input class="input" id="image-search" type="search" placeholder="任务 / 资源名 / 分类" />
+      </label>
+      <label class="field">
+        <span>排序</span>
+        <select class="input" id="image-sort">
+          <option value="default">默认顺序</option>
+          <option value="name">任务名</option>
+          <option value="size">尺寸</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="image-grid" id="image-grid"></div>
+    <p class="empty" id="image-empty" hidden>没有匹配的图片任务。</p>
+    <div class="pager" id="image-pager"></div>
+  </section>
+
+  <!-- ============================ 设置 ============================ -->
+  <section class="view" id="view-settings" hidden>
+    <div class="view-head card">
+      <div class="view-title">
+        <h2>设置</h2>
+        <p class="hero-meta">
+          所有凭据只存在这台浏览器的 localStorage 里，不会发给任何服务器：页面本身是纯静态的。
+        </p>
       </div>
     </div>
-  </footer>
 
-  <!-- Floating Toast -->
-  <div class="toast" id="toast"></div>
+    <div class="card settings-card">
+      <h3>GitHub Token（单行修改用）</h3>
+      <p class="hint">
+        填入一个只勾选目标翻译仓库 <code>Contents: Read and write</code> 的 fine-grained token，
+        就能在阅读页直接改一行译文并提交。留空则整站只读。
+      </p>
+      <form class="settings-row" id="pat-form">
+        <input class="input grow" id="pat-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…（只保存在本机）" />
+        <button class="btn" id="pat-toggle-vis" type="button">显示</button>
+        <button class="btn btn-primary" id="pat-save" type="button">保存</button>
+        <button class="btn" id="pat-verify" type="button">验证</button>
+        <button class="btn btn-danger" id="pat-clear" type="button">清除</button>
+      </form>
+      <p class="settings-status" id="pat-status"></p>
+    </div>
 
-  <!-- Tutorial Modal -->
-  <div class="modal-overlay" id="tutorial-modal" style="display:none">
-    <div class="modal-container">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h2>📖 翻译规范</h2>
-          <span class="modal-subtitle">提交前请过一遍</span>
-        </div>
-        <button class="modal-close-btn" id="btn-close-tutorial" title="关闭">✕</button>
+    <div class="card settings-card">
+      <h3>AI 草稿（可选）</h3>
+      <p class="hint">
+        自带 endpoint 与 key，浏览器直连服务商；只用来生成草稿，不会自动提交。
+      </p>
+      <div class="settings-row">
+        <input class="input grow" id="ai-endpoint" type="url" placeholder="https://api.example.com/v1/chat/completions" />
       </div>
+      <form class="settings-row" id="ai-form">
+        <input class="input grow" id="ai-key" type="password" autocomplete="off" placeholder="API Key" />
+        <input class="input" id="ai-model" placeholder="model" />
+        <button class="btn btn-primary" id="ai-save" type="button">保存</button>
+        <button class="btn" id="ai-test" type="button">测试连接</button>
+        <button class="btn btn-danger" id="ai-clear" type="button">清除</button>
+      </form>
+      <p class="settings-status" id="ai-status"></p>
+    </div>
 
-      <div class="modal-body tutorial-body">
-        <!-- 章节 1：核心红线 -->
-        <section class="tutorial-sec">
-          <h3 class="sec-title alert">🚨 严禁半角 | 与 ^</h3>
-          <p class="sec-desc">译文出现半角 <code>|</code> 或 <code>^</code> 会导致游戏闪退，必须替换为全角。</p>
-          <div class="rule-box red">
-            <div class="rule-row">
-              <span class="bad">❌ 严禁：</span>
-              <code>|</code> 和 <code>^</code>
-            </div>
-            <div class="rule-row">
-              <span class="good">✅ 改用：</span>
-              <code>｜</code> 与 <code>＾</code>
-            </div>
-            <div class="tip-row">
-              💡 输入框上方有 <strong>[🔄 修复符号]</strong> 按钮可一键替换。
-            </div>
-          </div>
-        </section>
-
-        <!-- 章节 2：非纯文本与富文本标签 -->
-        <section class="tutorial-sec">
-          <h3 class="sec-title">🏷️ 标签与变量</h3>
-          <p class="sec-desc">只翻译文字，标签与变量原样保留：</p>
-
-          <div class="syntax-cards-grid">
-            <div class="syntax-card">
-              <div class="syntax-header">
-                <span class="tag-pill">&lt;color=#HEX&gt;...&lt;/color&gt;</span>
-                <span class="syntax-name">颜色标签</span>
-              </div>
-              <p>成对保留，只翻译中间文字。</p>
-              <div class="example-box">
-                <div class="ex-row"><strong>日文：</strong><code>&lt;color=#ea5b76&gt;未来ちゃん&lt;/color&gt;、頑張って！</code></div>
-                <div class="ex-row"><strong class="good">译文：</strong><code>&lt;color=#ea5b76&gt;未来酱&lt;/color&gt;，加油！</code></div>
-              </div>
-            </div>
-
-            <div class="syntax-card">
-              <div class="syntax-header">
-                <span class="tag-pill">{$P$}</span>
-                <span class="syntax-name">制作人昵称</span>
-              </div>
-              <p>代表玩家昵称，不可删除。</p>
-              <div class="example-box">
-                <div class="ex-row"><strong>日文：</strong><code>{$P$}さん、お疲れ様です！</code></div>
-                <div class="ex-row"><strong class="good">译文：</strong><code>{$P$}先生，辛苦了！</code> 或 <code>制作人，辛苦了！</code></div>
-              </div>
-            </div>
-
-            <div class="syntax-card">
-              <div class="syntax-header">
-                <span class="tag-pill">{0} / {1} / %s</span>
-                <span class="syntax-name">参数占位符</span>
-              </div>
-              <p>原样保留，可调整语序。</p>
-              <div class="example-box">
-                <div class="ex-row"><strong>日文：</strong><code>{0}個のジュエルを獲得しました！</code></div>
-                <div class="ex-row"><strong class="good">译文：</strong><code>获得了{0}个群星宝石！</code></div>
-              </div>
-            </div>
-
-            <div class="syntax-card">
-              <div class="syntax-header">
-                <span class="tag-pill">\n</span>
-                <span class="syntax-name">换行</span>
-              </div>
-              <p>原文换行处对应换行，避免文字溢出。</p>
-              <div class="example-box">
-                <div class="ex-row"><strong>日文：</strong><code>今日はとっても楽しかったね。\nまた明日も会おうね！</code></div>
-                <div class="ex-row"><strong class="good">译文：</strong><code>今天真的非常开心呢。\n明天也要再见哦！</code></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 章节 3：标点与排版规范 -->
-        <section class="tutorial-sec">
-          <h3 class="sec-title">✍️ 标点习惯</h3>
-          <ul class="standard-list">
-            <li><strong>全角标点</strong>：使用 ，。！？……～，不用半角 ,.!?</li>
-            <li><strong>省略号与波浪号</strong>：日文 <code>…</code> 用 <code>……</code>；<code>〜</code> 用 <code>～</code>。</li>
-            <li><strong>译名统一</strong>：偶像名与系统词参考规范（如：艾米莉·斯图亚特、篠宫可怜、白石䌷、群星宝石）。</li>
-          </ul>
-        </section>
-
-        <!-- 章节 4：快捷操作技巧 -->
-        <section class="tutorial-sec">
-          <h3 class="sec-title">⚡ 快捷操作</h3>
-          <div class="tips-grid">
-            <div class="tip-card">
-              <div class="tip-title">📋 复制原文</div>
-              <p>长标签句子先复制原文，再替换文字。</p>
-            </div>
-            <div class="tip-card">
-              <div class="tip-title">🏷️ 提取标签</div>
-              <p>自动挖空日文，保留标签结构。</p>
-            </div>
-            <div class="tip-card">
-              <div class="tip-title">⌨️ 快捷键</div>
-              <p><strong>Ctrl + Enter</strong> 提交；<strong>Alt + S</strong> 下一条。</p>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn-primary" id="btn-tutorial-ok">我知道了</button>
+    <div class="card settings-card">
+      <h3>数据来源</h3>
+      <dl class="kv" id="settings-sources"></dl>
+      <div class="settings-row">
+        <button class="btn" id="settings-reload">↻ 重新拉取数据</button>
+        <span class="hint">数据由本仓 GitHub Actions 生成；刚提交的改动会在下次生成后出现在页面里。</span>
       </div>
     </div>
-  </div>
 
-  <!-- AI Configuration Modal -->
-  <div class="modal-overlay" id="ai-config-modal" style="display:none">
-    <div class="modal-container" style="max-width: 620px;">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h2>🤖 AI 翻译配置</h2>
-          <span class="modal-subtitle">密钥只存在本机浏览器</span>
-        </div>
-        <button class="modal-close-btn" id="btn-close-ai-config" title="关闭">✕</button>
+    <div class="card settings-card">
+      <h3>怎么用</h3>
+      <ul class="help-list">
+        <li>概览页按 domain / 分类进入；点歌曲卡片或资源行打开日中对照阅读。</li>
+        <li>大资源被上游切成了多个数据页：阅读页顶部可以翻页，地址形如 <code>#read?file=bundles/system_ui/MD_jp.gtx.p1.json&amp;p=3</code>，收藏/分享即可直达某一页。</li>
+        <li>未翻译的句子显示灰色「未翻译」，可以直接在行内填入译文。</li>
+        <li>行内编辑只替换上游 JSONL 里那一行的 <code>zh</code> 字段，其余字节不动；提交前先核对日文源文 hash，源文变了就拒绝写入。</li>
+        <li>图片走公开对象存储直接外链（清单里给的是绝对地址）；打不开时显示占位，不伪造。</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================ 图片灯箱 ============================ -->
+<div class="modal" id="lightbox" hidden>
+  <div class="modal-backdrop" data-close="lightbox"></div>
+  <div class="modal-panel lightbox-panel">
+    <div class="modal-head">
+      <h3 id="lightbox-title">—</h3>
+      <button class="btn btn-ghost" data-close="lightbox">关闭</button>
+    </div>
+    <div class="lightbox-body">
+      <div class="lightbox-compare">
+        <figure class="lightbox-figure" id="lightbox-figure-localized">
+          <figcaption>中文版（上游只发布了这一版）</figcaption>
+          <img id="lightbox-image" alt="" />
+          <p class="empty" id="lightbox-image-missing" hidden>图片不可用</p>
+        </figure>
       </div>
-
-      <div class="modal-body ai-config-body">
-        <div class="ai-provider-presets">
-          <label class="form-label">常用服务商（点击填入）：</label>
-          <div class="preset-chips">
-            <button type="button" class="preset-chip" data-preset="deepseek">🌟 DeepSeek</button>
-            <button type="button" class="preset-chip" data-preset="openai">⚡ OpenAI</button>
-            <button type="button" class="preset-chip" data-preset="gemini">🔷 Gemini (OpenAI兼容)</button>
-            <button type="button" class="preset-chip" data-preset="ollama">🖥️ 本地 Ollama</button>
-            <button type="button" class="preset-chip" data-preset="custom">🛠️ 自定义中转</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="ai-endpoint">接口地址：</label>
-          <input type="text" class="form-input" id="ai-endpoint" placeholder="https://api.deepseek.com/v1" />
-          <span class="form-tip">兼容 OpenAI 格式的服务商、中转或本地模型</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="ai-api-key">API Key：</label>
-          <div class="input-with-toggle">
-            <input type="password" class="form-input" id="ai-api-key" placeholder="sk-..." autocomplete="off" />
-            <button type="button" class="btn-toggle-vis" id="btn-toggle-key-vis" title="显示/隐藏密钥">👁️</button>
-          </div>
-          <span class="form-tip safe-note">🔒 密钥只保存在本机浏览器，请求直接发往 AI 服务商，不经本站。</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="ai-model">模型：</label>
-          <input type="text" class="form-input" id="ai-model" placeholder="deepseek-chat" />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="ai-temperature">温度：</label>
-          <div class="range-with-val">
-            <input type="range" class="form-range" id="ai-temperature" min="0" max="1" step="0.05" value="0.3" />
-            <span class="range-display" id="ai-temp-val">0.30</span>
-          </div>
-          <span class="form-tip">推荐 0.2 ~ 0.4，越低越稳定。</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="ai-custom-prompt">附加指令（可选）：</label>
-          <textarea class="form-textarea" id="ai-custom-prompt" rows="2" placeholder="补充你偏好的翻译风格..."></textarea>
-        </div>
-
-        <div class="ai-test-result" id="ai-test-result" style="display:none"></div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" id="btn-test-ai">🧪 测试连接</button>
-        <div style="flex:1"></div>
-        <button type="button" class="btn-secondary" id="btn-clear-ai">清空配置</button>
-        <button type="button" class="btn-primary" id="btn-save-ai">💾 保存配置</button>
+    </div>
+    <div class="modal-foot">
+      <div class="lightbox-meta" id="lightbox-meta"></div>
+      <div class="lightbox-actions">
+        <a class="btn" id="lightbox-download" href="#" download>下载</a>
       </div>
     </div>
   </div>
+</div>
 
-  <script src="github-contribution.js"></script>
-  <script src="app.js"></script>
-  <script src="resource_hub.js"></script>
+<!-- ============================ 写入确认 ============================ -->
+<div class="modal" id="confirm-modal" hidden>
+  <div class="modal-backdrop" data-close="confirm"></div>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h3>确认提交到 GitHub</h3>
+      <button class="btn btn-ghost" data-close="confirm">取消</button>
+    </div>
+    <div class="modal-body" id="confirm-body"></div>
+    <div class="modal-foot">
+      <span class="hint" id="confirm-hint">提交会直接写入目标仓库的默认分支（或数据里记录的分支）。</span>
+      <div class="lightbox-actions">
+        <button class="btn" data-close="confirm">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确认提交</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,0 +1,25 @@
+{
+  "schema": "mltd.portal.resource-manifest/v1",
+  "kind": "client",
+  "generated_at": "2026-10-01T00:00:00Z",
+  "summary_ready": true,
+  "release": {
+    "release_id": "client-9.0.200-arm64",
+    "client_version": "9.0.200",
+    "abi": "arm64-v8a",
+    "client_resources_commit": "cccccccccccccccccccccccccccccccccccccccc",
+    "status": "candidate",
+    "updated_at": "2026-10-01T00:00:00Z"
+  },
+  "totals": {
+    "total": 2,
+    "translated": 1,
+    "pending": 0,
+    "untranslated": 1,
+    "reused": 0,
+    "suggested": 0,
+    "blocked": 0
+  },
+  "domains": [],
+  "categories": []
+}

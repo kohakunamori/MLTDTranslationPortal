@@ -1,23 +1,14 @@
 {
   "name": "mltd-translation-portal",
-  "version": "1.1.0",
+  "version": "2.0.0",
+  "private": true,
   "type": "module",
-  "description": "MLTD community translation contribution portal (Cloudflare Worker + D1 + R2)",
+  "description": "MLTD 翻译查阅站：纯静态站点（GitHub Pages）+ 本仓 CI 从翻译仓库生成 JSON 数据",
   "scripts": {
-    "test": "node test_worker.mjs && node test_sync.mjs && node test_config.mjs && node test_image_ratio.mjs && node test_github_collab.mjs && node test_github_session.mjs && node test_frontend_github.mjs && node test_resource_manifest.mjs",
-    "test:session": "node test_github_session.mjs",
-    "test:frontend": "node test_frontend_github.mjs",
-    "test:manifest": "node test_resource_manifest.mjs",
-    "test:worker": "node test_worker.mjs",
-    "test:sync": "node test_sync.mjs",
-    "test:config": "node test_config.mjs",
-    "bootstrap:local": "python scripts/bootstrap_portal_d1.py --db local_portal.db",
-    "bootstrap:status": "python scripts/bootstrap_portal_d1.py --db local_portal.db --status",
-    "deploy": "wrangler deploy --config wrangler.jsonc",
-    "preview": "wrangler dev --config wrangler.jsonc",
-    "deploy:dry-run": "wrangler deploy --config wrangler.jsonc --dry-run --outdir .wrangler-dry-run"
-  },
-  "devDependencies": {
-    "wrangler": "^4.141.0"
+    "data": "node scripts/build_data.mjs --assets-root vendor/MLTDTranslationAssets --client-root vendor/MLTDTranslationClient",
+    "data:demo": "node scripts/build_data.mjs --assets-root test_helpers/fixtures/assets-repo --client-root test_helpers/fixtures/client-repo --generated-at 2026-01-01T00:00:00Z",
+    "data:check": "node scripts/build_data.mjs --assets-root vendor/MLTDTranslationAssets --client-root vendor/MLTDTranslationClient --check",
+    "serve": "node scripts/serve.mjs",
+    "test": "node test/test_generator.mjs && node test/test_frontend_contract.mjs && node test/test_github_write.mjs && node test/test_ai_draft.mjs"
   }
 }

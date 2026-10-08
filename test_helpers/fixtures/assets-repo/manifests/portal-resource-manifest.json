@@ -1,0 +1,157 @@
+{
+  "schema": "mltd.portal.resource-manifest/v1",
+  "kind": "assets",
+  "generated_at": "2026-10-08T13:12:29+00:00",
+  "summary_ready": true,
+  "source": {
+    "repository": "kohakunamori/MLTDTranslationAssets",
+    "commit": "e1f3fdeaeba16952da01d2d7d562944b5b3e80fc"
+  },
+  "release": {
+    "release_id": "assets-1077710",
+    "asset_version": "1077710",
+    "assets_commit": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "server_schema_version": "v1",
+    "source_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "status": "published",
+    "updated_at": "2026-10-08T10:00:00+09:00"
+  },
+  "totals": {
+    "total": 17,
+    "translated": 14,
+    "pending": 1,
+    "untranslated": 2,
+    "reused": 0,
+    "suggested": 0,
+    "blocked": 0
+  },
+  "domains": [],
+  "categories": [
+    {
+      "id": "card_episode",
+      "name": "卡片专属觉醒物语",
+      "icon": "🎴",
+      "description": "卡片专属觉醒物语（fixture）",
+      "domain": "card",
+      "entry": "studio",
+      "unit": "句",
+      "total": 3,
+      "translated": 3,
+      "pending": 0,
+      "untranslated": 0,
+      "blocked": 0,
+      "reused": 0,
+      "suggested": 0,
+      "bundles": {
+        "card_episode_014mir_01.gtx": {
+          "total": 3,
+          "translated": 3,
+          "pending": 0,
+          "untranslated": 0
+        }
+      }
+    },
+    {
+      "id": "event_chat",
+      "name": "活动短信与聊天",
+      "icon": "💬",
+      "description": "活动短信与聊天（fixture）",
+      "domain": "story",
+      "entry": "studio",
+      "unit": "条",
+      "total": 2,
+      "translated": 1,
+      "pending": 0,
+      "untranslated": 1,
+      "blocked": 0,
+      "reused": 0,
+      "suggested": 0,
+      "bundles": {
+        "event_10001_01_chat.gtx": {
+          "total": 2,
+          "translated": 1,
+          "pending": 0,
+          "untranslated": 1
+        }
+      }
+    },
+    {
+      "id": "event_story",
+      "name": "活动剧情篇章",
+      "icon": "🌟",
+      "description": "活动剧情篇章（fixture）",
+      "domain": "story",
+      "entry": "studio",
+      "unit": "句",
+      "total": 2,
+      "translated": 1,
+      "pending": 1,
+      "untranslated": 0,
+      "blocked": 0,
+      "reused": 0,
+      "suggested": 0,
+      "bundles": {
+        "event_10001_01.gtx": {
+          "total": 2,
+          "translated": 1,
+          "pending": 1,
+          "untranslated": 0
+        }
+      }
+    },
+    {
+      "id": "main_commu",
+      "name": "主线剧情故事",
+      "icon": "📖",
+      "description": "主线剧情故事（fixture）",
+      "domain": "story",
+      "entry": "studio",
+      "unit": "句",
+      "total": 5,
+      "translated": 4,
+      "pending": 0,
+      "untranslated": 1,
+      "blocked": 0,
+      "reused": 0,
+      "suggested": 0,
+      "bundles": {
+        "st_014mir_01.gtx": {
+          "total": 5,
+          "translated": 4,
+          "pending": 0,
+          "untranslated": 1
+        }
+      }
+    },
+    {
+      "id": "system_ui",
+      "name": "系统菜单与玩法规则",
+      "icon": "⚙️",
+      "description": "系统菜单与玩法规则（fixture）",
+      "domain": "system",
+      "entry": "studio",
+      "unit": "条",
+      "total": 5,
+      "translated": 5,
+      "pending": 0,
+      "untranslated": 0,
+      "blocked": 0,
+      "reused": 0,
+      "suggested": 0,
+      "bundles": {
+        "legacy_ui.gtx": {
+          "total": 1,
+          "translated": 1,
+          "pending": 0,
+          "untranslated": 0
+        },
+        "ui_common.gtx": {
+          "total": 4,
+          "translated": 4,
+          "pending": 0,
+          "untranslated": 0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "kind": "mltd-images-manifest",
+  "generated_at": "2026-10-01T00:00:00Z",
+  "storage_architecture": {
+    "text_in_repo": true,
+    "binary_in_repo": false,
+    "distribution_providers": [
+      "GitHub Release Assets",
+      "Cloudflare R2"
+    ]
+  },
+  "counts": {
+    "total_images": 4,
+    "reviewed_textures": 4
+  },
+  "images": [
+    {
+      "id": "eventbanner0001.unity3d:1111111111111111111",
+      "kind": "ui_texture",
+      "bundle": "eventbanner0001.unity3d",
+      "texture_path_id": 1111111111111111111,
+      "dimensions": {
+        "width": 1024,
+        "height": 512
+      },
+      "original": {
+        "relative_path": "images/original/eventbanner0001/1111_info_01.png",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "localized": {
+        "relative_path": "images/localized/eventbanner0001/1111_info_01.png",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "distribution": {
+        "storage_policy": "external_binary_hosting",
+        "github_release": {
+          "asset_name": "tex_2222222222222222.png",
+          "url_template": "https://github.com/{owner}/{repo}/releases/download/v1.0.0-assets/tex_2222222222222222.png"
+        },
+        "cloudflare_r2": {
+          "key": "images/2222222222222222222222222222222222222222222222222222222222222222.png",
+          "url_template": "https://pub-mltd-assets.nyaneko.cn/images/2222222222222222222222222222222222222222222222222222222222222222.png"
+        }
+      },
+      "review_status": "user_approved_for_isolated_install_staging"
+    },
+    {
+      "id": "eventbanner0002.unity3d:2222222222222222222",
+      "kind": "ui_texture",
+      "bundle": "eventbanner0002.unity3d",
+      "texture_path_id": 2222222222222222222,
+      "dimensions": {
+        "width": 1024,
+        "height": 512
+      },
+      "original": {
+        "relative_path": "images/original/eventbanner0002/2222_info_02.png",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "localized": {
+        "relative_path": "images/localized/eventbanner0002/2222_info_02.png",
+        "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "distribution": {
+        "storage_policy": "external_binary_hosting",
+        "github_release": {
+          "asset_name": "tex_4444444444444444.png",
+          "url_template": "https://github.com/{owner}/{repo}/releases/download/v1.0.0-assets/tex_4444444444444444.png"
+        }
+      },
+      "review_status": "user_approved_for_isolated_install_staging"
+    },
+    {
+      "id": "costumesalesinfo0007.unity3d:3333333333333333333",
+      "kind": "ui_texture",
+      "bundle": "costumesalesinfo0007.unity3d",
+      "texture_path_id": 3333333333333333333,
+      "dimensions": {
+        "width": 650,
+        "height": 366
+      },
+      "original": {
+        "relative_path": "images/original/costumesalesinfo0007/3333_info_01.png",
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "localized": {
+        "relative_path": "images/localized/costumesalesinfo0007/3333_info_01.png",
+        "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "distribution": {
+        "storage_policy": "external_binary_hosting"
+      },
+      "review_status": "user_approved_for_isolated_install_staging"
+    },
+    {
+      "id": "tutorialinfo0003.unity3d:4444444444444444444",
+      "kind": "ui_texture",
+      "bundle": "tutorialinfo0003.unity3d",
+      "texture_path_id": 4444444444444444444,
+      "dimensions": {
+        "width": 1280,
+        "height": 720
+      },
+      "original": {
+        "relative_path": "images/original/tutorialinfo0003/4444_info_01.png",
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "localized": null,
+      "distribution": {
+        "storage_policy": "external_binary_hosting",
+        "cloudflare_r2": {
+          "key": "images/7777777777777777777777777777777777777777777777777777777777777777.png",
+          "url_template": "https://pub-mltd-assets.nyaneko.cn/images/7777777777777777777777777777777777777777777777777777777777777777.png"
+        }
+      },
+      "review_status": "user_approved_for_isolated_install_staging"
+    }
+  ]
+}

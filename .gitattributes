@@ -1,0 +1,11 @@
+# 仓库里只放文本：统一用 LF 入库、LF 检出。
+# CI 的 run: 块是 shell 脚本，CRLF 会让 `clone() {` 这类行直接语法错误。
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary

@@ -1,4 +1,4 @@
-# 本地秘密、数据库与运行产物不得入库
+# 本地秘密、运行产物与数据 checkout 不得入库
 .env
 .env.*
 .dev.vars
@@ -14,8 +14,6 @@
 *-shm
 *-journal
 node_modules/
-.wrangler/
-.wrangler*/
 private/
 raw/
 keys/
@@ -26,9 +24,15 @@ keys/
 __pycache__/
 *.pyc
 *.log
-public/hot_catalogue.js
-public/songs_catalog.js
-public/stats_snapshot.js
-public/image_tasks.json
 snapshots/
+
+# 生成器与 CI 用的上游 checkout（真数据由 npm run data 读取它生成）
+/vendor/
+
+# 本地工作区与历史快照
 /local-data/
+
+# Pages 产物：数据与图片都由 CI 生成，不入库（仓库只放站点代码）
+/_site/
+/public/data/
+/public/media/

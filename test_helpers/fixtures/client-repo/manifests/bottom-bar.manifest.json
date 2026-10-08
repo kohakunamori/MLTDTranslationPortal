@@ -1,0 +1,18 @@
+{
+  "kind": "mltd-bottom-bar-manifest",
+  "client_version": "9.0.200",
+  "slots": [
+    {
+      "index": 0,
+      "ja": "劇場",
+      "zh": "剧场",
+      "provenance": "human"
+    },
+    {
+      "index": 1,
+      "ja": "ホーム",
+      "zh": "",
+      "provenance": null
+    }
+  ]
+}

@@ -77,8 +77,9 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
 | `schema_version` | 目前是 `1`；形状变了就加 |
 | `generated_at` | 生成时刻（唯一非确定字段） |
 | `image_base` | 图片基址；留空表示用站点内相对路径（默认） |
-| `sources.assets` | `{repo, ref, commit, manifest_generated_at}`；缺清单时 `commit` 为空串 |
+| `sources.assets` | `{repo, ref, commit, head, manifest_generated_at}`；`commit` 是清单里记录的内容提交，`head` 是**实际克隆到的分支 HEAD**（CI 靠它判断能否跳过重建）；两者缺失都是空串 |
 | `sources.client` | 同上（客户端仓） |
+| `sources.portal` | `{repo, commit}`：本仓（站点仓）自己的提交，CI 传 `--portal-commit`，缺省读当前目录的 git HEAD |
 | `releases.assets` | 清单里的发布信息 `{release_id, asset_version, status, updated_at}`；缺清单时为 `null` |
 | `totals` | `{total, translated, pending, untranslated, not_needed, bundles, files, progress_percent}`；`bundles` 是资源数，`files` 是页文件数 |
 | `domains[]` | `{id, name, icon, total, translated, not_needed}` |

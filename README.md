@@ -85,9 +85,9 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 
 1. 仓库 **Settings → Pages → Source** 选 **GitHub Actions**。
 2. 跑一次 **Actions → 生成数据并部署 Pages → Run workflow**（或直接 push 到 `main`）。
-3. 之后每天 03:17 UTC 自动重新生成并部署。
+3. 之后每天 03:17 UTC 会检查一次上游：**上游 HEAD 与本仓 commit 都没变就直接跳过**，不重新拉、不重新传。
 
-工作流做四件事：跑 4 个离线测试 → sparse clone 两个翻译仓 → 生成 `public/data` 并把图片复制到
+**省配额**：`push` 只有动了站点输入（`public/**`、`scripts/**`、`package.json`、工作流本身）才重建，改 docs/tests 不触发；定时与手动触发先比对线上已发布 `portal.json` 里记的 `sources.*.head` 与本仓 commit，一致就整段跳过；手动触发可勾 **force** 强制重建。判断逻辑在 [`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)（可 `node scripts/ci_decide.mjs --self-test` 本地验）。每次真重建约 507 MB（174 MB 数据 + 333 MB 图片），跳过时是 0。
 `public/media` → 校验每个图片地址都真的有文件、产物非空 → 打包 `public/` 发布。
 两个数据仓都是公开仓库，所以**不需要任何 secret**，工作流也不需要 `contents: write`。
 
@@ -126,10 +126,11 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 
 | 套件 | 覆盖 |
 | --- | --- |
-| `test/test_generator.mjs` | 39 项：计数/进度自洽、版本轴（落后一档保留、更新一档跳过）、同名去重取新版、清单对账、分页与跨页行号、`edit_path` 例外行、图片字段、真实清单形状、确定性与 `generated_at` 例外、`--check`/`--strict` 退出码、坏 JSON/哈希不符/参数错误等失败模式 |
-| `test/test_frontend_contract.mjs` | 22 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
+| `test/test_generator.mjs` | 40 项：计数/进度自洽、版本轴（落后一档保留、更新一档跳过）、同名去重取新版、清单对账、分页与跨页行号、`edit_path` 例外行、图片字段、真实清单形状、确定性与 `generated_at` 例外、`--check`/`--strict` 退出码、坏 JSON/哈希不符/参数错误等失败模式 |
+| `test/test_frontend_contract.mjs` | 23 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
 | `test/test_github_write.mjs` | 36 项：单行 JSON 扫描器（两种身份字段）、`not_found`/`ambiguous`/`source_changed`/`conflict` 等失败模式、token 不落 URL/日志、仓库权限判定（scope 只写公开仓库，`permissions.push` 才是权威） |
 | `test/test_ai_draft.mjs` | 格式校验与 AI 调用（stub fetch，无网络） |
+| `test/test_ci_decide.mjs` | 14 项：跳过/重建判断（push 路径、HEAD 比对、缺标记保守重建、force）、工作流门控与触发路径 |
 
 CI 在打包前另跑两道真实数据校验：每个 `localized_url` 都要有对应文件；产物非空才允许部署。
 

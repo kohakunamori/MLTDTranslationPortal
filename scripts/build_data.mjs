@@ -11,6 +11,7 @@
 //   node scripts/build_data.mjs --assets-root vendor/assets --client-root vendor/client
 //   node scripts/build_data.mjs --check        # 只比对，不写盘（CI 漂移守门）
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative } from "node:path";
@@ -44,6 +45,9 @@ const DEFAULTS = {
   imageTasks: "",
   generatedAt: "",
   maxRowsPerPage: "",
+  // 站点仓（本仓）标识：只作为产物的来源标注，不参与数据读取。
+  portalRepo: "kohakunamori/MLTDTranslationPortal",
+  portalCommit: "",
 };
 
 const ASSETS_MANIFEST = "manifests/portal-resource-manifest.json";
@@ -73,6 +77,12 @@ export function validateSettings(settings) {
   // 留空是正常情况：图片随站点一起发布，地址就是站点内的相对路径。
   if (imageBase && !/^https?:\/\/[^\s]+$/.test(imageBase)) {
     throw new BuildError(`--image-base 必须留空或 http(s) 地址，收到 ${JSON.stringify(imageBase)}`);
+  }
+  // 站点仓自己的提交：CI 用它判断"线上那份产物是不是当前代码生成的"（跳过逻辑），
+  // 空值表示不知道（本地生成），此时不能据此跳过。
+  const portalCommit = String(settings.portalCommit || "").trim();
+  if (portalCommit && !/^[0-9a-f]{7,40}$/i.test(portalCommit)) {
+    throw new BuildError(`--portal-commit 必须是 git 提交 sha，收到 ${JSON.stringify(portalCommit)}`);
   }
   if (settings.generatedAt) {
     const parsed = new Date(String(settings.generatedAt));
@@ -120,6 +130,17 @@ function listFiles(root) {
   };
   walk(root);
   return found.sort();
+}
+
+/// 读一个目录的 git HEAD（CI 里就是克隆到的那次提交）。不是 git 仓库、没装 git、
+/// 或者目录不存在时返回空串——上层据此判断"能不能拿它做跳过比对"，绝不猜。
+export function gitHeadOf(dir) {
+  if (!dir) return "";
+  try {
+    return execFileSync("git", ["-C", String(dir), "rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().toLowerCase();
+  } catch {
+    return "";
+  }
 }
 
 function toPosix(path) {
@@ -610,6 +631,7 @@ function parseArgs(argv) {
     "--image-tasks": "imageTasks",
     "--generated-at": "generatedAt",
     "--max-rows-per-page": "maxRowsPerPage",
+    "--portal-commit": "portalCommit",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -854,8 +876,11 @@ export function buildOutputs(options = {}) {
     generated_at: generatedAt,
     image_base: String(settings.imageBase || "").replace(/\/+$/, ""),
     sources: {
-      assets: { repo: settings.assetsRepo, ref: settings.ref, commit: assetsCommit, manifest_generated_at: String(assetsManifest?.generated_at || "") },
-      client: { repo: settings.clientRepo, ref: settings.ref, commit: String(clientRelease?.client_resources_commit || ""), manifest_generated_at: String(clientManifest?.generated_at || "") },
+      assets: { repo: settings.assetsRepo, ref: settings.ref, commit: assetsCommit, head: gitHeadOf(settings.assetsRoot), manifest_generated_at: String(assetsManifest?.generated_at || "") },
+      client: { repo: settings.clientRepo, ref: settings.ref, commit: String(clientRelease?.client_resources_commit || ""), head: gitHeadOf(settings.clientRoot), manifest_generated_at: String(clientManifest?.generated_at || "") },
+      // 站点仓自己的提交。CI 的"要不要重建"判断靠它：线上 portal.json 里记的
+      // portal.commit 等于本次要部署的提交、且两个上游 commit 也没变 → 直接跳过。
+      portal: { repo: DEFAULTS.portalRepo, commit: String(settings.portalCommit || "") || gitHeadOf(".") },
     },
     releases: {
       assets: assetsRelease ? {
@@ -1069,6 +1094,7 @@ const HELP = `门户静态数据生成器
   --ref <name>            写路径使用的分支，默认 ${DEFAULTS.ref}
   --image-base <url>      图片对象基址（留空=随站点发布的 media/ 相对路径）
   --generated-at <iso>    固定 generated_at（测试与可复现构建用）
+  --portal-commit <sha>   本仓提交，写进 sources.portal.commit（CI 的跳过判断靠它）
   --check                 只比对磁盘现状，不写入；有漂移时退出码 2
   --strict                把警告升级为失败
 `;

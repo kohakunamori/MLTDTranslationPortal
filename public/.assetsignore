@@ -1,0 +1,28 @@
+# Files under public/ that must never be uploaded to the Workers static assets
+# binding.
+#
+# The runtime reads release state from D1 and resource bytes from R2/GitHub.
+# These two files are generated snapshots of that same state — `wrangler deploy`
+# would otherwise publish them at /data/<name>.json, where any visitor could
+# fetch a stale copy of the catalogue (570 KB and 162 KB respectively).
+#
+# Kept on disk rather than deleted because they are regenerable evidence and
+# their producers still exist:
+#   public/data/image_tasks.json     <- scripts/generate_image_tasks_index.py
+#                                       --materialized-cache-out (runtime_authoritative=false)
+#   public/data/songs_catalog.json   <- scripts/build_portal_songs_catalog.py
+#
+# Patterns are relative to this directory, per Wrangler's assets ignore rules.
+# The image task manifest is intentionally public: it is the read-only index
+# used by the Worker when D1 has no materialised image rows.
+/data/songs_catalog.json
+
+# Retired extractor lyric snapshots. Not read by the Worker or the frontend any
+# more; kept on disk only as regenerable pipeline evidence. Excluded so a stale
+# per-song file can never be served at /data/lyrics/<bundle>.json.
+/data/lyrics/*.json
+
+# Local end-to-end harness state. The deployed Worker persists image status
+# overrides in the D1 `image_status_overrides` table; this file only exists for
+# local_e2e_server.mjs, which is not deployed.
+/data/image_status_overrides.json

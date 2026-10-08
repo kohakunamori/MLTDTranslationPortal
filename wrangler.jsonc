@@ -1,0 +1,61 @@
+{
+  // Canonical deployment configuration. `wrangler.toml.example` documents the
+  // same bindings in TOML for operators who prefer that form; this file is what
+  // `npm run deploy` uses. Both must agree — web/translation-portal/test_config.mjs
+  // checks that they name the same bindings.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mltd-translation-portal",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public",
+    // The Worker must run first: /api/* is served by src/worker.js, and the
+    // remaining paths fall through to the static bundle via env.ASSETS.
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mltd-translation-portal",
+      // Placeholder. Set the real id with `wrangler d1 create` / the dashboard;
+      // it is not a secret, but it is deployment-specific, so it is not
+      // hard-coded to any one account here.
+      "database_id": "6dadc7c5-b994-48ea-a35a-a96698b572d5",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      // Public image families (images/composite|restored|original|task) are
+      // served through the custom domain in IMAGE_ASSET_BASE. This binding is
+      // for the Worker's own reads/writes, which are private by definition.
+      "binding": "PUBLICATION_BUCKET",
+      "bucket_name": "mltd-translation-candidates"
+    }
+  ],
+  "vars": {
+    // Non-secret deployment configuration only. Real values are set per
+    // environment (wrangler secret / dashboard), never committed:
+    //   GITHUB_WEBHOOK_SECRET, GITHUB_SYNC_TOKEN, REVIEWER_EMAILS,
+    //   ADMIN_EMAILS, NOTIFY_URL, IMAGE_ASSET_BASE, PORTAL_DEFAULT_ASSET_VERSION,
+    //   SYNC_REPOSITORIES
+    "ENVIRONMENT": "production",
+    "PORTAL_CANONICAL_ORIGIN": "https://mltd-translate.nyaneko.cn",
+    "IMAGE_ASSET_BASE": "https://mltd-translate.nyaneko.cn",
+    "GITHUB_TARGET_ASSETS": "kohakunamori/MLTDTranslationAssets",
+    "GITHUB_TARGET_CLIENT": "kohakunamori/MLTDTranslationClient",
+    "GITHUB_BASE_BRANCH_ASSETS": "main",
+    "GITHUB_BASE_BRANCH_CLIENT": "main",
+    "GITHUB_CLIENT_MANIFEST_PATH": "manifests/bottom-bar.manifest.json",
+    "GITHUB_CLIENT_TEXT_DIR": "text",
+    "SYNC_REPOSITORIES": "kohakunamori/MLTDTranslationAssets,kohakunamori/MLTDTranslationClient",
+    "ASSETS_PORTAL_MANIFEST_URL": "https://raw.githubusercontent.com/kohakunamori/MLTDTranslationAssets/main/manifests/portal-resource-manifest.json",
+    "CLIENT_PORTAL_MANIFEST_URL": "https://raw.githubusercontent.com/kohakunamori/MLTDTranslationClient/main/manifests/portal-resource-manifest.json",
+    "CLIENT_ITEMS_MANIFEST_URL": "https://raw.githubusercontent.com/kohakunamori/MLTDTranslationClient/main/manifests/bottom-bar.manifest.json"
+  }
+}

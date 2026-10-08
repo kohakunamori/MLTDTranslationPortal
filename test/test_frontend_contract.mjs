@@ -289,10 +289,15 @@ ok("图片索引结构完整，地址是站点内相对路径", () => {
 
 ok("Token 入口只指向 GitHub 官方页面，且没有偷偷调用 OAuth 端点", () => {
   const html = readFileSync(join(siteDir, "index.html"), "utf8");
-  for (const id of ["pat-create-fine", "pat-create-classic", "pat-howto", "pat-input", "pat-verify"]) {
+  for (const id of ["pat-create-fine", "pat-create-classic", "pat-input", "pat-verify"]) {
     assert.match(html, new RegExp(`id="${id}"`), `设置页缺少 #${id}`);
   }
+  // 大段"推荐细粒度…"的说明已经删掉：细节放进可展开的分步指南，卡片上不再堆文字
   const app = readFileSync(join(siteDir, "app.js"), "utf8");
+  assert.equal(/id="pat-howto"/.test(html), false, "不该再有大段说明段落");
+  // 删掉那段说明后，指南里必须自己写清要勾哪个仓库
+  assert.match(html, /id="pat-guide-repo"/, "分步指南要指出具体仓库名");
+  assert.match(app, /pat-guide-repo/, "仓库名要从数据里填，不能写死");
   assert.match(app, /settings\/personal-access-tokens\/new/, "要有细粒度 Token 的一键新建入口");
   assert.match(app, /settings\/tokens\/new\?scopes=public_repo/, "经典 Token 链接要预勾好 scope");
   // 分步指南直接内嵌在页面里（原生 details），并指向仓库里的完整版

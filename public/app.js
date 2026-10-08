@@ -1048,24 +1048,16 @@ function lightboxImage(imgId, missingId, url, alt) {
 
 // ------------------------------------------------------------------ 设置
 
-/// Token 入口的三个链接/说明。都指向 GitHub 自己的页面，本站不做任何中转：
+/// 两个 Token 入口都指向 GitHub 自己的页面，本站不做任何中转：细粒度新建页按仓库+权限自己勾，
+/// 经典 token 链接预勾 public_repo（公开仓库够用）。具体怎么勾看卡片里的分步说明。
 /// 真 OAuth 在纯静态站点上做不到 —— `github.com/login/oauth/*` 与 `/login/device/code`
 /// 都不返回 `Access-Control-Allow-Origin`，浏览器连设备码都拿不到，换码还需要 client_secret。
-/// 能做的"方便"就是把创建 Token 的页面按对的权限直接打开，并在粘贴后立刻验证能不能写。
 function renderTokenEntry(assetsRepo) {
-  const repo = assetsRepo || "kohakunamori/MLTDTranslationAssets";
-  const owner = repo.split("/")[0] || "";
   const description = encodeURIComponent("MLTD 翻译查阅站（单行提交）");
   $("pat-create-fine").href = "https://github.com/settings/personal-access-tokens/new";
-  // 经典 token：公开仓库一个 public_repo 就够，链接里把 scope 与说明预填好
   $("pat-create-classic").href = `https://github.com/settings/tokens/new?scopes=public_repo&description=${description}`;
-  clear($("pat-howto")).append(
-    el("span", { text: "推荐细粒度 Token：Repository access 选 Only select repositories → " }),
-    el("code", { text: repo }),
-    el("span", { text: "；Permissions → Contents 设为 " }),
-    el("code", { text: "Read and write" }),
-    el("span", { text: `；Expiration 按需（到期后重新生成）。经典 Token 更省事：上面的链接已经预勾好 public_repo（只够公开仓库，本仓与 ${owner} 的翻译仓都是公开的）。` }),
-  );
+  // 分步说明里要勾的仓库名从数据里取，不写死
+  $("pat-guide-repo").textContent = assetsRepo || "kohakunamori/MLTDTranslationAssets";
 }
 
 async function renderSettings() {

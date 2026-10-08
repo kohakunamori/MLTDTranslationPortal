@@ -248,7 +248,6 @@
         <a class="btn btn-primary" id="pat-create-fine" href="#" target="_blank" rel="noopener">① 一键新建 Token</a>
         <a class="btn" id="pat-create-classic" href="#" target="_blank" rel="noopener">或：用经典 Token（勾好权限）</a>
       </div>
-      <p class="hint" id="pat-howto"></p>
       <form class="settings-row" id="pat-form">
         <input class="input grow" id="pat-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…（只保存在本机）" />
         <button class="btn" id="pat-toggle-vis" type="button">显示</button>
@@ -263,7 +262,7 @@
           <li>点上面的「① 一键新建 Token」，打开 GitHub 的细粒度 Token 页面。</li>
           <li>
             <b>Token name</b> 随便填；<b>Expiration</b> 选 90 days；
-            <b>Repository access</b> 选 <b>Only select repositories</b> → 勾选目标翻译仓库（下面会写具体仓库名）。
+            <b>Repository access</b> 选 <b>Only select repositories</b> → 勾选 <code id="pat-guide-repo">目标翻译仓库</code>。
           </li>
           <li>
             <b>Permissions → Repository permissions</b> → 找到 <b>Contents</b> → 改成

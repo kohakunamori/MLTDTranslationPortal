@@ -1229,7 +1229,8 @@ function bindEvents() {
         const why = status.repo?.visible === false
           ? `这个 Token 看不到 ${repo}（经典 Token 需要 public_repo，细粒度 Token 需要在 Repository access 里选中它）`
           : `这个 Token 对 ${repo} 只有 ${status.repo?.permission === "read" ? "读" : "受限"}权限，需要在 Permissions 里把 Contents 设为 Read and write`;
-        updatePatStatus(`✗ 已登录 @${status.login}，但还不能写入：${why}。改完权限要重新生成 Token。`, "err");
+        // 细粒度 Token 可以直接 Edit 改权限（token 值不变）；经典 Token 的 scope 只能重建。
+        updatePatStatus(`✗ 已登录 @${status.login}，但还不能写入：${why}。细粒度 Token 改完保存即可（值不变），经典 Token 需要重新生成。`, "err");
       }
       renderHeader();
     } catch (error) {

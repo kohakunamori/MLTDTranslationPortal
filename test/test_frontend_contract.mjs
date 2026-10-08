@@ -306,6 +306,11 @@ ok("Token 入口只指向 GitHub 官方页面，且没有偷偷调用 OAuth 端�
   for (const phrase of ["personal-access-tokens/new", "public_repo", "Contents: Read and write", "Revoke"]) {
     assert.ok(guide.includes(phrase), `指南里应当出现「${phrase}」`);
   }
+  // 权限给错时的正确处置 + 自查用的响应头（取自 GitHub 官方文档）
+  assert.ok(guide.includes("Edit"), "细粒度 Token 应当说明可以直接 Edit 改权限");
+  assert.equal(/改完权限要重新生成/.test(guide), false, "不该再说'改权限必须重新生成'（细粒度可以 Edit）");
+  assert.ok(guide.includes("X-Accepted-GitHub-Permissions"), "排错里应当教人用 X-Accepted-GitHub-Permissions 自查");
+  assert.ok(guide.includes("docs.github.com"), "指南应当引用 GitHub 官方文档链接");
   // 实测：github.com/login/oauth/* 与 /login/device/code 都不返回 Access-Control-Allow-Origin，
   // 浏览器连设备码都拿不到，换码还需要 client_secret —— 纯静态站点做不了 OAuth，别写进去。
   assert.equal(/fetch\(\s*[`"']https:\/\/github\.com\/login/.test(app), false, "不许调用 github.com 的 OAuth 端点");

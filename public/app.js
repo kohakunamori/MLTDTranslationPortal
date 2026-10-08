@@ -1023,12 +1023,33 @@ function lightboxImage(imgId, missingId, url, alt) {
 
 // ------------------------------------------------------------------ 设置
 
+/// Token 入口的三个链接/说明。都指向 GitHub 自己的页面，本站不做任何中转：
+/// 真 OAuth 在纯静态站点上做不到 —— `github.com/login/oauth/*` 与 `/login/device/code`
+/// 都不返回 `Access-Control-Allow-Origin`，浏览器连设备码都拿不到，换码还需要 client_secret。
+/// 能做的"方便"就是把创建 Token 的页面按对的权限直接打开，并在粘贴后立刻验证能不能写。
+function renderTokenEntry(assetsRepo) {
+  const repo = assetsRepo || "kohakunamori/MLTDTranslationAssets";
+  const owner = repo.split("/")[0] || "";
+  const description = encodeURIComponent("MLTD 翻译查阅站（单行提交）");
+  $("pat-create-fine").href = "https://github.com/settings/personal-access-tokens/new";
+  // 经典 token：公开仓库一个 public_repo 就够，链接里把 scope 与说明预填好
+  $("pat-create-classic").href = `https://github.com/settings/tokens/new?scopes=public_repo&description=${description}`;
+  clear($("pat-howto")).append(
+    el("span", { text: "推荐细粒度 Token：Repository access 选 Only select repositories → " }),
+    el("code", { text: repo }),
+    el("span", { text: "；Permissions → Contents 设为 " }),
+    el("code", { text: "Read and write" }),
+    el("span", { text: `；Expiration 按需（到期后重新生成）。经典 Token 更省事：上面的链接已经预勾好 public_repo（只够公开仓库，本仓与 ${owner} 的翻译仓都是公开的）。` }),
+  );
+}
+
 async function renderSettings() {
   state.portal = state.portal || await loadPortal();
   renderHeader();
   const portal = state.portal;
 
   $("pat-input").value = getToken();
+  renderTokenEntry(portal.sources?.assets?.repo || "");
   const ai = getAiConfig();
   $("ai-endpoint").value = ai.endpoint || "";
   $("ai-key").value = ai.apiKey || "";
@@ -1168,12 +1189,22 @@ function bindEvents() {
     }
     updatePatStatus("验证中…", "");
     try {
-      const status = await verifyToken({ token, repo: state.portal?.sources?.assets?.repo || "" });
+      const repo = state.portal?.sources?.assets?.repo || "";
+      const status = await verifyToken({ token, repo });
       state.writeStatus = status;
-      updatePatStatus(
-        `已登录 @${status.login}（${status.scopes?.length ? `scopes: ${status.scopes.join(", ")}` : "细粒度 token"}${status.canPush ? " · 有写权限" : " · 未确认写权限"}）`,
-        "ok",
-      );
+      if (status.canPush) {
+        updatePatStatus(
+          `✓ 已登录 @${status.login}：对 ${repo} 有写权限，可以直接在阅读页改了` +
+          `${status.scopes?.length ? `（scopes: ${status.scopes.join(", ")}）` : "（细粒度 token）"}`,
+          "ok",
+        );
+      } else {
+        // 说清楚到底缺哪一步，而不是只说"未确认写权限"。
+        const why = status.repo?.visible === false
+          ? `这个 Token 看不到 ${repo}（经典 Token 需要 public_repo，细粒度 Token 需要在 Repository access 里选中它）`
+          : `这个 Token 对 ${repo} 只有 ${status.repo?.permission === "read" ? "读" : "受限"}权限，需要在 Permissions 里把 Contents 设为 Read and write`;
+        updatePatStatus(`✗ 已登录 @${status.login}，但还不能写入：${why}。改完权限要重新生成 Token。`, "err");
+      }
       renderHeader();
     } catch (error) {
       updatePatStatus(`验证失败：${error.message}`, "err");

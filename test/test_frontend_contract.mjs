@@ -286,6 +286,22 @@ ok("图片索引结构完整，地址是站点内相对路径", () => {
   }
 });
 
+ok("Token 入口只指向 GitHub 官方页面，且没有偷偷调用 OAuth 端点", () => {
+  const html = readFileSync(join(siteDir, "index.html"), "utf8");
+  for (const id of ["pat-create-fine", "pat-create-classic", "pat-howto", "pat-input", "pat-verify"]) {
+    assert.match(html, new RegExp(`id="${id}"`), `设置页缺少 #${id}`);
+  }
+  const app = readFileSync(join(siteDir, "app.js"), "utf8");
+  assert.match(app, /settings\/personal-access-tokens\/new/, "要有细粒度 Token 的一键新建入口");
+  assert.match(app, /settings\/tokens\/new\?scopes=public_repo/, "经典 Token 链接要预勾好 scope");
+  // 实测：github.com/login/oauth/* 与 /login/device/code 都不返回 Access-Control-Allow-Origin，
+  // 浏览器连设备码都拿不到，换码还需要 client_secret —— 纯静态站点做不了 OAuth，别写进去。
+  assert.equal(/fetch\(\s*[`"']https:\/\/github\.com\/login/.test(app), false, "不许调用 github.com 的 OAuth 端点");
+  // 注释里说明"为什么做不了 OAuth"是可以的，但不许真的把它发出去
+  assert.equal(/client_secret\s*[=:]/.test(app), false, "client_secret 不能出现在任何请求里");
+  assert.equal(/client_secret\s*[=:]/.test(html), false);
+});
+
 ok("页面用 imageSrc()，不自己拼图片地址", () => {
   const app = readFileSync(join(siteDir, "app.js"), "utf8");
   assert.match(app, /imageSrc\(/);

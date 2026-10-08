@@ -95,11 +95,20 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 
 ## 单人写入怎么用
 
-1. 在 GitHub 建一个 **fine-grained token**，只勾选目标翻译仓库、权限只给
-   **Contents: Read and write**。
-2. 打开站点 → 设置 → 填入 token（只写进本机 `localStorage`）→ 验证。
+1. 打开站点 → 设置 → 点 **① 一键新建 Token**（细粒度）或 **经典 Token（勾好权限）**：
+   - 细粒度：Repository access 选 Only select repositories → `kohakunamori/MLTDTranslationAssets`；
+     Permissions → **Contents: Read and write**；
+   - 经典：链接已经预勾好 `public_repo`（两个翻译仓都是公开仓库，够用），点 Generate 即可。
+2. 复制粘贴进设置里的输入框 → **验证**。验证会用这个 Token 实际查一次仓库权限，
+   直接告诉你"能不能写"以及缺哪一步（而不是只说"未确认"）。
 3. 进任意资源，点某行的「修改」，改完「提交修改」→ 确认弹窗给出仓库/文件/定位/旧值/新值
    → 确认后提交到数据仓库。
+
+> **为什么不是 OAuth 登录？** 实测 `github.com/login/oauth/*` 与 `github.com/login/device/code`
+> 都**不返回** `Access-Control-Allow-Origin`（只有 `api.github.com` 有），所以静态页面连设备码都拿不到；
+> 授权码换 token 还需要一个不能公开的 client secret。要在纯静态站点上做真 OAuth，必须加一个
+> 几十行的换码代理（Worker/函数）——那正是这次重构删掉的东西，所以这里选择"把创建 Token 的
+> 页面按对的权限直接打开 + 粘贴后立刻验证"。
 
 写入的四条硬约束（详见数据契约）：
 
@@ -116,8 +125,8 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 | 套件 | 覆盖 |
 | --- | --- |
 | `test/test_generator.mjs` | 39 项：计数/进度自洽、版本轴（落后一档保留、更新一档跳过）、同名去重取新版、清单对账、分页与跨页行号、`edit_path` 例外行、图片字段、真实清单形状、确定性与 `generated_at` 例外、`--check`/`--strict` 退出码、坏 JSON/哈希不符/参数错误等失败模式 |
-| `test/test_frontend_contract.mjs` | 19 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
-| `test/test_github_write.mjs` | 34 项：单行 JSON 扫描器（两种身份字段）、`not_found`/`ambiguous`/`source_changed`/`conflict` 等失败模式、token 不落 URL/日志 |
+| `test/test_frontend_contract.mjs` | 20 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
+| `test/test_github_write.mjs` | 36 项：单行 JSON 扫描器（两种身份字段）、`not_found`/`ambiguous`/`source_changed`/`conflict` 等失败模式、token 不落 URL/日志、仓库权限判定（scope 只写公开仓库，`permissions.push` 才是权威） |
 | `test/test_ai_draft.mjs` | 格式校验与 AI 调用（stub fetch，无网络） |
 
 CI 在打包前另跑两道真实数据校验：每个 `localized_url` 都要有对应文件；产物非空才允许部署。

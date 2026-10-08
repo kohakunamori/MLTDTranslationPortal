@@ -236,6 +236,11 @@
         填入一个只勾选目标翻译仓库 <code>Contents: Read and write</code> 的 fine-grained token，
         就能在阅读页直接改一行译文并提交。留空则整站只读。
       </p>
+      <div class="settings-row">
+        <a class="btn btn-primary" id="pat-create-fine" href="#" target="_blank" rel="noopener">① 一键新建 Token</a>
+        <a class="btn" id="pat-create-classic" href="#" target="_blank" rel="noopener">或：用经典 Token（勾好权限）</a>
+      </div>
+      <p class="hint" id="pat-howto"></p>
       <form class="settings-row" id="pat-form">
         <input class="input grow" id="pat-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…（只保存在本机）" />
         <button class="btn" id="pat-toggle-vis" type="button">显示</button>

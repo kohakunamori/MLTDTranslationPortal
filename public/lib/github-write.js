@@ -839,13 +839,16 @@ export async function verifyToken(options) {
 
   const scopes = parseScopes(userResponse.headers?.get?.("x-oauth-scopes"));
   const fineGrained = token.startsWith("github_pat_");
-  // Classic tokens advertise their scopes; fine-grained tokens send no scope header
-  // and can only be judged by probing the repository itself.
+  // Classic tokens advertise their scopes; fine-grained tokens send no scope header.
+  // 这只是初判：下面探仓库拿到 permissions.push 后会被覆盖成权威答案。
   let canPush = scopes.includes("repo") || scopes.includes("public_repo") || fineGrained;
 
   const repos = [];
   const wanted = typeof opts.repo === "string" ? opts.repo.trim() : "";
-  if (fineGrained && wanted !== "") {
+  // 仓库权限是唯一权威的答案：经典 token 的 scope 列表只说"能写所有公开仓库"，
+  // 不代表你对**这个**仓库有写权限。所以两种 token 都探一次 /repos/{repo}。
+  let repoStatus = null;
+  if (wanted !== "") {
     const probe = await ghRequest(request, `${GITHUB_API}/repos/${encodeRepoPath(wanted)}`, {
       method: "GET",
       token,
@@ -853,15 +856,24 @@ export async function verifyToken(options) {
     if (probe.status === 401) throw fail("unauthorized", "GitHub rejected the token (401)", { status: 401 });
     if (probe.ok) {
       const data = parseJsonBody(probe, `GET /repos/${wanted}`);
-      canPush = data?.permissions?.push === true;
-    } else {
-      // 403/404 = the token cannot even see the repository: not pushable.
+      const push = data?.permissions?.push === true;
+      canPush = push;
+      repoStatus = {
+        name: wanted,
+        visible: true,
+        permission: push ? "write" : data?.permissions?.admin ? "admin" : "read",
+      };
+      if (push) repos.push(wanted);
+    } else if (probe.status === 403 || probe.status === 404) {
+      // 403/404 = 这个 token 连仓库都看不见（或没被选中）：一定没有写权限。
       canPush = false;
+      repoStatus = { name: wanted, visible: false, permission: "none", status: probe.status };
+    } else {
+      throw httpError(probe.status, { what: `GET /repos/${wanted}` });
     }
-    if (canPush) repos.push(wanted);
   }
 
-  return { login, name, scopes, canPush, repos };
+  return { login, name, scopes, canPush, repos, repo: repoStatus, fineGrained };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -958,7 +958,7 @@ await test("commitLineEdit: identity_field 优先取 edit，其次 line，缺省
 
 const USER_URL = "https://api.github.com/user";
 
-await test("verifyToken: x-oauth-scopes parsed, repo scope means canPush", async () => {
+await test("verifyToken: x-oauth-scopes parsed；没给仓库时不做仓库探测", async () => {
   const { fetchImpl, calls } = stubFetch([
     {
       method: "GET",
@@ -974,14 +974,61 @@ await test("verifyToken: x-oauth-scopes parsed, repo scope means canPush", async
     scopes: ["repo", "gist", "read:user"],
     canPush: true,
     repos: [],
+    repo: null,
+    fineGrained: false,
   });
-  assert.equal(calls.length, 1, "a classic token needs no repo probe");
+  assert.equal(calls.length, 1, "没指定仓库就只查 /user");
   assert.equal(calls[0].url, USER_URL);
   assert.equal(calls[0].headers.authorization, `Bearer ${TOKEN}`);
   assert.ok(!calls[0].url.includes(TOKEN));
 });
 
-await test("verifyToken: no repo scope means canPush false; 401 refuses", async () => {
+await test("verifyToken: 经典 token 也要以仓库权限为准（scope 只说能写公开仓库）", async () => {
+  // scope 写着 public_repo，但仓库权限只有读：不能写，必须报出来
+  const { fetchImpl, calls } = stubFetch([
+    {
+      method: "GET",
+      match: USER_URL,
+      reply: () => jsonResponse(200, { login: "kohaku", name: "Kohaku" }, { "x-oauth-scopes": "public_repo" }),
+    },
+    {
+      method: "GET",
+      match: `/repos/${REPO}`,
+      reply: () => jsonResponse(200, { full_name: REPO, permissions: { admin: false, push: false, pull: true } }),
+    },
+  ]);
+  const result = await verifyToken({ token: TOKEN, fetchImpl, repo: REPO });
+  assert.equal(result.canPush, false, "permissions.push=false 必须压过 scope 的乐观判断");
+  assert.deepEqual(result.repos, []);
+  assert.deepEqual(result.repo, { name: REPO, visible: true, permission: "read" });
+  assert.equal(calls.length, 2);
+
+  // 同一个 token，仓库说能写 -> 能写
+  const allowed = stubFetch([
+    { method: "GET", match: USER_URL, reply: () => jsonResponse(200, { login: "kohaku" }, { "x-oauth-scopes": "public_repo" }) },
+    { method: "GET", match: `/repos/${REPO}`, reply: () => jsonResponse(200, { permissions: { push: true, pull: true } }) },
+  ]);
+  const yes = await verifyToken({ token: TOKEN, fetchImpl: allowed.fetchImpl, repo: REPO });
+  assert.equal(yes.canPush, true);
+  assert.deepEqual(yes.repos, [REPO]);
+  assert.deepEqual(yes.repo, { name: REPO, visible: true, permission: "write" });
+});
+
+await test("verifyToken: 看不见仓库（403/404）时给出可见性判定，而不是含糊的 false", async () => {
+  for (const status of [403, 404]) {
+    const { fetchImpl } = stubFetch([
+      { method: "GET", match: USER_URL, reply: () => jsonResponse(200, { login: "kohaku" }, { "x-oauth-scopes": "read:user" }) },
+      { method: "GET", match: `/repos/${REPO}`, reply: () => jsonResponse(status, { message: "nope" }) },
+    ]);
+    const result = await verifyToken({ token: TOKEN, fetchImpl, repo: REPO });
+    assert.equal(result.canPush, false);
+    assert.equal(result.repo.visible, false, `${status} 应当被记成"看不见"`);
+    assert.equal(result.repo.status, status);
+    assert.equal(result.repo.permission, "none");
+  }
+});
+
+await test("verifyToken: 不带 scope 的细粒度 token；401 与空 token 拒绝", async () => {
   const readOnly = stubFetch([
     { method: "GET", match: USER_URL, reply: () => jsonResponse(200, { login: "kohaku", name: null }, { "x-oauth-scopes": "read:user" }) },
   ]);

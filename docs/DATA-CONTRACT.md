@@ -152,7 +152,15 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
 
 ## 单人写入（唯一写路径）
 
-没有服务端：浏览器用**你自己**的 GitHub token 直接调 Contents API。
+没有服务端：浏览器用**你自己**的 GitHub token 直接调 Contents API。设置页提供两个 GitHub 官方
+入口（细粒度新建页 / 经典 token 预勾 public_repo 的链接），粘贴后「验证」会用该 token 实查
+GET /repos/{repo} 的 permissions.push——scope 列表只说"能写所有公开仓库"，仓库权限才是权威答案。
+
+**这里没有 OAuth，而且做不了**：实测 github.com/login/oauth/access_token、
+github.com/login/device/code、github.com/login/oauth/authorize 都不返回
+Access-Control-Allow-Origin（同一时刻 pi.github.com/user 有），所以静态页面既拿不到设备码，
+也无法完成授权码换 token（那还需要一个不能公开的 client secret）。真要 OAuth 就得加一个换码代理，
+那是一个必须运维的服务端——本项目的取舍是不要它。
 
 1. `GET /repos/{repo}/contents/{path}?ref={ref}` 拿文件当前内容与 `sha`。
 2. 逐行扫描 JSONL，按 `edit.identity_field`（`item_key` 或 `index`）找到唯一匹配行；

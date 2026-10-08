@@ -17,7 +17,7 @@ import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { BuildError, buildOutputs, main, renderDocument, rowStatus } from "../scripts/build_data.mjs";
+import { BuildError, buildOutputs, displayStatus, main, renderDocument, rowStatus, sourceNeedsTranslation } from "../scripts/build_data.mjs";
 import { CATEGORY_ORDER } from "../public/lib/taxonomy.js";
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
@@ -87,14 +87,38 @@ ok("portal.json 版本与来源", () => {
 
 ok("portal.json 计数与进度", () => {
   assert.deepEqual(
-    { total: portal.totals.total, translated: portal.totals.translated, pending: portal.totals.pending, untranslated: portal.totals.untranslated },
-    { total: 31, translated: 27, pending: 1, untranslated: 3 },
+    { total: portal.totals.total, translated: portal.totals.translated, pending: portal.totals.pending, untranslated: portal.totals.untranslated, not_needed: portal.totals.not_needed },
+    { total: 31, translated: 27, pending: 1, untranslated: 2, not_needed: 1 },
   );
   assert.equal(portal.totals.bundles, 8, "8 个唯一资源：5 个 locales + 2 首歌 + 1 个客户端清单");
   assert.equal(portal.totals.files, 8, "没有超过单页上限的 bundle，所以文件数 = 资源数");
-  assert.equal(portal.totals.progress_percent, 87.1);
+  // 进度分母是"需要译文的行"：31 行里有 1 行原文非日文（"Fire Flower！"），所以是 27/30
+  assert.equal(portal.totals.progress_percent, 90);
 });
 
+ok("原文非日文且没有译文 → 无需翻译（英文歌词不再算未翻译）", () => {
+  // 真实数据里 1,066 行"未翻译"全是英文歌词，上游 status 也写着 untranslated，
+  // 所以这是本站的判定：没有日文可译就不该占着"未翻译"。
+  for (const english of ["Show goes on", "Make me happy Yeah Yeah Yeah Yeah ", "We are LEGEND DAYS!", "♪♪", "1234", "Thank you！", "Fire Flower！", "ＨＥＬＬＯ", "Let\u2019s get going!"]) {
+    assert.equal(sourceNeedsTranslation(english), false, `"${english}" 不该被当成需要翻译`);
+  }
+  for (const japanese of ["ありがとう", "キラメキ", "ヴィクトリー", "歌", "私の声"]) {
+    assert.equal(sourceNeedsTranslation(japanese), true, `"${japanese}" 需要译文`);
+  }
+  // 别的语言不能被当成英文放过
+  for (const other of ["Привет", "안녕", "Γειά"]) {
+    assert.equal(sourceNeedsTranslation(other), true, `"${other}" 不是英文，需要译文`);
+  }
+
+  assert.equal(displayStatus({ ja: "Show goes on", status: "untranslated" }, ""), "not_needed");
+  assert.equal(displayStatus({ ja: "ありがとう", status: "untranslated" }, ""), "untranslated");
+  // 有译文就是已翻译/待确认，跟原文语言无关
+  assert.equal(displayStatus({ ja: "Show goes on", status: "accepted" }, "继续前进"), "accepted");
+  assert.equal(displayStatus({ ja: "Show goes on", status: "pending" }, "继续前进"), "pending");
+  // 上游 status 语义本身不变
+  assert.equal(rowStatus({ status: "untranslated" }, ""), "untranslated");
+  assert.equal(rowStatus({ status: "accepted" }, ""), "untranslated", "没有译文就不算已确认");
+});
 ok("domain / category 计数自洽", () => {
   const sum = (items, field) => items.reduce((total, item) => total + item[field], 0);
   assert.equal(sum(portal.categories, "total"), portal.totals.total);
@@ -216,7 +240,7 @@ ok("每一行的 source_sha256 与 source 自洽，身份唯一", () => {
           assert.equal(line.source_sha256, sha256(line.source), `${page.file} 的 ${line.item_key} 哈希不一致`);
           assert.ok(!keys.has(line.item_key), `${page.file} 的 item_key ${line.item_key} 重复`);
           keys.add(line.item_key);
-          assert.ok(["accepted", "pending", "untranslated"].includes(line.status));
+          assert.ok(["accepted", "pending", "untranslated", "not_needed"].includes(line.status));
         }
       }
       assert.equal(keys.size, bundle.total, `${bundle.bundle} 的行数对不上索引`);
@@ -379,7 +403,8 @@ ok("索引里的每个文件都存在，行数与索引一致", () => {
         const content = parse(result, page.file);
         assert.equal(content.total_lines, page.total, `${page.file} 行数与索引不一致`);
         assert.ok(content.lines.length === content.total_lines);
-        assert.equal(content.translated + content.pending + content.untranslated, content.total_lines);
+        assert.equal(content.translated + content.pending + content.untranslated + content.not_needed, content.total_lines);
+        assert.ok(content.lines.every((line) => line.status !== "not_needed" || !line.translation));
         assert.equal(content.bundle, bundle.bundle);
         assert.equal(content.category, bundle.category);
         sum += content.total_lines;
@@ -524,8 +549,8 @@ okAsync("--check 在磁盘一致时退出 0，被改动后退出 2", async () =>
   assert.equal(await main(argv), 0);
   const target = join(out, "portal.json");
   const before = readFileSync(target, "utf8");
-  assert.ok(before.includes("87.1"), "portal.json 里应当有进度值");
-  writeFileSync(target, before.replace("87.1", "87.2"), "utf8");
+  assert.ok(before.includes("\"progress_percent\":90"), "portal.json 里应当有进度值");
+  writeFileSync(target, before.replace("\"progress_percent\":90", "\"progress_percent\":91"), "utf8");
   assert.equal(await main([...argv, "--check"]), 2);
   assert.equal(await main(argv), 0);
   assert.equal(await main([...argv, "--check"]), 0);

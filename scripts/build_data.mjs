@@ -126,8 +126,8 @@ function toPosix(path) {
   return path.split("\\").join("/");
 }
 
-/// 行状态：与旧 Worker 的 `staticAssetRowStatus` 完全一致 —— 有译文才可能是
-/// accepted/pending，没有译文一律 untranslated（旧 status 字段不足以单独成立）。
+/// 行状态：与旧 Worker 的 `staticAssetRowStatus` 一致 —— 有译文才可能是 accepted/pending，
+/// 没有译文一律 untranslated（旧 status 字段不足以单独成立）。
 export function rowStatus(raw, translation) {
   const status = String(raw?.status || "").toLowerCase();
   const hasText = typeof translation === "string" && translation.length > 0;
@@ -137,6 +137,35 @@ export function rowStatus(raw, translation) {
   return "untranslated";
 }
 
+const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\u3005\u3006]/;
+const LATIN_RE = /\p{Script=Latin}/u;
+const LETTER_RE = /\p{L}/u;
+
+/// 原文是否"需要译文"。
+///
+/// 实测：站上 1,066 行"未翻译"**全部**是英文歌词（`Show goes on`、`We are LEGEND DAYS!`、
+/// `Make me happy Yeah Yeah Yeah Yeah`……），上游把它们的 `status` 也写成 `untranslated`，
+/// 即上游也没有"无需翻译"这个概念 —— 所以这是**本站的判定**：
+///   * 原文含假名/汉字 → 需要译文（正常计入未翻译）；
+///   * 原文含有非拉丁字母（韩文、西里尔……）→ 需要译文，别把别的语言当成英文放过；
+///   * 其余（纯拉丁字母、数字、符号、emoji）→ 不需要译文。
+/// 只对**没有译文**的行生效，所以哪天真的给它加了译文，它会自己变成已翻译。
+export function sourceNeedsTranslation(source) {
+  const text = String(source ?? "");
+  if (JAPANESE_RE.test(text)) return true;
+  for (const char of text) {
+    if (LETTER_RE.test(char) && !LATIN_RE.test(char)) return true;
+  }
+  return false;
+}
+
+/// 展示用的行状态：在 `rowStatus` 基础上多一档 `not_needed`（原文非日文且没有译文）。
+export function displayStatus(raw, translation) {
+  const status = rowStatus(raw, translation);
+  if (status === "untranslated" && !sourceNeedsTranslation(raw?.ja ?? raw?.source)) return "not_needed";
+  return status;
+}
+
 /// 一个 bundle 内容的文件名。bundle 里允许出现 `.`、`_`、`-`，其余字符转义，
 /// 保证同一分类内不会撞名（撞了直接报错，不静默覆盖）。
 export function bundleFileBase(bundle) {
@@ -144,6 +173,12 @@ export function bundleFileBase(bundle) {
     .replace(/\.unity3d$/i, "")
     .replace(/\.json$/i, "")
     .replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+/// 进度：分母是"需要译文的行"（总行数减去 not_needed），避免英文歌词把进度永远压住。
+export function progressOf(translated, translatable) {
+  if (!(translatable > 0)) return 0;
+  return Math.round((translated / translatable) * 10000) / 100;
 }
 
 export function assetVersionOf(raw) {
@@ -320,7 +355,7 @@ function readRepoRows({ root, repoLabel, releaseVersion, resolveCategory, warnin
         version: version === null ? null : Number(version),
         source: ja,
         translation,
-        status: rowStatus(row, translation),
+        status: displayStatus(row, translation),
         source_sha256: computedSha,
         category: resolved,
         idol: detectIdol(bundle, identity.value, ja),
@@ -416,6 +451,9 @@ function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVe
   record.translated = counts.translated;
   record.pending = counts.pending;
   record.untranslated = counts.untranslated;
+  // 原文非日文且没有译文的行：既不算已翻译也不算未翻译，进度分母里也要扣掉，
+  // 否则"全英文歌词"会让进度永远差一截（真实数据里就是这 1,066 行）。
+  record.not_needed = counts.not_needed;
   record.idol = dominantIdol(rows);
   const song = channel === "assets" ? SONG_MASTER[bundle.replace(/^scrobj_/, "").replace(/\.unity3d$/i, "").toLowerCase()] : null;
   if (song) {
@@ -722,15 +760,16 @@ export function buildOutputs(options = {}) {
 
   // ---- 汇总。注意 `bundles` 数的是**唯一资源**，`files` 数的是落盘文件：巨型
   // bundle 会被切成多页，所以两者不再相等。
-  const categoryCounts = new Map(CATEGORY_ORDER.map((id) => [id, { bundles: 0, files: 0, total: 0, translated: 0 }]));
+  const categoryCounts = new Map(CATEGORY_ORDER.map((id) => [id, { bundles: 0, files: 0, total: 0, translated: 0, not_needed: 0 }]));
   const seenBundleKeys = new Set();
   // 对账只跟 assets 轴比：客户端底栏清单不属于 assets 清单的统计范围。
   const assetsCategoryRows = new Map(CATEGORY_ORDER.map((id) => [id, 0]));
-  const domainCounts = new Map(DOMAIN_ORDER.map((id) => [id, { total: 0, translated: 0 }]));
+  const domainCounts = new Map(DOMAIN_ORDER.map((id) => [id, { total: 0, translated: 0, not_needed: 0 }]));
   let total = 0;
   let translated = 0;
   let pending = 0;
   let untranslated = 0;
+  let notNeeded = 0;
   for (const { record } of bundles) {
     const bucket = categoryCounts.get(record.category);
     if (!bucket) throw new BuildError(`未知分类 ${record.category}（bundle ${record.bundle}）`);
@@ -742,14 +781,17 @@ export function buildOutputs(options = {}) {
     bucket.files += 1;
     bucket.total += record.total;
     bucket.translated += record.translated;
+    bucket.not_needed += record.not_needed || 0;
     if (record.channel === "assets") assetsCategoryRows.set(record.category, assetsCategoryRows.get(record.category) + record.total);
     const domainBucket = domainCounts.get(record.domain);
     domainBucket.total += record.total;
     domainBucket.translated += record.translated;
+    domainBucket.not_needed += record.not_needed || 0;
     total += record.total;
     translated += record.translated;
     pending += record.pending;
     untranslated += record.untranslated;
+    notNeeded += record.not_needed || 0;
   }
 
   const images = imagePayload ? normalizeImageTasks(imagePayload, {
@@ -835,9 +877,11 @@ export function buildOutputs(options = {}) {
       translated,
       pending,
       untranslated,
+      // 原文非日文且没有译文（英文歌词）：不是"待翻译"，从进度分母里扣掉。
+      not_needed: notNeeded,
       bundles: seenBundleKeys.size,
       files: bundles.length,
-      progress_percent: total > 0 ? Math.round((translated / total) * 10000) / 100 : 0,
+      progress_percent: progressOf(translated, total - notNeeded),
     },
     domains: DOMAIN_ORDER.map((id) => ({
       id,
@@ -845,6 +889,7 @@ export function buildOutputs(options = {}) {
       icon: DOMAIN_META[id].icon,
       total: domainCounts.get(id).total,
       translated: domainCounts.get(id).translated,
+      not_needed: domainCounts.get(id).not_needed,
     })),
     categories: CATEGORY_ORDER.map((id) => ({
       id,
@@ -857,6 +902,7 @@ export function buildOutputs(options = {}) {
       files: categoryCounts.get(id).files,
       total: categoryCounts.get(id).total,
       translated: categoryCounts.get(id).translated,
+      not_needed: categoryCounts.get(id).not_needed,
     })),
     image_categories: IMAGE_CATEGORY_ORDER.map((id) => ({
       id,
@@ -875,14 +921,15 @@ export function buildOutputs(options = {}) {
     const key = `${record.category}\u0000${record.bundle}`;
     let entry = catalogueEntries.get(key);
     if (!entry) {
-      const { file_base: _fileBase, page: _page, page_count: _pageCount, first_index: _first, last_index: _last, total: _total, translated: _translated, pending: _pending, untranslated: _untranslated, ...rest } = record;
-      entry = { ...rest, total: 0, translated: 0, pending: 0, untranslated: 0, page_count: record.page_count, pages: [] };
+      const { file_base: _fileBase, page: _page, page_count: _pageCount, first_index: _first, last_index: _last, total: _total, translated: _translated, pending: _pending, untranslated: _untranslated, not_needed: _notNeeded, ...rest } = record;
+      entry = { ...rest, total: 0, translated: 0, pending: 0, untranslated: 0, not_needed: 0, page_count: record.page_count, pages: [] };
       catalogueEntries.set(key, entry);
     }
     entry.total += record.total;
     entry.translated += record.translated;
     entry.pending += record.pending;
     entry.untranslated += record.untranslated;
+    entry.not_needed += record.not_needed || 0;
     entry.pages.push({
       file: record.file,
       page: record.page,
@@ -892,6 +939,7 @@ export function buildOutputs(options = {}) {
       translated: record.translated,
       pending: record.pending,
       untranslated: record.untranslated,
+      not_needed: record.not_needed || 0,
     });
   }
 
@@ -932,6 +980,7 @@ export function buildOutputs(options = {}) {
       translated: record.translated,
       pending: record.pending,
       untranslated: record.untranslated,
+      not_needed: record.not_needed || 0,
       lines: rows.map((row, index) => ({
         // index 是**整个 bundle** 内的行号（跨页连续），阅读页靠它定位"第 N 行"。
         index: record.first_index + index,

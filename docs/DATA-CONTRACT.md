@@ -59,7 +59,13 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
    （不分页时 `MD_jp.gtx.json` 会到 41.6 MB）。
 7. **对账**：生成完按清单逐分类比对行数（用 `生成 + 去重` 抵消清单的双重计数），总账再比一次。
    不一致 → `warn:`。`--strict` 让警告变成失败。
-8. **确定性**：同样的输入产生逐字节相同的输出；`generated_at` 是唯一允许变化的字段，
+8. **行状态**：先按"有没有译文"定 `accepted` / `pending` / `untranslated`；再对**没有译文**的行
+   看原文语言 —— 原文不含假名/汉字、也没有别的语言字母（韩文、西里尔……）时判为 `not_needed`
+   （"无需翻译"）。这是**本站的判定**，不是上游的：上游把这些行的 `status` 也写成 `untranslated`。
+   实测真实数据里 1,066 行"未翻译"全是这类英文歌词（`Show goes on`、`We are LEGEND DAYS!`），
+   所以进度分母用 `total - not_needed`，它们不再把进度压住。反过来，只要有人真的给这类行加了译文，
+   它立刻按正常规则变成 `accepted`/`pending`。`not_needed` **不会**被写回上游（`commitLineEdit` 直接拒绝）。
+9. **确定性**：同样的输入产生逐字节相同的输出；`generated_at` 是唯一允许变化的字段，
    所以 `--check` 不会因为时间戳假报漂移。
 
 ## 产物
@@ -74,9 +80,9 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
 | `sources.assets` | `{repo, ref, commit, manifest_generated_at}`；缺清单时 `commit` 为空串 |
 | `sources.client` | 同上（客户端仓） |
 | `releases.assets` | 清单里的发布信息 `{release_id, asset_version, status, updated_at}`；缺清单时为 `null` |
-| `totals` | `{total, translated, pending, untranslated, bundles, files, progress_percent}`；`bundles` 是资源数，`files` 是页文件数 |
-| `domains[]` | `{id, name, icon, total, translated}` |
-| `categories[]` | `{id, domain, name, icon, unit, entry, bundles, files, total, translated}`（顺序固定） |
+| `totals` | `{total, translated, pending, untranslated, not_needed, bundles, files, progress_percent}`；`bundles` 是资源数，`files` 是页文件数 |
+| `domains[]` | `{id, name, icon, total, translated, not_needed}` |
+| `categories[]` | `{id, domain, name, icon, unit, entry, bundles, files, total, translated, not_needed}`（顺序固定） |
 | `image_categories` | `{all, event, costume, tutorial}` |
 | `image_statuses` | `{all, localized, original_only}` |
 
@@ -91,10 +97,10 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
     "idol": null, "song": { "name_ja": "スマイルいちばん", "name_zh": "最棒的笑容", "type": "Princess", "mst_song_id": 15 },
     "edit": { "kind": "jsonl", "repo": "kohakunamori/MLTDTranslationAssets", "ref": "main",
               "path": "lyrics/songs/scrobj_smile1.unity3d.jsonl", "identity_field": "index" },
-    "total": 32, "translated": 27, "pending": 0, "untranslated": 5,
+    "total": 32, "translated": 27, "pending": 0, "untranslated": 0, "not_needed": 5,
     "page_count": 1,
     "pages": [{ "file": "bundles/lyrics/scrobj_smile1.json", "page": null,
-                "first_index": 1, "last_index": 32, "total": 32, "translated": 27, "pending": 0, "untranslated": 5 }]
+                "first_index": 1, "last_index": 32, "total": 32, "translated": 27, "pending": 0, "untranslated": 0, "not_needed": 5 }]
   }]}
 ```
 
@@ -110,7 +116,7 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
   "edit": { "kind": "jsonl", "repo": "…", "ref": "main", "path": "locales/master/CD_jp.gtx.jsonl", "identity_field": "item_key" },
   "song": null, "idol": { "code": "019min", "name_ja": "…", "name_zh": "…" },
   "page": 13, "page_count": 13, "first_index": 24001, "last_index": 25356,
-  "total_lines": 1356, "translated": 1353, "pending": 3, "untranslated": 0,
+  "total_lines": 1356, "translated": 1353, "pending": 3, "untranslated": 0, "not_needed": 0,
   "lines": [{
     "index": 24001,            // 整个 bundle 内的展示序号，跨页连续，从 1 起
     "slot_index": null,        // 歌词的槽位（= 上游 index），其他为 null
@@ -182,6 +188,9 @@ token 只写进本机 `localStorage['mltd.pat']`，不进 URL、不进提交信�
 | --- | --- |
 | 每一行的 `source_sha256 == sha256(source)` | 生成器运行时 + 两个契约测试 |
 | `totals` = 各分类之和；分类 = 各 bundle 之和；bundle = 各页之和 | 两个契约测试 |
+| 四类计数 `translated + pending + untranslated + not_needed == total`（行 / 页 / bundle / 分类 / totals 全层级） | 两个契约测试 |
+| `not_needed` 的行一定没有译文；且不会被写回上游 | 两个契约测试 + 写入模块测试 |
+| 进度分母恒为 `total - not_needed`（`progressOf` / `progressPercent` 两处口径一致） | 两个契约测试 |
 | 索引指向的每个页文件都存在，且行数一致 | 前端契约测试 |
 | 没有孤儿文件（产物里每个文件都被某个索引引用） | 生成器契约测试 |
 | 唯一 `item_key`（同一 bundle 内不重复，否则写入会 `ambiguous`） | 两个契约测试 |

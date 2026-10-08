@@ -588,3 +588,9 @@ select.input { cursor: pointer; }
 .pat-guide .pat-steps { margin: 0.6rem 0 0.4rem 1.2rem; display: grid; gap: 0.35rem; line-height: 1.65; }
 .pat-guide .pat-steps li { font-size: 0.92rem; }
 .pat-guide .hint { margin: 0.4rem 0 0; }
+/* 「无需翻译」：原文非日文（英文歌词）且没有译文。用中性蓝灰，和"未翻译"的浅灰区分开，
+   让人一眼看出这不是漏译，而是本来就不用译。 */
+.stat.not_needed b { color: var(--info, #2563eb); }
+.badge.not_needed { background: #eff6ff; color: #1d4ed8; }
+.line-item.status-not_needed { border-left-color: #bfdbfe; }
+.line-item.status-not_needed .line-translation.missing { color: #1d4ed8; font-style: normal; }

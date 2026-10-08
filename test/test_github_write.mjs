@@ -419,6 +419,7 @@ await test("applyJsonlEdit: identity_field 'index' 找不到请求值 -> not_fou
     }),
     "invalid_edit",
   );
+
 });
 
 await test("applyJsonlEdit: 两行共享同一个 index -> ambiguous；源文哈希守卫不变", async () => {
@@ -721,6 +722,13 @@ await test("commitLineEdit: empty token and missing edit pieces refuse before an
     commitLineEdit({ token: TOKEN, edit: { ...EDIT, repo: "not-a-repo" }, line: LINE, translation: "x", fetchImpl }),
     "invalid_edit",
     (error) => !String(error.message).includes(TOKEN) && !JSON.stringify(error.detail ?? {}).includes(TOKEN),
+  );
+  // `not_needed` 是本站按"原文有没有日文"派生的状态，上游 schema 里没有这个取值：
+  // 写入入口直接拒绝，绝不把一个上游不认识的状态写回去。
+  await rejectsWith(
+    commitLineEdit({ token: TOKEN, edit: EDIT, line: LINE, translation: "x", status: "not_needed", fetchImpl }),
+    "invalid_edit",
+    (error) => /not_needed/.test(error.message),
   );
   assert.equal(called, 0, "validation must not touch the network");
 });

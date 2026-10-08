@@ -994,6 +994,11 @@ export async function commitLineEdit(options) {
       throw fail("invalid_edit", "status must be a non-empty string when provided");
     }
     statusValue = opts.status.trim();
+    // `not_needed` 是本站按"原文有没有日文"派生的状态，上游 schema 里没有这个取值。
+    // 真写进去会让上游多出一个不认识的 status，所以这里直接拒绝。
+    if (statusValue === "not_needed") {
+      throw fail("invalid_edit", "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
+    }
   }
 
   const identity = target.kind === "jsonl" ? target.item_key : `slot ${target.manifest_index}`;

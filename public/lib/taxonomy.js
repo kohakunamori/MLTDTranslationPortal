@@ -141,14 +141,16 @@ export function detectIdol(bundle, itemKey, source) {
 
 export { IDOLS, SPEAKERS, IDOL_MAP };
 
-/// 计数：一次遍历得出浏览用的四个数，避免各调用点各算一遍。
+/// 计数：一次遍历得出浏览用的几个数，避免各调用点各算一遍。
+/// `not_needed` = 原文非日文且没有译文（英文歌词这类），既不算已翻译也不算未翻译。
 export function statusCounts(rows) {
-  const counts = { total: 0, translated: 0, pending: 0, untranslated: 0 };
+  const counts = { total: 0, translated: 0, pending: 0, untranslated: 0, not_needed: 0 };
   for (const row of rows) {
     counts.total += 1;
     const status = String(row?.status || "").toLowerCase();
     if (status === "accepted") counts.translated += 1;
     else if (status === "pending" || status === "needs_review") counts.pending += 1;
+    else if (status === "not_needed") counts.not_needed += 1;
     else counts.untranslated += 1;
   }
   return counts;

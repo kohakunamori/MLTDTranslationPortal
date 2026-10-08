@@ -23,6 +23,7 @@ import {
   loadPortal,
   pageNumberOfFile,
   percentOf,
+  progressPercent,
   resolveBundlePage,
 } from "./lib/data.js";
 import { CATEGORY_RULES, CATEGORY_ORDER, IMAGE_CATEGORY_RULES, IMAGE_CATEGORY_ORDER } from "./lib/taxonomy.js";
@@ -260,6 +261,8 @@ async function renderOverview() {
     statBox("已确认", totals.translated, "accepted"),
     statBox("待确认", totals.pending, "pending"),
     statBox("未翻译", totals.untranslated, "untranslated"),
+    // 原文非日文（英文歌词）且没有译文：不算未翻译，也不占进度分母
+    statBox("无需翻译", totals.not_needed || 0, "not_needed"),
     statBox("资源数", totals.bundles),
   );
 
@@ -285,7 +288,7 @@ async function renderOverview() {
     ? "这次生成的数据里没有任何分类内容。"
     : `${state.domain} 这个 domain 在这次生成的数据里没有内容，换个 domain 看看。`;
   for (const category of visible) {
-    const percent = percentOf(category.translated, category.total);
+    const percent = progressPercent(category);
     grid.append(el("button", {
       class: "category-card",
       type: "button",
@@ -330,7 +333,7 @@ async function renderSongGrid() {
   empty.hidden = songs.length > 0;
   if (!songs.length) empty.textContent = "没有匹配的歌曲。";
   for (const song of songs) {
-    const percent = percentOf(song.translated, song.total);
+    const percent = progressPercent(song);
     grid.append(el("button", {
       class: "song-card",
       type: "button",
@@ -426,7 +429,7 @@ async function renderCatalogue(params = {}) {
   const pageRows = rows.slice((state.catalogue.page - 1) * PAGE_SIZE_CATALOGUE, state.catalogue.page * PAGE_SIZE_CATALOGUE);
 
   for (const bundle of pageRows) {
-    const percent = percentOf(bundle.translated, bundle.total);
+    const percent = progressPercent(bundle);
     list.append(el("button", {
       class: "bundle-row",
       type: "button",
@@ -445,7 +448,7 @@ async function renderCatalogue(params = {}) {
       ]),
       el("div", { class: "bundle-side" }, [
         el("div", { class: "progress-track" }, el("div", { class: "progress-fill", style: `width:${percent}%` })),
-        el("div", { class: "bundle-counts", text: `${bundle.translated}/${bundle.total} 句 · ${percent}%` }),
+        el("div", { class: "bundle-counts", text: `${bundle.translated}/${bundle.total} 句 · ${percent}%${bundle.not_needed > 0 ? `（${bundle.not_needed} 行无需翻译）` : ""}` }),
       ]),
     ]));
   }
@@ -532,11 +535,12 @@ function currentReadTarget() {
 
 /// 一次遍历得出四个数：本地改过一行后靠它把增量算回整包计数。
 function countLines(lines) {
-  const counts = { total: 0, translated: 0, pending: 0, untranslated: 0 };
+  const counts = { total: 0, translated: 0, pending: 0, untranslated: 0, not_needed: 0 };
   for (const line of lines || []) {
     counts.total += 1;
     if (line.status === "accepted") counts.translated += 1;
     else if (line.status === "pending") counts.pending += 1;
+    else if (status === "not_needed") counts.not_needed += 1;
     else counts.untranslated += 1;
   }
   return counts;
@@ -553,6 +557,7 @@ function readTotals(bundle, entry, baseline) {
     translated: Number(entry.translated || 0) + delta("translated"),
     pending: Number(entry.pending || 0) + delta("pending"),
     untranslated: Number(entry.untranslated || 0) + delta("untranslated"),
+    not_needed: Number(entry.not_needed || 0) + delta("not_needed"),
   };
 }
 
@@ -605,6 +610,8 @@ async function renderRead(params = {}) {
     statBox("已确认", totals.translated, "accepted"),
     statBox("待确认", totals.pending, "pending"),
     statBox("未翻译", totals.untranslated, "untranslated"),
+    // 原文非日文的行（英文歌词）单独一格，省得看的人以为漏译了
+    totals.not_needed > 0 ? statBox("无需翻译", totals.not_needed, "not_needed") : null,
   );
   renderReadPageBar();
 
@@ -682,7 +689,10 @@ function goToBundlePage(page) {
 }
 
 function statusLabel(status) {
-  return status === "accepted" ? "已确认" : status === "pending" ? "待确认" : "未翻译";
+  if (status === "accepted") return "已确认";
+  if (status === "pending") return "待确认";
+  if (status === "not_needed") return "无需翻译";
+  return "未翻译";
 }
 
 function canEdit(bundle) {
@@ -701,11 +711,13 @@ function identityLabel(bundle, line) {
 
 function renderLine(bundle, line) {
   const editing = Boolean(state.editing && state.editing.itemKey === line.item_key);
+  // 原文非日文又没有译文：说清"不用译"，而不是显示成漏译。
+  const placeholder = line.status === "not_needed" ? "无需翻译（原文非日文）" : "未翻译";
   const body = el("div", { class: "line-body" }, [
     el("div", { class: "line-source" }, renderRichText(line.source, { highlight: state.read.filters.highlight })),
     el("div", {
       class: `line-translation${line.translation ? "" : " missing"}`,
-    }, line.translation ? renderRichText(line.translation) : "未翻译"),
+    }, line.translation ? renderRichText(line.translation) : placeholder),
   ]);
   if (editing) body.append(renderEditor(bundle, line));
 
@@ -747,7 +759,9 @@ function toggleEdit(line, editing) {
   state.editing = {
     itemKey: line.item_key,
     value: line.translation || "",
-    status: line.status === "untranslated" ? "accepted" : line.status,
+    // `not_needed` 是本站判定，上游没有这个取值：开始编辑就当作"要给它加译文"，
+    // 否则保存时会把一个上游不认识的状态写回去。
+    status: line.status === "untranslated" || line.status === "not_needed" ? "accepted" : line.status,
   };
   renderRead();
   const input = document.querySelector(`#line-${encodeURIComponent(line.item_key)} textarea`);
@@ -1322,6 +1336,7 @@ if (typeof window !== "undefined") {
     renderRichText,
     filterBundles,
     percentOf,
+  progressPercent,
     bundleLabel,
     checkTranslationFormat,
     canEdit,

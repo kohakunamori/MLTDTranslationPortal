@@ -180,6 +180,16 @@ export function bundleLabel(bundle) {
     : name;
 }
 
+/// 进度百分比：**分母是"需要译文的行"** —— 总行数里要扣掉 `not_needed`（原文非日文的
+/// 英文歌词这类），口径必须和 `portal.totals.progress_percent` 完全一致，否则同一个资源
+/// 在头部显示 100%、在列表里显示 84%。
+export function progressPercent(record) {
+  const total = Number(record?.total || 0) - Number(record?.not_needed || 0);
+  const translated = Number(record?.translated || 0);
+  if (!(total > 0)) return 0;
+  return Math.round((translated / total) * 1000) / 10;
+}
+
 export function percentOf(translated, total) {
   if (!total) return 0;
   return Math.round((translated / total) * 1000) / 10;

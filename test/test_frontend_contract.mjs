@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { buildOutputs } from "../scripts/build_data.mjs";
 import { createStaticServer } from "../scripts/serve.mjs";
 import { applyJsonlEdit } from "../public/lib/github-write.js";
-import { filterBundles } from "../public/lib/data.js";
+import { filterBundles, progressPercent } from "../public/lib/data.js";
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
 const FIXTURE_CLIENT = "test_helpers/fixtures/client-repo";
@@ -185,6 +185,11 @@ ok("索引计数与每个页文件内容一致，行号跨页连续", () => {
       for (const page of bundle.pages) {
         const content = JSON.parse(readFileSync(join(siteDir, "data", page.file), "utf8"));
         assert.equal(content.total_lines, page.total, `${page.file} 行数对不上索引`);
+        assert.equal(
+          content.translated + content.pending + content.untranslated + content.not_needed,
+          content.total_lines,
+          `${page.file} 的四类计数加起来不等于总行数`,
+        );
         assert.equal(content.lines.length, page.total);
         assert.equal(content.category, bundle.category);
         assert.equal(content.bundle, bundle.bundle);
@@ -200,7 +205,7 @@ ok("索引计数与每个页文件内容一致，行号跨页连续", () => {
         seen += content.total_lines;
       }
       assert.equal(seen, bundle.total);
-      assert.equal(bundle.translated + bundle.pending + bundle.untranslated, bundle.total);
+      assert.equal(bundle.translated + bundle.pending + bundle.untranslated + bundle.not_needed, bundle.total);
     }
   }
 });
@@ -229,7 +234,7 @@ ok("行级 edit_path 只在真正需要时出现，且指向另一个上游文�
 });
 
 ok("每一行的 hash、状态与可写定位字段都齐全", () => {
-  const allowed = new Set(["accepted", "pending", "untranslated"]);
+  const allowed = new Set(["accepted", "pending", "untranslated", "not_needed"]);
   for (const category of portal.categories) {
     const index = JSON.parse(readFileSync(join(siteDir, "data", `catalogue/${category.id}.json`), "utf8"));
     for (const bundle of index.bundles) {
@@ -244,6 +249,8 @@ ok("每一行的 hash、状态与可写定位字段都齐全", () => {
           assert.equal(line.source_sha256, sha256(line.source), `${page.file} 的 ${line.item_key} hash 不一致`);
           assert.ok(line.item_key, "缺少 item_key：没有它就无法定位行");
           assert.ok(allowed.has(line.status), `未知状态 ${line.status}`);
+          // 派生状态只可能出现在没有译文的行上
+          if (line.status === "not_needed") assert.equal(line.translation, null, "无需翻译的行不该带译文");
           assert.ok(!keys.has(line.item_key), `${page.file} 里 item_key ${line.item_key} 重复，写入路径会拒绝`);
           keys.add(line.item_key);
           if (content.edit.kind === "manifest") assert.equal(typeof line.manifest_index, "number");
@@ -390,6 +397,47 @@ ok("筛选器出现在页面上，且状态/来源下拉带真实数量", () => 
   assert.match(app, /labelStatusOptions\(/);
   assert.match(app, /filterBundles\(state\.catalogue\.bundles, state\.catalogue\.filters\)/);
   assert.match(app, /filters\.channel/);
+});
+
+ok("「无需翻译」在数据与界面里都成立", () => {
+  // 数据：四类互斥且覆盖全部行；not_needed 只可能出现在没有译文的行上
+  const all = [];
+  for (const category of portal.categories) {
+    const index = JSON.parse(readFileSync(join(siteDir, "data", `catalogue/${category.id}.json`), "utf8"));
+    for (const bundle of index.bundles) {
+      assert.equal(
+        bundle.translated + bundle.pending + bundle.untranslated + bundle.not_needed,
+        bundle.total,
+        `${bundle.bundle} 的四类计数加起来不等于总行数`,
+      );
+      for (const page of bundle.pages) {
+        const content = JSON.parse(readFileSync(join(siteDir, "data", page.file), "utf8"));
+        for (const line of content.lines) {
+          if (line.status === "not_needed") {
+            assert.equal(line.translation, null, "无需翻译的行不该带译文");
+          }
+        }
+      }
+      all.push(bundle);
+    }
+  }
+  const sum = (field) => all.reduce((total, bundle) => total + bundle[field], 0);
+  assert.equal(sum("not_needed"), portal.totals.not_needed);
+  assert.equal(sum("untranslated"), portal.totals.untranslated);
+
+  // 进度口径一致：分母扣掉 not_needed，且与 portal 的总进度对得上
+  const translatable = sum("total") - sum("not_needed");
+  assert.equal(Math.round((sum("translated") / translatable) * 10000) / 100, portal.totals.progress_percent);
+  for (const bundle of all) assert.equal(progressPercent(bundle), progressPercent({ ...bundle }), "纯函数，重复调用要稳定");
+  const afspt = all.find((bundle) => bundle.bundle === "scrobj_aftspt.unity3d");
+  if (afspt) assert.equal(progressPercent(afspt), 100, "全英文歌词的歌应当算 100%");
+
+  // 界面：阅读页有「无需翻译」选项，编辑时不会把派生状态写回上游
+  const html = readFileSync(join(siteDir, "index.html"), "utf8");
+  assert.match(html, /id="read-status"[\s\S]{0,400}value="not_needed"/, "阅读页状态筛选缺少「无需翻译」");
+  const app = readFileSync(join(siteDir, "app.js"), "utf8");
+  assert.match(app, /status === "not_needed"\) return "无需翻译"/);
+  assert.match(app, /line\.status === "not_needed" \? "accepted"/, "编辑派生状态的行时要写成 accepted");
 });
 
 // ------------------------------------------------------------------ 4. 写入路径（不改上游也能验证）

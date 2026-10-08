@@ -141,9 +141,15 @@ export function originalReference(task) {
 }
 
 /// 按分类把索引行抽成一个便于筛选的数组；任何一格拿不到就返回空数组，不猜。
-export function filterBundles(bundles, { idol = "", status = "", keyword = "", sort = "default" } = {}) {
+///
+/// * `channel`：`"assets"` = 译文来自翻译资源仓（`locales/**`、`lyrics/**`）、
+///   `"client"` = 来自客户端仓（`manifests/bottom-bar.manifest.json` 这类清单）。
+///   真实数据里 client 只有 1 个资源，但界面得能如实筛出来。
+/// * `status`：`"untranslated"`（还没译完）/ `"pending"`（有待确认）/ `"complete"`（全部译完）。
+export function filterBundles(bundles, { idol = "", status = "", channel = "", keyword = "", sort = "default" } = {}) {
   const needle = String(keyword).trim().toLowerCase();
   let rows = bundles.filter((bundle) => {
+    if (channel && (bundle.channel || "assets") !== channel) return false;
     if (idol && bundle.idol?.code !== idol) return false;
     if (status === "untranslated" && bundle.untranslated === 0) return false;
     if (status === "pending" && bundle.pending === 0) return false;

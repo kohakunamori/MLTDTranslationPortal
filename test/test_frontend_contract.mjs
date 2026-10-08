@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { buildOutputs } from "../scripts/build_data.mjs";
 import { createStaticServer } from "../scripts/serve.mjs";
 import { applyJsonlEdit } from "../public/lib/github-write.js";
+import { filterBundles } from "../public/lib/data.js";
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
 const FIXTURE_CLIENT = "test_helpers/fixtures/client-repo";
@@ -294,6 +295,17 @@ ok("Token 入口只指向 GitHub 官方页面，且没有偷偷调用 OAuth 端�
   const app = readFileSync(join(siteDir, "app.js"), "utf8");
   assert.match(app, /settings\/personal-access-tokens\/new/, "要有细粒度 Token 的一键新建入口");
   assert.match(app, /settings\/tokens\/new\?scopes=public_repo/, "经典 Token 链接要预勾好 scope");
+  // 分步指南直接内嵌在页面里（原生 details），并指向仓库里的完整版
+  assert.match(html, /id="pat-guide"/);
+  assert.match(html, /<details[^>]*id="pat-guide"/);
+  for (const phrase of ["Only select repositories", "Contents", "Read and write", "Generate token"]) {
+    assert.ok(html.includes(phrase), `设置页的分步指南里应当出现「${phrase}」`);
+  }
+  assert.ok(existsSync("docs/GITHUB-TOKEN.md"), "完整指南 docs/GITHUB-TOKEN.md 必须在仓库里");
+  const guide = readFileSync("docs/GITHUB-TOKEN.md", "utf8");
+  for (const phrase of ["personal-access-tokens/new", "public_repo", "Contents: Read and write", "Revoke"]) {
+    assert.ok(guide.includes(phrase), `指南里应当出现「${phrase}」`);
+  }
   // 实测：github.com/login/oauth/* 与 /login/device/code 都不返回 Access-Control-Allow-Origin，
   // 浏览器连设备码都拿不到，换码还需要 client_secret —— 纯静态站点做不了 OAuth，别写进去。
   assert.equal(/fetch\(\s*[`"']https:\/\/github\.com\/login/.test(app), false, "不许调用 github.com 的 OAuth 端点");
@@ -311,6 +323,63 @@ ok("页面用 imageSrc()，不自己拼图片地址", () => {
   const html = readFileSync(join(siteDir, "index.html"), "utf8");
   assert.equal(/id="image-status"/.test(html), false, "状态筛选已去掉（937 条全有中文版）");
   assert.match(html, /id="lightbox-image"/);
+});
+
+ok("来源（Assets/Client）与翻译状态筛选语义正确", () => {
+  const all = [];
+  for (const category of portal.categories) {
+    const index = JSON.parse(readFileSync(join(siteDir, "data", `catalogue/${category.id}.json`), "utf8"));
+    for (const bundle of index.bundles) {
+      assert.ok(["assets", "client"].includes(bundle.channel), `${bundle.bundle} 的 channel 非法：${bundle.channel}`);
+      all.push(bundle);
+    }
+  }
+  assert.equal(all.length, portal.totals.bundles);
+
+  const client = filterBundles(all, { channel: "client" });
+  const assets = filterBundles(all, { channel: "assets" });
+  assert.equal(client.length + assets.length, all.length, "两个来源必须正好覆盖全部");
+  assert.ok(client.length >= 1, "fixture 里应当有客户端清单");
+  assert.ok(client.every((bundle) => bundle.channel === "client"));
+  assert.ok(assets.every((bundle) => bundle.channel === "assets"));
+  assert.equal(filterBundles(all, {}).length, all.length, "不传筛选就全都要");
+
+  // 状态筛选与"有没有未译行 / 待确认行"严格对齐
+  const untranslated = filterBundles(all, { status: "untranslated" });
+  const pending = filterBundles(all, { status: "pending" });
+  const complete = filterBundles(all, { status: "complete" });
+  assert.deepEqual(untranslated.map((b) => b.bundle).sort(), all.filter((b) => b.untranslated > 0).map((b) => b.bundle).sort());
+  assert.deepEqual(pending.map((b) => b.bundle).sort(), all.filter((b) => b.pending > 0).map((b) => b.bundle).sort());
+  assert.deepEqual(complete.map((b) => b.bundle).sort(), all.filter((b) => b.untranslated === 0 && b.pending === 0).map((b) => b.bundle).sort());
+  // 三类互斥且覆盖全部：已翻译（无未译无待确认）/ 未翻译（有未译行）/ 仅待确认
+  const pendingOnly = all.filter((b) => b.pending > 0 && b.untranslated === 0);
+  assert.equal(
+    untranslated.length + complete.length + pendingOnly.length,
+    all.length,
+    "未翻译 / 已翻译 / 仅待确认三类必须互斥且覆盖全部资源",
+  );
+  assert.equal(untranslated.filter((b) => b.pending === 0 && b.untranslated === 0).length, 0);
+
+  // 两个维度叠加
+  const clientComplete = filterBundles(all, { channel: "client", status: "complete" });
+  assert.ok(clientComplete.every((bundle) => bundle.channel === "client" && bundle.untranslated === 0 && bundle.pending === 0));
+  const assetsUntranslated = filterBundles(all, { channel: "assets", status: "untranslated" });
+  assert.ok(assetsUntranslated.every((bundle) => bundle.channel === "assets" && bundle.untranslated > 0));
+});
+
+ok("筛选器出现在页面上，且状态/来源下拉带真实数量", () => {
+  const html = readFileSync(join(siteDir, "index.html"), "utf8");
+  assert.match(html, /id="filter-channel"/);
+  assert.match(html, /value="assets"/);
+  assert.match(html, /value="client"/);
+  assert.match(html, /id="filter-status"/);
+  for (const value of ["untranslated", "pending", "complete"]) {
+    assert.match(html, new RegExp(`id="filter-status"[\\s\\S]{0,400}value="${value}"`), `状态下拉缺少 ${value}`);
+  }
+  const app = readFileSync(join(siteDir, "app.js"), "utf8");
+  assert.match(app, /labelStatusOptions\(/);
+  assert.match(app, /filterBundles\(state\.catalogue\.bundles, state\.catalogue\.filters\)/);
+  assert.match(app, /filters\.channel/);
 });
 
 // ------------------------------------------------------------------ 4. 写入路径（不改上游也能验证）

@@ -39,7 +39,7 @@ const state = {
   domain: "all",
   songKeyword: "",
   writeStatus: null,
-  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", keyword: "", sort: "default" } },
+  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", channel: "", keyword: "", sort: "default" } },
   read: {
     // `file` 是当前 bundle 的规范文件；`urlFile` 是 URL 里那个 file（原样带回，不在渲染中改写 URL）。
     file: "",
@@ -349,6 +349,29 @@ async function renderSongGrid() {
 
 // ------------------------------------------------------------------ 索引浏览
 
+/// 筛选下拉里带上当前分类的真实数量，让人一眼看出筛完还剩多少：
+/// 「未翻译（1,067 行 · 12 个资源）」。数量基于**当前已加载的分类**，不跨分类瞎算。
+function labelStatusOptions(bundles) {
+  const count = (predicate) => bundles.filter(predicate).length;
+  const sum = (pick) => bundles.reduce((total, bundle) => total + pick(bundle), 0);
+  const labels = {
+    "": `全部（${formatNumber(bundles.length)} 个资源）`,
+    untranslated: `未翻译（${formatNumber(sum((b) => b.untranslated))} 行 · ${formatNumber(count((b) => b.untranslated > 0))} 个资源）`,
+    pending: `待确认（${formatNumber(sum((b) => b.pending))} 行 · ${formatNumber(count((b) => b.pending > 0))} 个资源）`,
+    complete: `已翻译（全部译完 · ${formatNumber(count((b) => b.untranslated === 0 && b.pending === 0))} 个资源）`,
+  };
+  for (const option of $("filter-status").options) {
+    if (labels[option.value] !== undefined) option.textContent = labels[option.value];
+  }
+  // 来源下拉也带数量——真实数据里 client 只有 1 个资源，一眼就该看出来
+  const client = count((bundle) => (bundle.channel || "assets") === "client");
+  for (const option of $("filter-channel").options) {
+    if (option.value === "") option.textContent = `全部来源（${formatNumber(bundles.length)} 个资源）`;
+    else if (option.value === "client") option.textContent = `Client 仓（客户端清单 · ${formatNumber(client)} 个资源）`;
+    else option.textContent = `Assets 仓（译文 · ${formatNumber(bundles.length - client)} 个资源）`;
+  }
+}
+
 async function renderCatalogue(params = {}) {
   state.portal = state.portal || await loadPortal();
   if (params.category && CATEGORY_RULES[params.category]) state.catalogue.category = params.category;
@@ -392,6 +415,8 @@ async function renderCatalogue(params = {}) {
   $("filter-status").value = state.catalogue.filters.status;
   $("filter-sort").value = state.catalogue.filters.sort;
   $("filter-keyword").value = state.catalogue.filters.keyword;
+  $("filter-channel").value = state.catalogue.filters.channel;
+  labelStatusOptions(state.catalogue.bundles);
 
   const rows = filterBundles(state.catalogue.bundles, state.catalogue.filters);
   const list = clear($("bundle-list"));
@@ -1133,6 +1158,7 @@ function bindEvents() {
   });
   $("filter-idol").addEventListener("change", (event) => { state.catalogue.filters.idol = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
   $("filter-status").addEventListener("change", (event) => { state.catalogue.filters.status = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
+  $("filter-channel").addEventListener("change", (event) => { state.catalogue.filters.channel = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
   $("filter-sort").addEventListener("change", (event) => { state.catalogue.filters.sort = event.target.value; renderCatalogue(); });
   $("filter-keyword").addEventListener("input", debounce((event) => {
     state.catalogue.filters.keyword = event.target.value;

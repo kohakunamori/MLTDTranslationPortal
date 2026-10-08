@@ -580,3 +580,11 @@ select.input { cursor: pointer; }
   .page-bar .page-info { flex-basis: 100%; }
   .lightbox-compare { flex-direction: column; align-items: stretch; }
 }
+
+/* 设置页的 Token 分步指南（原生 details，不依赖 JS） */
+.pat-guide { margin-top: 0.75rem; border-top: 1px solid var(--border, #e6e6ef); padding-top: 0.75rem; }
+.pat-guide > summary { cursor: pointer; font-weight: 600; color: var(--primary, #e0507a); }
+.pat-guide > summary:hover { text-decoration: underline; }
+.pat-guide .pat-steps { margin: 0.6rem 0 0.4rem 1.2rem; display: grid; gap: 0.35rem; line-height: 1.65; }
+.pat-guide .pat-steps li { font-size: 0.92rem; }
+.pat-guide .hint { margin: 0.4rem 0 0; }

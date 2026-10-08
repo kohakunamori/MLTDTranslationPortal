@@ -6,7 +6,7 @@ GitHub Actions 每天从翻译仓库生成，直接进 Pages 产物。
 
 线上：**https://kohakunamori.github.io/MLTDTranslationPortal/**
 
-- **读**：15 个分类、12,249 个资源、405,518 行译文；日中对照阅读、术语/偶像名高亮、
+- **读**：15 个分类、12,249 个资源、405,518 行译文；按分类 / **来源（Assets·Client）** / 偶像 / **翻译状态（已翻译·未翻译·待确认）** / 关键字筛选；日中对照阅读、术语/偶像名高亮、
   歌词按槽位排序、资源内搜索与筛选、图片本地化画廊、巨型资源分页（每页 2,000 行）。
 - **写**（可选，单人）：在阅读页直接改一行译文，用**你自己存在本机**的 GitHub Token
   提交到翻译仓库。没有服务端，没有别人的身份体系。
@@ -49,7 +49,7 @@ kohakunamori/MLTDTranslationAssets (main)     kohakunamori/MLTDTranslationClient
 | `scripts/build_data.mjs` | 数据生成器（确定性、fail-fast、对账、`--check` 漂移比对） |
 | `scripts/serve.mjs` | 本地静态预览服务（Pages 上就是这套文件） |
 | `test/` | 4 个离线契约测试，无网络、无凭据 |
-| `docs/` | 数据契约 + 旧 Worker 读接口 / 旧前端界面的考古记录 |
+| `docs/` | 数据契约、[Token 创建指南](docs/GITHUB-TOKEN.md) + 旧 Worker 读接口 / 旧前端界面的考古记录 |
 | `legacy-tools/` | 已退役的 D1 时代 Python 工具的冻结副本（不参与构建与测试） |
 
 ## 本地使用
@@ -95,7 +95,9 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 
 ## 单人写入怎么用
 
-1. 打开站点 → 设置 → 点 **① 一键新建 Token**（细粒度）或 **经典 Token（勾好权限）**：
+1. 打开站点 → 设置 → 点 **① 一键新建 Token**（细粒度）或 **经典 Token（勾好权限）**。
+   站点里有一份可展开的分步说明（含每个字段怎么填），完整版见
+   [`docs/GITHUB-TOKEN.md`](docs/GITHUB-TOKEN.md)（两条路线的取舍、排错对照表、泄露后怎么撤销）：
    - 细粒度：Repository access 选 Only select repositories → `kohakunamori/MLTDTranslationAssets`；
      Permissions → **Contents: Read and write**；
    - 经典：链接已经预勾好 `public_repo`（两个翻译仓都是公开仓库，够用），点 Generate 即可。
@@ -125,7 +127,7 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 | 套件 | 覆盖 |
 | --- | --- |
 | `test/test_generator.mjs` | 39 项：计数/进度自洽、版本轴（落后一档保留、更新一档跳过）、同名去重取新版、清单对账、分页与跨页行号、`edit_path` 例外行、图片字段、真实清单形状、确定性与 `generated_at` 例外、`--check`/`--strict` 退出码、坏 JSON/哈希不符/参数错误等失败模式 |
-| `test/test_frontend_contract.mjs` | 20 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
+| `test/test_frontend_contract.mjs` | 22 项：页面无 `/api/` 依赖、DOM id 与路由闭合、索引↔分页文件计数一致、行级字段齐全、图片地址是站点内相对路径且不含 404 的上游模板、真实产物能被静态服务器按页面用的 URL 取到、路径穿越被拒、单行修改字节精确 |
 | `test/test_github_write.mjs` | 36 项：单行 JSON 扫描器（两种身份字段）、`not_found`/`ambiguous`/`source_changed`/`conflict` 等失败模式、token 不落 URL/日志、仓库权限判定（scope 只写公开仓库，`permissions.push` 才是权威） |
 | `test/test_ai_draft.mjs` | 格式校验与 AI 调用（stub fetch，无网络） |
 

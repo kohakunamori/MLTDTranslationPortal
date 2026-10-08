@@ -90,16 +90,24 @@
         <select class="input" id="filter-category"></select>
       </label>
       <label class="field">
+        <span>来源</span>
+        <select class="input" id="filter-channel">
+          <option value="">全部来源</option>
+          <option value="assets">Assets 仓（译文）</option>
+          <option value="client">Client 仓（客户端清单）</option>
+        </select>
+      </label>
+      <label class="field">
         <span>偶像</span>
         <select class="input" id="filter-idol"><option value="">全部</option></select>
       </label>
       <label class="field">
-        <span>状态</span>
+        <span>翻译状态</span>
         <select class="input" id="filter-status">
           <option value="">全部</option>
-          <option value="untranslated">含未翻译</option>
-          <option value="pending">含待确认</option>
-          <option value="complete">已全部翻译</option>
+          <option value="untranslated">未翻译（有未译行）</option>
+          <option value="pending">待确认</option>
+          <option value="complete">已翻译（全部译完）</option>
         </select>
       </label>
       <label class="field grow">
@@ -249,6 +257,34 @@
         <button class="btn btn-danger" id="pat-clear" type="button">清除</button>
       </form>
       <p class="settings-status" id="pat-status"></p>
+      <details class="pat-guide" id="pat-guide">
+        <summary>不会建 Token？点开看 4 步（含权限怎么勾）</summary>
+        <ol class="pat-steps">
+          <li>点上面的「① 一键新建 Token」，打开 GitHub 的细粒度 Token 页面。</li>
+          <li>
+            <b>Token name</b> 随便填；<b>Expiration</b> 选 90 days；
+            <b>Repository access</b> 选 <b>Only select repositories</b> → 勾选目标翻译仓库（下面会写具体仓库名）。
+          </li>
+          <li>
+            <b>Permissions → Repository permissions</b> → 找到 <b>Contents</b> → 改成
+            <b>Read and write</b>（Metadata 会自动跟着变 Read-only，正常）。
+          </li>
+          <li>
+            点 <b>Generate token</b>，复制出现的 <code>github_pat_…</code>（<b>只显示这一次</b>），
+            回到上面的输入框粘贴 → 保存 → 验证。
+          </li>
+        </ol>
+        <p class="hint">
+          嫌麻烦可以走另一条：<b>经典 Token</b> 链接已经预勾好 <code>public_repo</code>，
+          点 Generate 复制即可；代价是它对你名下<b>所有公开仓库</b>都有读写权限，而细粒度 Token 只给一个仓库。
+        </p>
+        <p class="hint">
+          Token 只存在这台浏览器的 <code>localStorage</code>，只发给 <code>api.github.com</code>；
+          不要贴进聊天或别的网站。怀疑泄露就去
+          <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">tokens 列表</a> Revoke 掉重开一个。
+          完整排错对照表见仓库里的 <code>docs/GITHUB-TOKEN.md</code>。
+        </p>
+      </details>
     </div>
 
     <div class="card settings-card">

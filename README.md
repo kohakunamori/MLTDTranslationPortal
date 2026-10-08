@@ -87,7 +87,14 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
 2. 跑一次 **Actions → 生成数据并部署 Pages → Run workflow**（或直接 push 到 `main`）。
 3. 之后每天 03:17 UTC 会检查一次上游：**上游 HEAD 与本仓 commit 都没变就直接跳过**，不重新拉、不重新传。
 
-**省配额**：`push` 只有动了站点输入（`public/**`、`scripts/**`、`package.json`、工作流本身）才重建，改 docs/tests 不触发；定时与手动触发先比对线上已发布 `portal.json` 里记的 `sources.*.head` 与本仓 commit，一致就整段跳过；手动触发可勾 **force** 强制重建。判断逻辑在 [`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)（可 `node scripts/ci_decide.mjs --self-test` 本地验）。每次真重建约 507 MB（174 MB 数据 + 333 MB 图片），跳过时是 0。
+**按需构建**：`push` 只有动了站点输入（`public/**`、`scripts/**`、`package.json`、工作流本身）才重建，改 docs/tests 不触发；定时与手动触发先比对线上已发布 `portal.json` 里记的 `sources.*.head` 与本仓 commit，一致就整段跳过；手动触发可勾 **force** 强制重建。判断逻辑在 [`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)（可 `node scripts/ci_decide.mjs --self-test` 本地验）。
+
+**省下来的是什么**（别误会成"省 runner 分钟"）：公开仓库用 GitHub 托管 runner 的分钟数**不计费**，所以这里省的是另外三样 ——
+1. **上游克隆流量**：真重建每次要从两个翻译仓拉 200~330 MB（跳过时 0）；
+2. **Pages 产物流量**：每次真重建上传并发布约 536 MB（174 MB 数据 + 333 MB 图片；跳过时 0）；
+3. **墙上时间**：实测一次完整跑 95 秒，跳过那次 14 秒。
+
+真正需要盯的 Pages 预算不是次数而是体积：发布站点有 **1 GB 软上限**，现在 536 MB（其中 333 MB 是图片）。
 `public/media` → 校验每个图片地址都真的有文件、产物非空 → 打包 `public/` 发布。
 两个数据仓都是公开仓库，所以**不需要任何 secret**，工作流也不需要 `contents: write`。
 

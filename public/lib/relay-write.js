@@ -12,12 +12,28 @@ import { WriteError, commitLineEdit } from "./github-write.js";
 /// 中继地址：和站点同源，所以不需要任何配置，也不会跨站。
 export const RELAY_ENDPOINT = "/api/edit";
 
-/// 站点可能同时存在于两个地方（自托管 + 旧的 GitHub Pages）。探测一次就记住结果，
-/// 免得旧站点上每次保存都白发一个请求。
+/// 站点可能同时存在于两个地方（自托管 + 旧的 GitHub Pages）。探到"这里没有中继"要记住，
+/// 否则旧站点上每次保存都白发一个请求；但不能记一辈子 —— 页面开着不动、服务器后上线，
+/// 一个永久的否定结论会把整个会话锁死在直连上（**实际踩过**：标签页比中继先打开，之后
+/// 所有保存都绕过服务器，而大文件因此改不动）。所以否定结论会过期，过一会儿再探一次。
 let relayState = null; // null = 还没探过；true = 有；false = 没有
+let relayStateAt = 0;
+const RELAY_NEGATIVE_TTL_MS = 5 * 60 * 1000;
 
 export function resetRelayState() {
   relayState = null;
+  relayStateAt = 0;
+}
+
+function rememberRelay(state) {
+  relayState = state;
+  relayStateAt = Date.now();
+}
+
+/// 该不该再试中继：肯定结论一直有效；否定结论过期后重新当"没探过"。
+function relayUsable() {
+  if (relayState !== false) return true;
+  return Date.now() - relayStateAt > RELAY_NEGATIVE_TTL_MS;
 }
 
 function relayWriteError(payload, status) {
@@ -76,7 +92,7 @@ export async function commitEdit(options) {
     message: opts.message,
   };
 
-  if (relayState !== false) {
+  if (relayUsable()) {
     let response = null;
     try {
       response = await request(endpoint, {
@@ -86,13 +102,13 @@ export async function commitEdit(options) {
       });
     } catch (error) {
       // 网络不通：当作这个地址上没有中继，走直连。
-      relayState = false;
+      rememberRelay(false);
       response = null;
     }
 
     if (response) {
       if (response.ok) {
-        relayState = true;
+        rememberRelay(true);
         const payload = await response.json();
         return {
           commit: payload?.commit ?? null,
@@ -104,9 +120,9 @@ export async function commitEdit(options) {
         };
       }
       if (await looksLikeNoRelay(response)) {
-        relayState = false;
+        rememberRelay(false);
       } else {
-        relayState = true;
+        rememberRelay(true);
         let payload = null;
         try {
           payload = await response.json();

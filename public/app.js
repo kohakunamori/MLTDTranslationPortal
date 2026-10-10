@@ -889,7 +889,7 @@ function confirmSave(bundle, line) {
       hideModal("confirm");
       toast(result.changed === false
         ? "内容没有变化，未提交"
-        : `已提交 ${String(result.commit?.sha || "").slice(0, 8)}：页面先显示新值，CI 重新生成后全站生效`, result.changed === false ? "" : "ok");
+        : `已提交 ${String(result.commit?.sha || "").slice(0, 8)}：页面先显示新值，等下一次重新生成数据后全站生效`, result.changed === false ? "" : "ok");
       line.translation = value;
       line.status = state.editing.status;
       state.editing = null;

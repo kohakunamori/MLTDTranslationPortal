@@ -913,6 +913,9 @@ function writeErrorText(error) {
     case "conflict": return "文件刚被改过（409），请刷新数据后重试";
     case "unauthorized": return "Token 无效";
     case "forbidden": return "Token 权限不足（需要 Contents: Read and write）";
+    // GitHub 的文件接口对超过 1MB 的文件不给内容。自托管那边由服务器代劳，不会走到这里；
+    // 走到这里说明没连上中继，而这一行住在一个大文件里。
+    case "unsupported_encoding": return "这个文件太大，浏览器直连改不了（没连上服务器中继）——稍后重试，或换一个较小的文件";
     default: return error.message;
   }
 }

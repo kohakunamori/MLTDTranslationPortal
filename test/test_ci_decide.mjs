@@ -1,5 +1,7 @@
-// CI 的"要不要重新生成"判断契约：省配额的逻辑一旦退化（比如把 docs 加回触发路径、
-// 或者 build/deploy 不再受 check 门控），这里必须红。
+// CI 的"要不要重新生成"判断契约。自托管（2026-10-10）之后这条流水线只剩手动触发，
+// 但跳过判断本身还在用，所以这里同时守着两件事：
+//   1. 自动触发不许被加回来（加回来就会重新开始拉上游、传产物）；
+//   2. 判断逻辑一旦退化（比如读不到标记却当成"没变"）必须红。
 //
 // 对应实现：scripts/ci_decide.mjs + .github/workflows/portal.yml
 
@@ -113,12 +115,14 @@ ok("workflow：build 与 deploy 都受 check 门控", () => {
   assert.match(workflow, /^ {2}verify:\n/m, "verify 始终跑，不能也被门控");
 });
 
-ok("workflow：docs 不进 push 触发路径，但 test/** 进（测试要跑，重建不必）", () => {
-  const paths = workflow.slice(workflow.indexOf("    paths:"), workflow.indexOf("  schedule:"));
-  assert.equal(/docs\//.test(paths), false, "改文档不该触发流水线");
-  for (const pattern of ['"public/**"', '"scripts/**"', '"test/**"', '"package.json"']) {
-    assert.ok(paths.includes(pattern), `触发路径缺少 ${pattern}`);
-  }
+ok("workflow：自动触发已停用，只剩手动（自托管后不再自动构建与发布）", () => {
+  // 2026-10-10 起站点自托管，这条流水线只在手动触发时跑。自动触发一旦被加回来，
+  // 就会重新开始拉几百 MB 上游、上传几百 MB 产物 —— 这里必须红。
+  const onBlock = workflow.slice(workflow.indexOf("\non:"), workflow.indexOf("\npermissions:"));
+  assert.equal(/^\s{2}push:/m.test(onBlock), false, "不该再有 push 触发");
+  assert.equal(/^\s{2}schedule:/m.test(onBlock), false, "不该再有定时触发");
+  assert.match(onBlock, /^\s{2}workflow_dispatch:/m, "手动触发要保留");
+  assert.match(onBlock, /force:/, "手动触发要保留 force");
 });
 
 ok("workflow：手动触发有 force，且旧任务会被顶掉、每个任务有超时", () => {

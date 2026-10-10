@@ -1,35 +1,22 @@
-name: 生成数据并部署 Pages
+name: 生成数据并部署 Pages（已停用自动触发）
 
-# 纯静态查阅站的完整流水线（没有服务器、没有数据库、没有 OAuth）：
-#   0. check  —— 先判断"这次到底要不要重新生成"：上游 HEAD 没动、站点代码没动 → 后面全部跳过
-#   1. verify —— 4 个离线契约测试（生成器 / 静态站点 / 单行写入 / AI 草稿）+ CI 判断逻辑自测
-#   2. build  —— 浅克隆翻译仓库 → 生成 public/data/** → 复制图片到 public/media/**
-#                → 校验每个图片地址都真的有文件 → 打包 Pages 产物（约 507 MB）
-#   3. deploy —— 发布到 GitHub Pages（产物里就是全部内容，仓库里不存数据）
+# 2026-10-10 起本站自托管在 vps_racknerd 上（https://mltd-portal.nyaneko.cn/）：数据生成、
+# 对外服务、单行写入都在那台机器上完成，运维记录见 Control 仓的
+# `deploy/vps-racknerd-mltd-portal/` 与 `docs/server/vps_racknerd/mltd-portal.md`。
 #
-# 省配额的三条规矩：
-#   * push：只有动了站点输入（public/ scripts/ package.json 工作流本身）才重建；
-#           只改 docs/tests 时 build/deploy 直接跳过（测试照跑）。
-#   * schedule（每天 03:17 UTC）：拿线上已发布的 portal.json 当缓存标记，
-#           两个上游仓的 HEAD 与本仓 commit 都没变 → 跳过，一个字节都不重新拉/传。
-#   * workflow_dispatch：手动触发，勾 force 可强制重建。
+# 因此这里的 **自动触发已删除**：`push` 路径过滤与每天 03:17 UTC 的定时都不再存在，
+# 只剩手动 `workflow_dispatch`。需要时（例如自托管那边长期不可用，或想留一份只读快照）
+# 仍然可以手动跑一次：先判断"这次要不要重新生成"，再生成、校验、发布到 Pages。
+#
+# 流水线本身没变：
+#   0. check  —— 判断"这次到底要不要重新生成"：上游 HEAD 没动、站点代码没动 → 后面全部跳过
+#   1. verify —— 6 个离线契约测试（生成器 / 静态站点 / 单行写入 / AI 草稿 / CI 判断 / 中继）
+#   2. build  —— 浅克隆翻译仓库 → 生成 public/data/** → 复制图片到 public/media/**
+#                → 校验每个图片地址都真的有文件 → 打包 Pages 产物
+#   3. deploy —— 发布到 GitHub Pages
 # 判断逻辑在 scripts/ci_decide.mjs（可本地跑 --self-test），不靠猜、读不到标记就老实重建。
 
 on:
-  push:
-    # 接受 main 与 master：本地仓库当前在 master 上，别让首发部署因为分支名静默不触发
-    branches: [main, master]
-    # 故意**不含** docs/**：改文档不该触发 507 MB 的重新生成与部署
-    paths:
-      - "public/**"
-      - "scripts/**"
-      - "test/**"
-      - "test_helpers/**"
-      - "package.json"
-      - ".github/workflows/portal.yml"
-  schedule:
-    # 每天 03:17 UTC 看一眼上游；没变化就什么都不做
-    - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
       force:

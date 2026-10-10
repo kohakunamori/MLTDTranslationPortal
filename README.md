@@ -111,24 +111,25 @@ SNI 汇聚入口，没有新增公网监听端口。
 
 中继容器不保存任何密钥，可以随时删除重建：它挂了只会让"改译文"暂时不可用，页面照常打开。
 
-### 旧的部署方式（GitHub Pages，迁移验证期间仍可用）
+### 旧的 GitHub Pages 部署（自动触发已停用）
 
-1. 仓库 **Settings → Pages → Source** 选 **GitHub Actions**。
-2. 跑一次 **Actions → 生成数据并部署 Pages → Run workflow**（或直接 push 到 `main`）。
-3. 之后每天 03:17 UTC 会检查一次上游：**上游 HEAD 与本仓 commit 都没变就直接跳过**，不重新拉、不重新传。
+2026-10-10 起这条流水线不再自动跑：`push` 触发与每天 03:17 UTC 的定时都已删除，只剩手动
+**Actions → Run workflow**（可勾 **force**）。需要时它仍然能重新生成一份数据并发布到 Pages，
+"要不要重新生成"的判断逻辑没动（[`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)，可
+`node scripts/ci_decide.mjs --self-test` 本地验）；测试会盯着"自动触发不许被加回来"。
 
-**按需构建**：`push` 只有动了站点输入（`public/**`、`scripts/**`、`package.json`、工作流本身）才重建，改 docs/tests 不触发；定时与手动触发先比对线上已发布 `portal.json` 里记的 `sources.*.head` 与本仓 commit，一致就整段跳过；手动触发可勾 **force** 强制重建。判断逻辑在 [`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)（可 `node scripts/ci_decide.mjs --self-test` 本地验）。
+自动触发还在时的三条省配额规矩，留作参考：`push` 只有动了站点输入（`public/**`、`scripts/**`、
+`test/**`、`package.json`、工作流本身）才重建，改 docs 不触发；定时与手动触发先比对线上已发布
+`portal.json` 里记的 `sources.*.head` 与本仓 commit，一致就整段跳过。
 
-**省下来的是什么**（别误会成"省 runner 分钟"）：公开仓库用 GitHub 托管 runner 的分钟数**不计费**，所以这里省的是另外三样 ——
+**省下来的是什么**（别误会成"省 runner 分钟"）：公开仓库用 GitHub 托管 runner 的分钟数**不计费**，
+所以省的是另外三样 ——
 1. **上游克隆流量**：真重建每次要从两个翻译仓拉 200~330 MB（跳过时 0）；
 2. **Pages 产物流量**：每次真重建上传并发布约 536 MB（174 MB 数据 + 333 MB 图片；跳过时 0）；
 3. **墙上时间**：实测一次完整跑 95 秒，跳过那次 14 秒。
 
-真正需要盯的 Pages 预算不是次数而是体积：发布站点有 **1 GB 软上限**，现在 536 MB（其中 333 MB 是图片）。
-`public/media` → 校验每个图片地址都真的有文件、产物非空 → 打包 `public/` 发布。
-两个数据仓都是公开仓库，所以**不需要任何 secret**，工作流也不需要 `contents: write`。
-
-产物约 500 MB（JSON 约 170 MB + 图片 333 MB），在 Pages 的 1 GB 限制内。
+Pages 站点本身还挂着最后一次发布的内容（数据停在那一刻）。要彻底下线，在
+**Settings → Pages → Source** 选 **None**；自托管那边不依赖它。
 
 ## 单人写入怎么用
 

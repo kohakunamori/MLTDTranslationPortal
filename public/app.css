@@ -185,7 +185,13 @@ select.input { cursor: pointer; }
 .hero-side { display: flex; flex-direction: column; gap: 0.5rem; min-width: 11rem; }
 
 .progress-row { display: flex; align-items: center; gap: 0.6rem; }
-.progress-track { flex: 1; height: 10px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
+/* 进度条默认是一条固定的 10 像素线，不参与父容器的空间分配。
+   卡片大多是纵向排列（歌曲卡片、分类卡片、右侧统计栏），一旦交给 flex 去分剩余空间，
+   文字一占满它就被压成 0 像素——看起来像这张卡片根本没有进度条。
+   2026-10-10：当时 491 张歌曲卡片里有 265 张被压到 1 像素以下，15 个分类卡片全被压成 0。 */
+.progress-track { flex: none; height: 10px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
+/* 只有横向那一行（顶部总进度）需要它撑满剩余宽度。 */
+.progress-row .progress-track { flex: 1 1 auto; }
 .progress-fill { height: 100%; background: var(--primary-gradient); border-radius: 999px; transition: width 0.4s; }
 .progress-value { font-size: 0.82rem; font-weight: 800; color: var(--primary); min-width: 3.6rem; text-align: right; }
 

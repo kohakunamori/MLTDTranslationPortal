@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 import { WriteError } from "../public/lib/github-write.js";
 import { commitEdit, resetRelayState } from "../public/lib/relay-write.js";
-import { commitEdit as relayCommitEdit, normalizePath, patchText, scrub } from "../scripts/relay.mjs";
+import { commitEdit as relayCommitEdit, classifyGitError, normalizePath, patchText, scrub } from "../scripts/relay.mjs";
 
 const failures = [];
 let passed = 0;
@@ -290,6 +290,14 @@ await test("relay: 报错信息里的令牌被抹掉", () => {
   assert.ok(!clean.includes("ghp_abcdefghijklmnop"), "经典令牌要抹掉");
   assert.ok(!clean.includes("github_pat_11ABCDEFG"), "细粒度令牌要抹掉");
   assert.ok(!clean.includes("eC1hY2Nlc3MtdG9rZW46"), "Basic 头要抹掉");
+});
+
+await test("relay: 凭据问题说成「令牌用不了这个仓库」，别的错才算服务器故障", () => {
+  // 公开仓库不带凭据也能读，所以 git 走到"读不到用户名"就说明 GitHub 收到了它不认的
+  // Authorization 头 —— 那要告诉用户是 Token 的问题，而不是让他去查服务器。
+  assert.equal(classifyGitError("fatal: could not read Username for 'https://github.com': No such device or address"), "forbidden");
+  assert.equal(classifyGitError("remote: Invalid username or password.\nfatal: Authentication failed for 'https://github.com/a/b.git/'"), "forbidden");
+  assert.equal(classifyGitError("fatal: bad revision 'origin/main'"), "git_failed");
 });
 
 /* ------------------------------------------------------------- 中继：改行 */

@@ -121,6 +121,14 @@ function gitEnv(token) {
   return env;
 }
 
+/// git 在"凭据不对"和"真出别的错"之间不给区分度，这里替它分一下类：
+/// 前者要告诉用户是 Token 的问题（界面上对应"权限不足"），后者才是服务器侧的故障。
+export function classifyGitError(stderr) {
+  return /could not read Username|Authentication failed|terminal prompts disabled|returned error: 40[13]/i.test(String(stderr || ""))
+    ? "forbidden"
+    : "git_failed";
+}
+
 function runGit(cwd, args, token, extraEnv = null) {
   const result = spawnSync("git", args, {
     cwd,
@@ -130,7 +138,14 @@ function runGit(cwd, args, token, extraEnv = null) {
   });
   if (result.error) throw fail("git_failed", `git 无法执行：${result.error.message}`);
   if (result.status !== 0) {
-    throw fail("git_failed", `git ${args[0]} 失败：${scrub(result.stderr || result.stdout)}`);
+    const raw = String(result.stderr || result.stdout || "");
+    const code = classifyGitError(raw);
+    const text = scrub(raw);
+    // 按公开仓库的规则：不带凭据读是能成功的，所以走到"读不到用户名"就说明 GitHub
+    // 收到了一个它不认的 Authorization 头 —— 也就是 Token 对这个仓库无效。
+    throw fail(code, code === "forbidden"
+      ? `Token 用不了这个仓库（git ${args[0]}）：${text}`
+      : `git ${args[0]} 失败：${text}`);
   }
   return String(result.stdout || "").trim();
 }

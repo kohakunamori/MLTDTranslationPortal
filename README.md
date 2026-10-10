@@ -170,7 +170,7 @@ SNI 汇聚入口，没有新增公网监听端口。
 | `test/test_github_write.mjs` | 36 项：单行 JSON 扫描器（两种身份字段）、`not_found`/`ambiguous`/`source_changed`/`conflict` 等失败模式、token 不落 URL/日志、仓库权限判定（scope 只写公开仓库，`permissions.push` 才是权威） |
 | `test/test_ai_draft.mjs` | 格式校验与 AI 调用（stub fetch，无网络） |
 | `test/test_ci_decide.mjs` | 14 项：跳过/重建判断（push 路径、HEAD 比对、缺标记保守重建、force）、工作流门控与触发路径 |
-| `test/test_relay.mjs` | 17 项：写入中继（路径白名单、令牌不外泄、原文对不上就拒绝、真跑一遍 git 流程：改一行→提交→推送、落后于远端时先同步再改、内容没变不空提交、越界不碰仓库）与网页端传输层（走中继 / 无中继退回直连 / 不反复试探） |
+| `test/test_relay.mjs` | 18 项：写入中继（路径白名单、令牌不外泄、原文对不上就拒绝、真跑一遍 git 流程：改一行→提交→推送、落后于远端时先同步再改、内容没变不空提交、越界不碰仓库）与网页端传输层（走中继 / 无中继退回直连 / 不反复试探） |
 
 CI 在打包前另跑两道真实数据校验：每个 `localized_url` 都要有对应文件；产物非空才允许部署。
 

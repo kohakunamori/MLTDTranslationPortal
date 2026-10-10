@@ -1,45 +1,51 @@
 # 现成步骤：把 MLTDLocalServer 抓到的曲名同步到门户仓库（方案 A）
 #
-# 加到 MLTDLocalServer 的 workflow（.github/workflows/fullsave-ci.yml）里，
-# 放在"抓包数据已发布/已提交"之后即可。它做三件事：
-#   1. clone 公开的门户仓库（用 PORTAL_SYNC_TOKEN 推权限）；
-#   2. 在门户检出里跑门户自带的导出脚本（读本仓的内容覆盖层）；
-#   3. 数据真的变了才提交、推送；没变什么都不做。
+# 放哪儿：.github/workflows/fullsave-ci.yml 的 **patch 作业**里，紧跟在
+#         "Commit the overlay and the evidence"（id: commit）这一步**之后**，
+#         也就是 `echo "publish=false" >> "$GITHUB_OUTPUT"` 与 `fi` 结束后、下一个注释块之前。
+#         缩进要和旁边的步骤一致（本文件里把 `- name:` 前面的空格补成 6 个即可）。
+# 为什么放这儿：那一步刚好把最新的覆盖层库与 ci/fullsave/latest/RELEASE.json 提交进仓库，
+#         库就在当前检出里，门户的导出脚本顺着就能找到发版记录。
 #
-# 一次性准备：
-#   1. 建一个 fine-grained token：只勾 kohakunamori/MLTDTranslationPortal 这一个仓库，
-#      权限只给 Contents: Read and write，其余全部留空，有效期按你的习惯（建议 1 年，到期换新）。
-#   2. 在 MLTDLocalServer 仓库 Settings → Secrets and variables → Actions 新建 secret：
-#      名字 PORTAL_SYNC_TOKEN，值是上面那个 token。
-#   3. 确认 workflow 有 actions/checkout 与 node 环境（本步骤自带 setup-node）。
+# 一次性准备（在 GitHub 网页上做，约两分钟）：
+#   1. 建令牌：https://github.com/settings/personal-access-tokens/new
+#      - Repository access 选 "Only select repositories"，只勾 kohakunamori/MLTDTranslationPortal；
+#      - Permissions -> Repository permissions -> Contents 选 "Read and write"，其余全部留空；
+#      - 生成后复制那串 github_pat_... （只显示一次）。
+#   2. 存密钥：https://github.com/kohakunamori/MLTDLocalServer/settings/secrets/actions/new
+#      - Name 填 PORTAL_SYNC_TOKEN（必须一字不差），Secret 粘贴上面的令牌。
 #
-# 没有配置 secret 时本步骤只打一条 warning 就跳过，不会让 CI 变红。
+# 没配密钥时本步骤只打一条 warning 就跳过，不会让 CI 变红。
 
-- name: Sync song names to the public portal repo
-  if: ${{ github.event_name != 'pull_request' }}
-  env:
-    PORTAL_SYNC_TOKEN: ${{ secrets.PORTAL_SYNC_TOKEN }}
-  run: |
-    if [ -z "$PORTAL_SYNC_TOKEN" ]; then
-      echo "::warning::PORTAL_SYNC_TOKEN 未配置，跳过曲名同步（门户会继续用上一次的对照）"
-      exit 0
-    fi
-    git clone --depth 1 --branch master \
-      "https://x-access-token:${PORTAL_SYNC_TOKEN}@github.com/kohakunamori/MLTDTranslationPortal.git" \
-      portal-sync
-    cd portal-sync
-    # 覆盖层库在这个检出里通常位于 fullsave/canonical/local-fullsave-content.sqlite，
-    # 如果路径不同，改下面这一行即可。
-    OVERLAY="${GITHUB_WORKSPACE}/fullsave/canonical/local-fullsave-content.sqlite"
-    if [ ! -f "$OVERLAY" ]; then
-      echo "::warning::没找到覆盖层库 $OVERLAY，跳过曲名同步"
-      exit 0
-    fi
-    MLTD_LOCAL_SERVER="${GITHUB_WORKSPACE}" bash ops/publish-song-names.sh "$OVERLAY"
+      - name: Sync song names to the public portal repo
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          PORTAL_SYNC_TOKEN: ${{ secrets.PORTAL_SYNC_TOKEN }}
+          GITHUB_WORKSPACE_PATH: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PORTAL_SYNC_TOKEN}" ]; then
+            echo "::warning::PORTAL_SYNC_TOKEN 未配置，跳过曲名同步（门户会继续用上一次的对照）"
+            exit 0
+          fi
+          # 克隆到运行器临时目录，不要放进工作区：工作区后面会被打包成发布产物。
+          PORTAL_DIR="${RUNNER_TEMP}/portal-sync"
+          rm -rf "$PORTAL_DIR"
+          git clone --depth 1 --branch master \
+            "https://x-access-token:${PORTAL_SYNC_TOKEN}@github.com/kohakunamori/MLTDTranslationPortal.git" \
+            "$PORTAL_DIR"
+          OVERLAY="${GITHUB_WORKSPACE_PATH}/fullsave/canonical/local-fullsave-content.sqlite"
+          if [ ! -f "$OVERLAY" ]; then
+            echo "::warning::没找到覆盖层库 ${OVERLAY}，跳过曲名同步"
+            exit 0
+          fi
+          cd "$PORTAL_DIR"
+          # MLTD_LOCAL_SERVER 让门户脚本把来源记成仓库内的相对路径，导出内容与本地一致。
+          MLTD_LOCAL_SERVER="${GITHUB_WORKSPACE_PATH}" bash ops/publish-song-names.sh "$OVERLAY"
 
 # 说明：
-#   - 门户服务器每天 04:40（服务器本地时间）例行更新，会先 git pull 门户仓库；
-#     所以这里推上去之后，最迟第二天就体现在站点上，不需要门户那边任何凭据。
+#   - 门户服务器每天 04:40（服务器本地时间）例行更新，会先拉取门户仓库；
+#     所以这里推上去之后，最迟第二天就体现在站点上，门户那边不需要任何凭据。
 #   - 门户仓库的自动构建已停用，这次推送不会触发门户的 Actions（不占额度）。
-#   - 脚本自带安全阀：对照里出现"指向不存在曲目"的条目、或条数比上次少了 20% 以上，
-#     都会中止且不提交。
+#   - 脚本自带安全阀：对照里出现"指向不存在曲目"的条目、或条数比上次少 20% 以上，
+#     都会中止且不提交；推送失败时会自动撤销本次提交，不在检出里留半截状态。

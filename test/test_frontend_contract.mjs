@@ -1,5 +1,6 @@
 // 静态站点契约测试：不需要浏览器，验证三件事
-//   1. 页面只依赖 public/** 里的静态文件（没有任何 /api/ 或 Worker 时代的残留）；
+//   1. 读取只依赖 public/** 里的静态文件（没有任何服务端接口或 Worker 时代的残留）；
+//      写入多了一条可选的同源中继，只放行 lib/relay-write.js，且它必须能退回直连；
 //   2. index.html 与 app.js 的 id / 路由 / 关闭目标互相对得上；
 //   3. 生成的数据自洽（索引指向的文件存在、计数一致、hash 自洽、编辑绑定可用），
 //      并且真的能被静态服务器按页面用的 URL 取到。
@@ -50,16 +51,29 @@ const appJs = readPublic("public/app.js");
 
 // ------------------------------------------------------------------ 1. 静态化
 
-ok("页面里没有任何 /api/ 依赖", () => {
+ok("读取路径不依赖任何服务端接口", () => {
+  // 站点必须能纯静态跑起来：读取一律走 public/data/**。
+  // 写入从 2026-10 起多了一条**可选**的同源中继（只有自托管那边有），旧站点上不存在时
+  // 必须自动退回浏览器直连 GitHub，所以只放行 relay-write.js 一个文件，别处照旧禁止。
+  const allowed = join("public", "lib", "relay-write.js");
   const offenders = [];
   for (const file of publicFiles) {
     if (!/\.(js|html|css)$/i.test(file)) continue;
+    if (file === allowed) continue;
     const text = readPublic(file);
     for (const pattern of [/["'`]\/api\//, /\bfetch\(["'`]\/api/]) {
       if (pattern.test(text)) offenders.push(`${file} 命中 ${pattern}`);
     }
   }
   assert.deepEqual(offenders, []);
+});
+
+ok("中继只是可选传输，缺席时退回浏览器直连", () => {
+  const relay = readPublic(join("public", "lib", "relay-write.js"));
+  assert.ok(relay.includes("commitLineEdit"), "relay-write.js 必须保留直连实现作为退路");
+  assert.ok(relay.includes("no_route"), "缺席判定要看路由级 404，不能把业务错误当成没有中继");
+  assert.ok(!appJs.includes("/api/"), "app.js 不该自己拼接口地址，传输细节留在 lib 里");
+  assert.ok(!indexHtml.includes("/api/"), "index.html 不该引用接口");
 });
 
 ok("没有 Worker / D1 / 协作时代的残留标识", () => {

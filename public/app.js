@@ -28,7 +28,8 @@ import {
 } from "./lib/data.js";
 import { CATEGORY_RULES, CATEGORY_ORDER, IMAGE_CATEGORY_RULES, IMAGE_CATEGORY_ORDER } from "./lib/taxonomy.js";
 import { IDOLS, TERMS } from "./lib/terms.js";
-import { WriteError, commitLineEdit, getToken, setToken, verifyToken } from "./lib/github-write.js";
+import { WriteError, getToken, setToken, verifyToken } from "./lib/github-write.js";
+import { commitEdit } from "./lib/relay-write.js";
 import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, testAiConnection } from "./lib/ai-draft.js";
 
 const PAGE_SIZE_CATALOGUE = 24;
@@ -877,7 +878,7 @@ function confirmSave(bundle, line) {
   $("confirm-ok").onclick = async () => {
     $("confirm-ok").disabled = true;
     try {
-      const result = await commitLineEdit({
+      const result = await commitEdit({
         token: getToken(),
         edit,
         line,

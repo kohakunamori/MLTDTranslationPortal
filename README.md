@@ -102,6 +102,9 @@ cp -R vendor/MLTDTranslationAssets/images/localized public/media/localized
    `bash /srv/mltd-portal/ops/install-systemd.sh`，之后每天 04:40 自动检查上游。
 3. `bash /srv/mltd-portal/ops/relay-up.sh` 起写入中继，并把 nginx 的 `/api/` 接上。
 4. `bash /srv/mltd-portal/ops/guards.sh` 自测防护项与站点回归。
+5. **每次更新站点代码（`git pull`）之后跑一次 `bash /srv/mltd-portal/ops/publish-version.sh`。**
+   页面入口用"带版本号的地址"加载，靠它写的 `/version.json` 决定版本号；不跑这一步，地址不变，
+   Cloudflare 与浏览器里那份旧脚本会继续发出去（页面不会白屏，只是更新不生效）。
 
 域名 `mltd-portal.nyaneko.cn` 走 Cloudflare，HTTPS 复用 `*.nyaneko.cn` 通配证书与现有 443
 SNI 汇聚入口，没有新增公网监听端口。

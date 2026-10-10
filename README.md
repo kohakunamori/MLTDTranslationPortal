@@ -114,12 +114,13 @@ SNI 汇聚入口，没有新增公网监听端口。
 
 中继容器不保存任何密钥，可以随时删除重建：它挂了只会让"改译文"暂时不可用，页面照常打开。
 
-### 旧的 GitHub Pages 部署（自动触发已停用）
+### 旧的 GitHub Pages 部署（已停用并下线）
 
 2026-10-10 起这条流水线不再自动跑：`push` 触发与每天 03:17 UTC 的定时都已删除，只剩手动
-**Actions → Run workflow**（可勾 **force**）。需要时它仍然能重新生成一份数据并发布到 Pages，
-"要不要重新生成"的判断逻辑没动（[`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)，可
-`node scripts/ci_decide.mjs --self-test` 本地验）；测试会盯着"自动触发不许被加回来"。
+**Actions → Run workflow**（可勾 **force**）；同日旧镜像也已下线，返回 404。需要时它仍然能
+重新生成一份数据并发布到 Pages，"要不要重新生成"的判断逻辑没动
+（[`scripts/ci_decide.mjs`](scripts/ci_decide.mjs)，可 `node scripts/ci_decide.mjs --self-test`
+本地验）；测试会盯着"自动触发不许被加回来"。
 
 自动触发还在时的三条省配额规矩，留作参考：`push` 只有动了站点输入（`public/**`、`scripts/**`、
 `test/**`、`package.json`、工作流本身）才重建，改 docs 不触发；定时与手动触发先比对线上已发布
@@ -131,8 +132,9 @@ SNI 汇聚入口，没有新增公网监听端口。
 2. **Pages 产物流量**：每次真重建上传并发布约 536 MB（174 MB 数据 + 333 MB 图片；跳过时 0）；
 3. **墙上时间**：实测一次完整跑 95 秒，跳过那次 14 秒。
 
-Pages 站点本身还挂着最后一次发布的内容（数据停在那一刻）。要彻底下线，在
-**Settings → Pages → Source** 选 **None**；自托管那边不依赖它。
+旧镜像（`kohakunamori.github.io/MLTDTranslationPortal/`）已于 2026-10-10 下线，返回 404。
+要恢复：仓库 **Settings → Pages** 重新选 **Source = GitHub Actions**，再手动跑一次
+**Actions → Run workflow**（产物不入库，必须重新生成）。
 
 ## 单人写入怎么用
 

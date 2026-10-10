@@ -75,12 +75,13 @@ kohakunamori/MLTDTranslationAssets (main)     kohakunamori/MLTDTranslationClient
 上游每次批量发现新资源，都可能带进一批新包。处理顺序：
 
 ```bash
-npm run data:import-song-names    # 抓包更新后刷新对照（--check 只看不写）
+npm run data:import-song-names    # 从 MLTDLocalServer 抓到的内容里刷新对照（--check 只看不写）
 npm run data                      # 重新生成；日志里会提示仍缺曲名的曲目束
 ```
 
 真的新歌（抓包和曲名表里都没有）生成器不会瞎猜名字，会在日志里点名，需要手工补一条
-`SONG_MASTER_EXTRA`。脚本找不到抓包文件时会跳过并提醒，不会中断生成。
+`SONG_MASTER_EXTRA`。脚本找不到抓包数据时会跳过并提醒，不会中断生成。
+两边怎么对接、怎么对账，见 [曲名数据对接约定](docs/SONG-NAMES-SYNC.md)。
 
 ## 本地使用
 

@@ -8,7 +8,7 @@
     "data": "node scripts/build_data.mjs --assets-root vendor/MLTDTranslationAssets --client-root vendor/MLTDTranslationClient",
     "data:demo": "node scripts/build_data.mjs --assets-root test_helpers/fixtures/assets-repo --client-root test_helpers/fixtures/client-repo --generated-at 2026-01-01T00:00:00Z",
     "data:check": "node scripts/build_data.mjs --assets-root vendor/MLTDTranslationAssets --client-root vendor/MLTDTranslationClient --check",
-    "data:import-song-names": "node scripts/import_song_names.mjs",
+    "data:import-song-names": "node --experimental-sqlite --disable-warning=ExperimentalWarning scripts/import_song_names.mjs",
     "serve": "node scripts/serve.mjs",
     "relay": "node scripts/relay.mjs",
     "test": "node test/test_generator.mjs && node test/test_frontend_contract.mjs && node test/test_github_write.mjs && node test/test_ai_draft.mjs && node test/test_ci_decide.mjs && node test/test_relay.mjs"

@@ -89,10 +89,20 @@ npm run data                       # 生成数据；日志会点名仍缺曲名�
 | 文件 | 用途 |
 | --- | --- |
 | `ops/publish-song-names.sh` | 对方 CI 调用的脚本：在门户检出里读它的覆盖层库 → 导出对照 → **数据真的变了才**提交推送 |
-| `ops/mltdlocalserver-ci-step.yml` | 直接粘进对方 workflow 的步骤片段（含一次性令牌配置说明） |
+| `ops/mltdlocalserver-ci-step.yml` | 步骤片段（含一次性令牌配置说明）。**已于 2026-10-10 应用**到对方 `fullsave-ci.yml` 的 `patch` 作业，紧跟在 "Commit the overlay and the evidence" 之后 |
 
-对方那边只需三步：建一个只对门户仓库有 `Contents: Read and write` 的细粒度令牌 →
-存成对方仓库的 `PORTAL_SYNC_TOKEN` secret → 把片段里那一步加进它的 CI。
+对方那边的配置已经完成：
+
+1. 细粒度令牌（只对门户仓库 `Contents: Read and write`）→ 2. 存成对方仓库的 `PORTAL_SYNC_TOKEN`
+→ 3. 步骤已加进对方流程。**下一次对方流程运行时（每天三次）门户就会自动跟上。**
+
+验证记录（对方自检运行 `38074804217`，成功）：
+
+- 令牌实测可推送门户仓库（自检分支推送成功并自动删除）；
+- 真实数据跑完整条脚本：对齐对方第 80 次发版 / 提交 `f074cae0` / 资产版本 `1077741`，
+  检查通过、导出 57 条、与门户已入库的对照**逐字节一致**，因此正确地"无需提交"；
+- 脚本在 GitHub 环境里同样不需要额外设置（对方流程里已补上 Node 22 一步，
+  因为导出脚本读 SQLite 需要 Node 22 以上）。
 
 安全阀（任一触发都只报错、不提交）：
 

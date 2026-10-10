@@ -1,11 +1,15 @@
 # 现成步骤：把 MLTDLocalServer 抓到的曲名同步到门户仓库（方案 A）
 #
+# **状态：已应用**（2026-10-10）。对方 `fullsave-ci.yml` 的 patch 作业里已加好这一步，
+# 令牌 `PORTAL_SYNC_TOKEN` 也已配置并实测可推送。本文件保留作为记录与重放参考。
+#
 # 放哪儿：.github/workflows/fullsave-ci.yml 的 **patch 作业**里，紧跟在
 #         "Commit the overlay and the evidence"（id: commit）这一步**之后**，
 #         也就是 `echo "publish=false" >> "$GITHUB_OUTPUT"` 与 `fi` 结束后、下一个注释块之前。
 #         缩进要和旁边的步骤一致（本文件里把 `- name:` 前面的空格补成 6 个即可）。
 # 为什么放这儿：那一步刚好把最新的覆盖层库与 ci/fullsave/latest/RELEASE.json 提交进仓库，
 #         库就在当前检出里，门户的导出脚本顺着就能找到发版记录。
+# 还需要：导出脚本读 SQLite 需要 Node 22 以上，所以它前面要有一句 actions/setup-node（node-version 22）。
 #
 # 一次性准备（在 GitHub 网页上做，约两分钟）：
 #   1. 建令牌：https://github.com/settings/personal-access-tokens/new

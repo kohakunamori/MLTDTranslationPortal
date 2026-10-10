@@ -341,7 +341,7 @@ async function renderSongGrid() {
       onclick: () => navigate("read", { file: song.file }),
     }, [
       el("div", { class: "song-name", text: song.song?.name_ja || song.base }),
-      el("div", { class: "song-sub", text: [song.song?.name_zh, song.song?.type].filter(Boolean).join(" · ") || song.base }),
+      el("div", { class: "song-sub", text: [song.song?.variant_of ? "另一个版本" : "", song.song?.name_zh, song.song?.type].filter(Boolean).join(" · ") || song.base }),
       el("div", { class: "progress-track" }, el("div", { class: "progress-fill", style: `width:${percent}%` })),
       el("div", { class: "song-foot" }, [
         el("span", { text: `${song.translated}/${song.total} 句` }),

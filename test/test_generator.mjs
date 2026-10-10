@@ -17,8 +17,12 @@ import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { BuildError, buildOutputs, displayStatus, main, renderDocument, rowStatus, sourceNeedsTranslation } from "../scripts/build_data.mjs";
+import { BuildError, buildOutputs, displayStatus, main, renderDocument, rowStatus, songFor, sourceNeedsTranslation } from "../scripts/build_data.mjs";
 import { CATEGORY_ORDER } from "../public/lib/taxonomy.js";
+import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
+
+/// 抓包导出的「扩展版本 → 主曲目」对照（scripts/import_song_names.mjs 的产物）。
+const IMPORTED_VARIANTS = JSON.parse(readFileSync("public/lib/song-variants.json", "utf8")).variants;
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
 const FIXTURE_CLIENT = "test_helpers/fixtures/client-repo";
@@ -572,6 +576,52 @@ okAsync("--strict 把警告变成失败", async () => {
 
 okAsync("未知参数直接失败", async () => {
   assert.equal(await main(["--nope"]), 1);
+});
+
+// —— 曲名覆盖：抓包导出的「扩展版本 → 主曲目」对照 ——
+// 游戏里同一首歌会挂多个资源包，扩展版本自己不带曲名；抓包里有父子关系，
+// 生成器要能把扩展版本归到主曲目上，否则页面只能显示代号。
+
+ok("曲名对照表不指向不存在的曲目，也不自我指向", () => {
+  const variants = { ...IMPORTED_VARIANTS, ...SONG_VARIANT_OVERRIDES };
+  const keys = Object.keys(variants);
+  assert.ok(keys.length > 0, "对照表不该是空的（抓包导出或手工补充至少有一边）");
+  for (const [variant, parent] of Object.entries(variants)) {
+    assert.notEqual(variant, parent, `${variant} 指向了自己`);
+    assert.ok(SONG_MASTER[parent] || SONG_MASTER_EXTRA[parent], `${variant} 指向了表里没有的曲目 ${parent}`);
+  }
+});
+
+ok("扩展版本沿用主曲目的曲名", () => {
+  const ot = songFor("scrobj_ahhan+.unity3d");
+  assert.equal(ot.name_ja, "おとなのはじまり");
+  assert.equal(ot.variant_of, "ahhan0");
+
+  const flyers = songFor("scrobj_flye39.unity3d");
+  assert.equal(flyers.name_ja, "Flyers!!!");
+  assert.equal(flyers.variant_of, "flyers");
+
+  const union = songFor("scrobj_unio39.unity3d");
+  assert.equal(union.name_ja, "UNION!!");
+  assert.equal(union.variant_of, "union1");
+});
+
+ok("抓包还没覆盖到的曲目也能查到名字", () => {
+  // 抓包版本之后才出现的新曲（补充表里）
+  const ittana = songFor("scrobj_ittana.unity3d");
+  assert.equal(ittana.name_ja, "一旦愛して♡");
+  assert.equal(ittana.variant_of, null);
+
+  // 抓包没收录、靠歌词比对确认的扩展版本（手工对照里）
+  const newref = songFor("scrobj_newref.unity3d");
+  assert.equal(newref.name_ja, "リフレインキス");
+  assert.equal(newref.variant_of, "refkis");
+});
+
+ok("查不到曲名时返回空，不瞎猜", () => {
+  assert.equal(songFor("scrobj_zzzzzz.unity3d"), null);
+  assert.equal(songFor("scrobj_"), null);
+  assert.equal(songFor("not_a_song"), null);
 });
 
 await Promise.all(pendingCases);

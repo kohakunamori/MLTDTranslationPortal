@@ -32,7 +32,37 @@ import {
   statusCounts,
   upstreamPathForBundle,
 } from "../public/lib/taxonomy.js";
-import { SONG_MASTER } from "../public/lib/terms.js";
+import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
+
+/// 曲名表：基础表 + 抓包之后新增的补充条目。重复时以基础表为准。
+const SONGS = { ...SONG_MASTER_EXTRA, ...SONG_MASTER };
+
+/// 扩展版本资源名 -> 主曲目代号。抓包导出的那份（scripts/import_song_names.mjs 生成）
+/// 作为底表，手工核对过的几条覆盖在上面。
+const SONG_VARIANTS = (() => {
+  const file = new URL("../public/lib/song-variants.json", import.meta.url);
+  let imported = {};
+  if (existsSync(file)) {
+    try {
+      imported = JSON.parse(readFileSync(file, "utf8"))?.variants ?? {};
+    } catch (error) {
+      throw new Error(`曲名对照文件读不动：${file.pathname}（${error.message}）`);
+    }
+  }
+  return { ...imported, ...SONG_VARIANT_OVERRIDES };
+})();
+
+/// 资源名 -> 曲名记录。先按资源名精确查表；查不到再看它是不是某个扩展版本
+/// （游戏里同一首歌会挂多个包，扩展版本自己不带曲名，但抓包里有父子关系）。
+/// 返回记录里带 `variant_of` 就表示这是同一首歌的另一个版本。
+export function songFor(bundle) {
+  const code = String(bundle).replace(/^scrobj_/, "").replace(/\.unity3d$/i, "").toLowerCase();
+  const direct = SONGS[code];
+  if (direct) return { ...direct, variant_of: null };
+  const parentCode = SONG_VARIANTS[code];
+  const parent = parentCode ? SONGS[parentCode] : null;
+  return parent ? { ...parent, variant_of: parentCode } : null;
+}
 
 export const SCHEMA_VERSION = 1;
 
@@ -478,13 +508,14 @@ function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVe
   // 否则"全英文歌词"会让进度永远差一截（真实数据里就是这 1,066 行）。
   record.not_needed = counts.not_needed;
   record.idol = dominantIdol(rows);
-  const song = channel === "assets" ? SONG_MASTER[bundle.replace(/^scrobj_/, "").replace(/\.unity3d$/i, "").toLowerCase()] : null;
+  const song = channel === "assets" ? songFor(bundle) : null;
   if (song) {
     record.song = {
       name_ja: song.name_ja || record.base,
       name_zh: song.name_zh || "",
       type: song.type || "All",
       mst_song_id: song.mst_song_id || 0,
+      variant_of: song.variant_of || null,
     };
   }
   record.edit = {
@@ -871,6 +902,15 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
   const generatedAt = settings.generatedAt
     || process.env.SOURCE_DATE_EPOCH && new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")
     || new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
+  // 曲名覆盖自检：歌词分类里凡是没有解析出曲名的曲目束都报出来。上游每次批量发现
+  // 新资源都可能带进新的扩展版本，抓包没跟上时就靠这条提醒。
+  const unnamedSongs = bundles
+    .filter(({ record }) => record.category === "lyrics" && record.channel === "assets" && !record.song)
+    .map(({ record }) => record.base.replace(/\.unity3d$/i, ""));
+  if (unnamedSongs.length > 0) {
+    warnings.push(`有 ${unnamedSongs.length} 个曲目束没有曲名（曲名表与抓包对照里都查不到）：${unnamedSongs.slice(0, 8).join("、")}${unnamedSongs.length > 8 ? " 等" : ""}`);
+  }
 
   const portal = {
     schema_version: SCHEMA_VERSION,

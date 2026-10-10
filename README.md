@@ -51,7 +51,8 @@ kohakunamori/MLTDTranslationAssets (main)     kohakunamori/MLTDTranslationClient
 | --- | --- |
 | `public/index.html` `public/app.js` `public/app.css` | 查阅页面本体（ES module，无构建步骤） |
 | `public/lib/taxonomy.js` | 分类 / domain / 偶像归属 / 上游路径规则（生成器与页面**共用同一份**） |
-| `public/lib/terms.js` | `TERMS` / `IDOLS` / `SPEAKERS` / `SONG_MASTER`（游戏事实常量，432 首曲目） |
+| `public/lib/terms.js` | `TERMS` / `IDOLS` / `SPEAKERS` / `SONG_MASTER`（游戏事实常量，432 首曲目）+ `SONG_MASTER_EXTRA`（抓包之后新增曲目）+ `SONG_VARIANT_OVERRIDES`（手工确认的扩展版本） |
+| `public/lib/song-variants.json` | 抓包导出的「扩展版本资源名 → 主曲目代号」对照（由 `npm run data:import-song-names` 生成） |
 | `public/lib/data.js` | 静态数据访问层（portal / 分类索引 / bundle 分页 / 图片） |
 | `public/lib/github-write.js` | 单人单行写入（PAT → GitHub Contents API，字节级替换） |
 | `public/lib/ai-draft.js` | 可选 AI 草稿 + 译文格式校验（自带 endpoint/key，浏览器直连） |
@@ -61,6 +62,25 @@ kohakunamori/MLTDTranslationAssets (main)     kohakunamori/MLTDTranslationClient
 | `test/` | 4 个离线契约测试，无网络、无凭据 |
 | `docs/` | 数据契约、[Token 创建指南](docs/GITHUB-TOKEN.md) + 旧 Worker 读接口 / 旧前端界面的考古记录 |
 | `legacy-tools/` | 已退役的 D1 时代 Python 工具的冻结副本（不参与构建与测试） |
+
+## 歌名是怎么来的
+
+页面上的曲名来自两处，生成器按顺序查：
+
+1. `SONG_MASTER` / `SONG_MASTER_EXTRA`：资源名 → 日文名 + 中文名（游戏事实 + 本项目译名）。
+2. `song-variants.json`：游戏里同一首歌会挂多个资源包，主包带曲名，**扩展版本**（如
+   `scrobj_ahhan+.unity3d`、`scrobj_flye39.unity3d`）不带。抓包（MLTDLocalServer 的内容
+   覆盖层）里存着"谁是谁的扩展版本"，导入后这些包就沿用主曲目的曲名，页面上标注"另一个版本"。
+
+上游每次批量发现新资源，都可能带进一批新包。处理顺序：
+
+```bash
+npm run data:import-song-names    # 抓包更新后刷新对照（--check 只看不写）
+npm run data                      # 重新生成；日志里会提示仍缺曲名的曲目束
+```
+
+真的新歌（抓包和曲名表里都没有）生成器不会瞎猜名字，会在日志里点名，需要手工补一条
+`SONG_MASTER_EXTRA`。脚本找不到抓包文件时会跳过并提醒，不会中断生成。
 
 ## 本地使用
 

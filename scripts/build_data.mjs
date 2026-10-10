@@ -5,6 +5,8 @@
 //   * 只读上游，不写上游。写上游只有"单人 PAT 单行编辑"那一条路径。
 //   * 输出确定性：同输入逐字节相同。唯一允许变化的是 portal.json 的 generated_at。
 //   * 失败显式：缺字段、非法版本轴、复用被改过的行一律非零退出，不产出空数据。
+//   * 低内存：产出边生成边交给"汇"（sink），不再攒在内存里；写模式下先落暂存目录，
+//     全部成功后再原子替换目标目录，所以中途失败不会留下半份产出。
 //   * 零依赖：只用 node 内置模块 + 与浏览器共享的 lib/*.js。
 //
 // 用法：
@@ -13,8 +15,8 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, posix, relative } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -648,12 +650,11 @@ function parseArgs(argv) {
   return options;
 }
 
-export function buildOutputs(options = {}) {
+export function buildOutputs(options = {}, sink = collectingSink()) {
   const settings = validateSettings({ ...DEFAULTS, ...options });
   const warnings = [];
   // notes 是"数据本来就这样"的说明，不算异常；--strict 只把 warnings 当失败。
   const notes = [];
-  const files = new Map();
 
   if (!settings.assetsRoot && !settings.clientRoot && !settings.imageTasks) {
     throw new BuildError("至少需要 --assets-root / --client-root / --image-tasks 之一");
@@ -937,7 +938,7 @@ export function buildOutputs(options = {}) {
     image_statuses: images.statuses,
   };
 
-  files.set("portal.json", renderDocument(portal));
+  sink.put("portal.json", renderDocument(portal));
 
   /// 每一页都是一个落盘文件，但索引里一个 bundle 只出现一次：多页的 bundle 由
   /// `pages[]` 描述（阅读页据此翻页），计数是全 bundle 的合计。
@@ -970,7 +971,7 @@ export function buildOutputs(options = {}) {
 
   for (const category of CATEGORY_ORDER) {
     const rows = [...catalogueEntries.values()].filter((entry) => entry.category === category);
-    files.set(`catalogue/${category}.json`, renderDocument({
+    sink.put(`catalogue/${category}.json`, renderDocument({
       category,
       name: CATEGORY_RULES[category].name,
       domain: CATEGORY_RULES[category].domain,
@@ -984,7 +985,7 @@ export function buildOutputs(options = {}) {
     const file = record.file;
     if (emitted.has(file)) throw new BuildError(`两个 bundle 生成了同一个文件 ${file}`);
     emitted.add(file);
-    files.set(file, renderDocument({
+    sink.put(file, renderDocument({
       bundle: record.bundle,
       base: record.base,
       channel: record.channel,
@@ -1025,23 +1026,93 @@ export function buildOutputs(options = {}) {
     }));
   }
 
-  files.set("images.json", renderDocument(images));
+  sink.put("images.json", renderDocument(images));
 
-  return { files, warnings, notes, portal };
+  return { files: sink.files, fileCount: sink.count(), warnings, notes, portal };
 }
 
-// ---------------------------------------------------------------- 写盘 / 比对
+// ---------------------------------------------------------------- 产出汇 / 写盘
 
-function writeOutputs(outDir, files) {
-  for (const stale of ["bundles", "catalogue"]) {
-    const target = join(outDir, stale);
-    if (existsSync(target)) rmSync(target, { recursive: true, force: true });
+/// 生成器每完成一个文件就交给"汇"，不再把 174 MB 产出全堆在内存里——那是
+/// 峰值 815 MB 的主因，而目标机器（1 核 / 1.4 GB 且已跑满服务）扛不住。
+/// 三种汇的对外形状一样：`put(路径, 内容)` + `count()`，只有收集型带 `files`。
+function collectingSink() {
+  const files = new Map();
+  return {
+    files,
+    put: (relativePath, content) => files.set(relativePath, content),
+    count: () => files.size,
+  };
+}
+
+function writingSink(outDir) {
+  let written = 0;
+  return {
+    files: null,
+    put(relativePath, content) {
+      const full = join(outDir, relativePath);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, content, "utf8");
+      written += 1;
+    },
+    count: () => written,
+  };
+}
+
+/// `--check` 的汇：逐文件比对，只记住"磁盘上还有哪些没被认领"，不保留内容。
+function compareSink(outDir) {
+  const drift = [];
+  const onDisk = existingFiles(outDir);
+  let seen = 0;
+  return {
+    files: null,
+    put(relativePath, content) {
+      seen += 1;
+      const full = onDisk.get(relativePath);
+      if (!full) {
+        drift.push(`缺失 ${relativePath}`);
+        return;
+      }
+      const actual = readFileSync(full, "utf8");
+      if (comparable(actual, relativePath) !== comparable(content, relativePath)) drift.push(`内容不同 ${relativePath}`);
+      onDisk.delete(relativePath);
+    },
+    count: () => seen,
+    finish() {
+      for (const leftover of onDisk.keys()) drift.push(`多余 ${leftover}`);
+      return drift.sort();
+    },
+  };
+}
+
+/// 生成物先写进暂存目录，全部成功后再整体换到目标位置。同一文件系统内的 rename
+/// 是原子的，所以中途失败时原有数据一个字节都不会动（以前是"先删再写"，失败会
+/// 留下半份产出——生成搬到服务器上之后，那等于让站点直接读到坏数据）。
+function swapIntoPlace(outDir, staging) {
+  const previous = `${outDir}.previous`;
+  rmSync(previous, { recursive: true, force: true });
+  const hadPrevious = existsSync(outDir);
+  if (hadPrevious) renameSync(outDir, previous);
+  try {
+    renameSync(staging, outDir);
+  } catch (error) {
+    if (hadPrevious) renameSync(previous, outDir);
+    throw error;
   }
-  mkdirSync(outDir, { recursive: true });
-  for (const [relativePath, content] of files) {
-    const full = join(outDir, relativePath);
-    mkdirSync(dirname(full), { recursive: true });
-    writeFileSync(full, content, "utf8");
+  rmSync(previous, { recursive: true, force: true });
+}
+
+/// 上一次运行被中断时，暂存目录会留在产物旁边；每次动手前先清掉，
+/// 免得多余目录被 Pages 或自托管站点一起发布出去。
+function clearStaleStaging(outDir) {
+  const parent = dirname(outDir);
+  const base = basename(outDir);
+  if (!existsSync(parent)) return;
+  for (const entry of readdirSync(parent, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name === `${base}.staging` || entry.name === `${base}.previous`) {
+      rmSync(join(parent, entry.name), { recursive: true, force: true });
+    }
   }
 }
 
@@ -1063,22 +1134,6 @@ function existingFiles(outDir) {
 function comparable(content, relativePath) {
   if (relativePath !== "portal.json") return content;
   return content.replace(/"generated_at": "[^"]*"/, '"generated_at": "<ignored>"');
-}
-
-function diffOutputs(outDir, files) {
-  const drift = [];
-  const onDisk = existingFiles(outDir);
-  for (const [relativePath, content] of files) {
-    if (!onDisk.has(relativePath)) {
-      drift.push(`缺失 ${relativePath}`);
-      continue;
-    }
-    const actual = readFileSync(onDisk.get(relativePath), "utf8");
-    if (comparable(actual, relativePath) !== comparable(content, relativePath)) drift.push(`内容不同 ${relativePath}`);
-    onDisk.delete(relativePath);
-  }
-  for (const leftover of onDisk.keys()) drift.push(`多余 ${leftover}`);
-  return drift.sort();
 }
 
 const HELP = `门户静态数据生成器
@@ -1112,31 +1167,56 @@ export async function main(argv = process.argv.slice(2)) {
     return 0;
   }
 
+  /// 写模式下产出先落在暂存目录；比对模式不碰磁盘。
+  const staging = options.check ? null : `${options.out}.staging`;
+  let sink;
+  try {
+    if (options.check) {
+      sink = compareSink(options.out);
+    } else {
+      clearStaleStaging(options.out);
+      rmSync(staging, { recursive: true, force: true });
+      mkdirSync(staging, { recursive: true });
+      sink = writingSink(staging);
+    }
+  } catch (error) {
+    process.stderr.write(`error: ${error.message}\n`);
+    return 1;
+  }
+
   let result;
   try {
-    result = buildOutputs(options);
+    result = buildOutputs(options, sink);
   } catch (error) {
+    if (staging) rmSync(staging, { recursive: true, force: true });
     process.stderr.write(`error: ${error.message}\n`);
     return 1;
   }
 
   for (const warning of result.warnings) process.stderr.write(`warn: ${warning}\n`);
   if (options.strict && result.warnings.length > 0) {
+    if (staging) rmSync(staging, { recursive: true, force: true });
     process.stderr.write(`error: --strict 下不允许警告（${result.warnings.length} 条）\n`);
     return 1;
   }
   for (const note of result.notes || []) process.stderr.write(`note: ${note}\n`);
 
   if (options.check) {
-    const drift = diffOutputs(options.out, result.files);
+    const drift = sink.finish();
     for (const line of drift) process.stderr.write(`drift: ${line}\n`);
-    process.stdout.write(`检查 ${result.files.size} 个文件，漂移 ${drift.length} 处\n`);
+    process.stdout.write(`检查 ${result.fileCount} 个文件，漂移 ${drift.length} 处\n`);
     return drift.length === 0 ? 0 : 2;
   }
 
-  writeOutputs(options.out, result.files);
+  try {
+    swapIntoPlace(options.out, staging);
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    process.stderr.write(`error: 产出替换失败 ${error.message}\n`);
+    return 1;
+  }
   process.stdout.write(
-    `写出 ${result.files.size} 个文件到 ${options.out}：` +
+    `写出 ${result.fileCount} 个文件到 ${options.out}：` +
     `${result.portal.totals.bundles} 个 bundle / ${result.portal.totals.total} 行 / ` +
     `已译 ${result.portal.totals.translated} / 图片 ${result.portal.image_statuses?.all || 0}\n`
   );

@@ -26,6 +26,12 @@ MLTDTranslationAssets (main)                  MLTDTranslationClient (main)
 仓库里**不存生成物**：`public/data/` 与 `public/media/` 都在 `.gitignore` 里，只有 CI 会把它们
 写进 Pages artifact。所以每次部署都拿当天上游的最新译文，不需要数据提交、不需要 `contents: write`。
 
+**写盘方式（2026-10 起）**：产出不再攒在内存里等全部生成完，而是边生成边交给"汇"（sink）
+写进 `<out>.staging`；全部成功后用一次 rename 原子替换 `<out>`，失败则原样保留上一次的
+数据。历史版本是"先删 bundles/catalogue 再写"，所以中途失败会留下半份产出——自托管之后
+站点直接读这个目录，那个行为不可接受。低内存是副产品：同一份真实数据，峰值从 815 MB
+降到 383 MB（服务器上实测 391 MB，容器限制 512 MB），耗时 18 秒降到 14 秒。
+
 ## 上游事实（2026-10 实测，不是推测）
 
 | 事实 | 数值 / 形状 | 对生成器的影响 |

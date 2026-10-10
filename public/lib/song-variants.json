@@ -1,21 +1,20 @@
 {
  "schema_version": 1,
- "note": "由 scripts/import_song_names.mjs 从 MLTDLocalServer 的内容覆盖层导出：扩展版本资源名 -> 主曲目代号。抓包更新后重跑该脚本刷新；服务器生成数据时只读这份文件。",
+ "note": "由 scripts/import_song_names.mjs 从 MLTDLocalServer 的内容覆盖层导出：扩展版本资源名 -> 主曲目代号。抓包更新后重跑该脚本刷新；服务器生成数据时只读这份文件。本文件刻意不含时间戳等每次都变的字段，数据没变时重跑不会产生差异。",
  "source": {
   "kind": "sqlite",
-  "path": "D:/Project/MLTDLocalServer/runtime/content-overlay.sqlite",
+  "file": "fullsave/canonical/local-fullsave-content.sqlite",
   "asset_version": "1077741",
   "sha256": "564a03471aaf226465f016b98d3464ce2160c9056cbf5293d5ea33fbdd4e219a",
   "local_server_release": {
-   "file": "D:/Project/MLTDLocalServer/ci/fullsave/latest/RELEASE.json",
+   "file": "ci/fullsave/latest/RELEASE.json",
    "schema": "mltd-fullsave-ci-release-v1",
    "run_number": 80,
    "commit": "f074cae002dacf08b9709f85867664f934db4cd3",
    "asset_version": "1077741",
    "overlay_sha256": "564A03471AAF226465F016B98D3464CE2160C9056CBF5293D5EA33FBDD4E219A",
    "overlay_path": "fullsave/canonical/local-fullsave-content.sqlite"
-  },
-  "imported_at": "2026-10-10T17:43:10.531Z"
+  }
  },
  "variants": {
   "ahhan+": "ahhan0",

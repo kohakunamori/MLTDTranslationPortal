@@ -157,7 +157,7 @@ function readRelease(sourcePath) {
     if (existsSync(candidate)) {
       const doc = JSON.parse(readFileSync(candidate, "utf8"));
       return {
-        file: candidate.replace(/\\/g, "/"),
+        file: portablePath(candidate),
         schema: doc?.schema ?? null,
         run_number: doc?.run_number ?? null,
         commit: doc?.commit ?? null,
@@ -191,6 +191,16 @@ function build(payload) {
 }
 
 const known = { ...SONG_MASTER, ...SONG_MASTER_EXTRA };
+
+/// 记录源文件位置时去掉机器相关的部分：落在 MLTDLocalServer 根目录下的记相对路径，
+/// 其余只记文件名。这样在本地和在对方 CI 里跑出来的对照文件内容一致，不会因为路径不同
+/// 就产生"看起来变了"的差异。
+function portablePath(path) {
+  const normalized = resolve(path).replace(/\\/g, "/");
+  const root = resolve(LOCAL_SERVER_ROOT).replace(/\\/g, "/");
+  if (normalized.startsWith(root + "/")) return normalized.slice(root.length + 1);
+  return normalized.split("/").pop() ?? normalized;
+}
 
 const source = pickSource();
 if (!source) {
@@ -246,14 +256,16 @@ if (options.check) {
 
 writeFileSync(outPath, JSON.stringify({
   schema_version: 1,
-  note: "由 scripts/import_song_names.mjs 从 MLTDLocalServer 的内容覆盖层导出：扩展版本资源名 -> 主曲目代号。抓包更新后重跑该脚本刷新；服务器生成数据时只读这份文件。",
+  note: "由 scripts/import_song_names.mjs 从 MLTDLocalServer 的内容覆盖层导出：扩展版本资源名 -> 主曲目代号。抓包更新后重跑该脚本刷新；服务器生成数据时只读这份文件。本文件刻意不含时间戳等每次都变的字段，数据没变时重跑不会产生差异。",
   source: {
     kind: source.kind,
-    path: source.path.replace(/\\/g, "/"),
+    // 记对方发版记录里的规范路径（如 fullsave/canonical/local-fullsave-content.sqlite）；
+    // 没有发版记录时退回相对路径。这样在本地和在对方 CI 里跑出来的文件内容一致，
+    // 数据没变时不会因为路径不同产生"看起来变了"的差异。
+    file: release?.overlay_path || portablePath(source.path),
     asset_version: version,
     sha256: digest,
     local_server_release: release,
-    imported_at: new Date().toISOString(),
   },
   variants: Object.fromEntries([...variants].sort(([a], [b]) => (a < b ? -1 : 1))),
 }, null, 1) + "\n", "utf8");

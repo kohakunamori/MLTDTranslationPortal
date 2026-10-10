@@ -375,6 +375,27 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script type="module" src="app.js"></script>
+<script type="module">
+// 入口用"带版本号的地址"加载，而不是直接写 app.js。
+//
+// 为什么：站点没有构建步骤，文件名里带不了指纹，于是 CDN（Cloudflare）会把旧脚本缓存几个小时。
+// 踩过两次同一个坑——改了代码、用户刷新了，跑的还是旧代码（一次是"没有中继"那一版继续走浏览器
+// 直连，大文件因此改不动）。先问一句服务器当前版本，把它拼进地址：地址变了就不可能是缓存里的
+// 那一份。app.js 里 `./lib/xxx.js` 这类相对导入会自动继承同一段前缀，所以整棵模块树都是新的。
+//
+// 拿不到版本号就退回原来的地址——宁可缓存旧一点，也不能白屏。
+const entryUrl = async () => {
+  try {
+    const meta = await (await fetch("version.json", { cache: "no-store" })).json();
+    return meta && typeof meta.app === "string" && meta.app !== "" ? `v/${meta.app}/app.js` : "app.js";
+  } catch (error) {
+    return "app.js";
+  }
+};
+const entry = document.createElement("script");
+entry.type = "module";
+entry.src = await entryUrl();
+document.head.append(entry);
+</script>
 </body>
 </html>

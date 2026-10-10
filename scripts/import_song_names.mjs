@@ -192,13 +192,18 @@ function build(payload) {
 
 const known = { ...SONG_MASTER, ...SONG_MASTER_EXTRA };
 
-/// 记录源文件位置时去掉机器相关的部分：落在 MLTDLocalServer 根目录下的记相对路径，
-/// 其余只记文件名。这样在本地和在对方 CI 里跑出来的对照文件内容一致，不会因为路径不同
-/// 就产生"看起来变了"的差异。
+/// 记录源文件位置时去掉机器相关的部分，保证同一个源在不同机器上导出结果一致：
+/// 1) 落在 MLTDLocalServer 根目录下的记相对路径；
+/// 2) 路径以仓库内已知位置结尾的，直接用这段已知后缀（对方 CI 没设 MLTD_LOCAL_SERVER 时也能对上）；
+/// 3) 其余只记文件名。
+const KNOWN_SUFFIXES = ["fullsave/canonical/local-fullsave-content.sqlite", "runtime/content-overlay.sqlite"];
 function portablePath(path) {
   const normalized = resolve(path).replace(/\\/g, "/");
   const root = resolve(LOCAL_SERVER_ROOT).replace(/\\/g, "/");
   if (normalized.startsWith(root + "/")) return normalized.slice(root.length + 1);
+  for (const suffix of KNOWN_SUFFIXES) {
+    if (normalized.endsWith("/" + suffix)) return suffix;
+  }
   return normalized.split("/").pop() ?? normalized;
 }
 
@@ -238,6 +243,9 @@ if (release) {
   if (release.overlay_sha256 && release.overlay_sha256.toLowerCase() !== digest) {
     console.log(`  ⚠ 覆盖层哈希与发版记录不一致：记录 ${release.overlay_sha256.slice(0, 16)}，本次读到 ${digest.slice(0, 16)}。可能抓包后还没发版，或读的不是发版产物。`);
   }
+} else {
+  console.log("  ⚠ 没找到对方的发版记录 ci/fullsave/latest/RELEASE.json（在对方 CI 里请把检出根目录传给 MLTD_LOCAL_SERVER，并把库放在检出里）。");
+  console.log("    对照仍会正常导出，只是文件里会缺少发版号与资产版本，可能被当成一次内容变化而产生一次多余提交。");
 }
 console.log(`  正式曲目（带曲名）${names.size} 首   扩展版本 ${variants.size} 个（含手工补充 ${Object.keys(SONG_VARIANT_OVERRIDES).length} 条）`);
 console.log(`  抓包有、门户表里没有的曲目：${missingInTable.length}${missingInTable.length ? " -> " + missingInTable.join(", ") : ""}`);

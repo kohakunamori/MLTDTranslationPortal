@@ -64,5 +64,11 @@ fi
 echo "[曲名同步] 第 3 步：提交并推送"
 git add "$TARGET"
 git commit -m "chore(song-names): 从 MLTDLocalServer 抓包刷新曲名对照（$AFTER 条）"
-git push
-echo "[曲名同步] 完成：已推送 $AFTER 条对照。门户服务器下次例行拉取时会自动生效。"
+if git push; then
+  echo "[曲名同步] 完成：已推送 $AFTER 条对照。门户服务器下次例行拉取时会自动生效。"
+else
+  # 推送失败（最常见是没配令牌）时把这次提交撤掉，避免在别人的检出里留下半截提交。
+  echo "[曲名同步] 推送失败（多半是没配置令牌）。已撤销本次提交，工作区保持干净。" >&2
+  git reset --hard HEAD~1
+  exit 1
+fi

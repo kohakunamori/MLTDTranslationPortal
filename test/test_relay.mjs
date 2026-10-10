@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 import { WriteError } from "../public/lib/github-write.js";
 import { commitEdit, resetRelayState } from "../public/lib/relay-write.js";
-import { commitEdit as relayCommitEdit, classifyGitError, normalizePath, patchText, scrub } from "../scripts/relay.mjs";
+import { commitEdit as relayCommitEdit, classifyGitError, normalizePath, patchText, scrub, start } from "../scripts/relay.mjs";
 
 const failures = [];
 let passed = 0;
@@ -455,6 +455,70 @@ await test("relay: manifest 也能走完整流程", async () => {
     assert.equal(result.changed, true);
     assert.equal(JSON.parse(fixture.remoteManifest()).slots[0].zh, "首页");
   } finally {
+    fixture.cleanup();
+  }
+});
+
+/* ------------------------------------------------- 中继：起真服务走一遍 HTTP */
+
+await test("relay: 起真服务，HTTP 层的守门与写入都对", async () => {
+  const fixture = makeFixture();
+  const realFetch = globalThis.fetch;
+  // 中继会问 GitHub「这个令牌是谁的」来给提交署名。离线测试里只把这个调用挡掉，
+  // 本机回环的请求照旧走真 fetch。
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("https://api.github.com/")) {
+      return new Response(JSON.stringify({ login: "tester", id: 1 }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return realFetch(url, init);
+  };
+
+  let server = null;
+  try {
+    server = await start({ port: 0, host: "127.0.0.1", repos: new Map([["kohakunamori/Fixture", fixture.work]]) });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const post = (body, token) => realFetch(`${base}/api/edit`, {
+      method: "POST",
+      headers: token ? { "content-type": "application/json", authorization: `Bearer ${token}` } : { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const before = fixture.commitCount();
+
+    let response = await post(editBody(), null);
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, "no_token");
+
+    response = await realFetch(`${base}/api/health`);
+    assert.equal(response.status, 200);
+    const health = await response.json();
+    assert.equal(health.ok, true);
+    assert.ok(health.repos["kohakunamori/Fixture"].head, "健康检查要能看到检出");
+
+    response = await post(editBody({ path: "secrets/keys.jsonl" }), "test_token");
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "path_not_allowed");
+
+    response = await realFetch(`${base}/api/nope`, { method: "POST" });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "no_route", "网页靠这个码判断「这里没有中继」");
+
+    response = await post(editBody({ source_sha256: nodeHash("过期的原文") }), "test_token");
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error, "source_changed");
+    assert.equal(fixture.commitCount(), before, "被拒绝的请求不能留下提交");
+
+    response = await post(editBody(), "test_token");
+    const writeText = await response.text();
+    assert.equal(response.status, 200, writeText);
+    const payload = JSON.parse(writeText);
+    assert.equal(payload.changed, true);
+    assert.ok(/^[0-9a-f]{40}$/.test(payload.commit.sha));
+    assert.equal(fixture.commitCount(), before + 1);
+    assert.equal(JSON.parse(fixture.remoteFile().split("\n")[1]).zh, "比昨天更高");
+    assert.equal(git(fixture.bare, ["log", "-1", "--format=%an"]), "tester", "提交署名用令牌主人");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (server) await new Promise((resolve) => server.close(resolve));
     fixture.cleanup();
   }
 });

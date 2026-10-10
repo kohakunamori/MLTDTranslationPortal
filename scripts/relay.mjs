@@ -406,7 +406,7 @@ async function handleEdit(request, response) {
   if (!body || typeof body !== "object") throw fail("invalid_json", "请求体必须是对象");
 
   const repo = typeof body.repo === "string" ? body.repo : "";
-  const dir = REPOS.get(repo);
+  const dir = activeRepos.get(repo);
   if (!dir) throw fail("repo_unknown", `不管理仓库 ${repo || "(空)"}`);
   // 越界路径在碰网络之前就挡掉：非法请求不必去 GitHub 绕一圈。
   normalizePath(body.path);
@@ -423,7 +423,7 @@ async function handleEdit(request, response) {
 
 async function handleHealth() {
   const repos = {};
-  for (const [slug, dir] of REPOS) {
+  for (const [slug, dir] of activeRepos) {
     let head = "";
     let error = "";
     try {
@@ -464,13 +464,17 @@ const server = createServer((request, response) => {
     });
 });
 
+/// 当前生效的仓库表：正常启动来自环境变量，测试里可以直接传，免得为了可测性去改环境。
+let activeRepos = REPOS;
+
 /// 被 `import` 时只导出函数，不监听端口（测试要用到 commitEdit / patchText）。
-export function start({ port = PORT, host = HOST } = {}) {
-  if (REPOS.size === 0) throw new Error("RELAY_REPOS 没有配置任何仓库，拒绝启动");
+export function start({ port = PORT, host = HOST, repos = REPOS } = {}) {
+  if (repos.size === 0) throw new Error("RELAY_REPOS 没有配置任何仓库，拒绝启动");
+  activeRepos = repos;
   return new Promise((resolve) => {
     server.listen(port, host, () => {
       log(`写入中继已启动 http://${host}:${port}（分支 ${BRANCH}）`);
-      for (const [slug, dir] of REPOS) log(`  仓库 ${slug} -> ${dir}`);
+      for (const [slug, dir] of activeRepos) log(`  仓库 ${slug} -> ${dir}`);
       resolve(server);
     });
   });
@@ -478,10 +482,16 @@ export function start({ port = PORT, host = HOST } = {}) {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-  start().catch((error) => {
+  try {
+    start().catch((error) => {
+      process.stderr.write(`${error.message}\n`);
+      process.exit(1);
+    });
+  } catch (error) {
+    // 配置不对（例如没配仓库）时同步抛错：直接退出，别留一个半死不活的进程。
     process.stderr.write(`${error.message}\n`);
     process.exit(2);
-  });
+  }
 }
 
 export { commitEdit, handleEdit, patchText, normalizePath, scrub, parseRepos, server };

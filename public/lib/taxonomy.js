@@ -8,7 +8,7 @@ import { IDOLS, SPEAKERS, IDOL_MAP } from "./terms.js";
 
 /// 一个分类的稳定标识与展示文案。
 export const CATEGORY_RULES = {
-  lyrics: { id: "lyrics", domain: "lyrics", name: "全曲打歌歌词", description: "按正式 Assets 曲目束逐行对照与翻译", domain_name: "歌曲歌词", icon: "🎵", unit: "句", entry: "lyrics" },
+  lyrics: { id: "lyrics", domain: "lyrics", name: "歌曲歌词", description: "浏览中日文歌词，按歌曲和默认歌唱偶像查找", domain_name: "歌曲歌词", icon: "🎵", unit: "句", entry: "lyrics" },
   event_chat: { id: "event_chat", domain: "story", name: "活动短信与聊天", description: "制作人与偶像活动手机联络", domain_name: "剧场剧情", icon: "📱", unit: "句", entry: "studio" },
   event_story: { id: "event_story", domain: "story", name: "活动剧情篇章", description: "巡回与剧场活动全篇章节故事", domain_name: "剧场剧情", icon: "🌟", unit: "句", entry: "studio" },
   special_commu: { id: "special_commu", domain: "story", name: "特别企划与回想", description: "特别活动、周年企划与回忆录", domain_name: "剧场剧情", icon: "🎭", unit: "句", entry: "studio" },

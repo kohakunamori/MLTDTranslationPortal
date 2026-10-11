@@ -31,6 +31,7 @@ import { IDOLS, TERMS } from "./lib/terms.js";
 import { WriteError, getToken, setToken, verifyToken } from "./lib/github-write.js";
 import { commitEdit } from "./lib/relay-write.js";
 import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, testAiConnection } from "./lib/ai-draft.js";
+import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
 
 const PAGE_SIZE_CATALOGUE = 24;
 const PAGE_SIZE_READ = 200;
@@ -40,8 +41,12 @@ const state = {
   view: "overview",
   domain: "all",
   songKeyword: "",
+  songIdol: "",
+  songGrouped: true,
+  songPage: 1,
+  songRenderId: 0,
   writeStatus: null,
-  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", channel: "", keyword: "", sort: "default" } },
+  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", channel: "", keyword: "", sort: "default", groupSongs: true } },
   read: {
     // `file` 是当前 bundle 的规范文件；`urlFile` 是 URL 里那个 file（原样带回，不在渲染中改写 URL）。
     file: "",
@@ -312,43 +317,78 @@ async function renderOverview() {
 }
 
 async function renderSongGrid() {
-  const grid = clear($("song-grid"));
+  const renderId = ++state.songRenderId;
   const empty = $("song-grid-empty");
   let index;
   try {
     index = await loadCategoryIndex("lyrics");
   } catch (error) {
+    if (renderId !== state.songRenderId) return;
+    clear($("song-grid"));
+    clear($("song-grid-pager"));
+    $("song-grid-count").textContent = "";
     empty.hidden = false;
     empty.textContent = `歌曲索引无法载入：${error.message}`;
     return;
   }
-  const keyword = state.songKeyword.trim().toLowerCase();
-  const songs = (index.bundles || [])
-    .filter((bundle) => {
-      if (!keyword) return true;
-      const haystack = `${bundle.song?.name_ja || ""}\n${bundle.song?.name_zh || ""}\n${bundle.base}\n${bundle.bundle}`.toLowerCase();
-      return haystack.includes(keyword);
-    })
-    .sort((a, b) => (a.song?.mst_song_id || 0) - (b.song?.mst_song_id || 0));
-
+  if (renderId !== state.songRenderId) return;
+  const bundles = index.bundles || [];
+  const idolSelect = clear($("song-idol"));
+  idolSelect.append(el("option", { value: "", text: "全部偶像" }));
+  const idols = singerOptions(bundles);
+  if (state.songIdol && !idols.some((idol) => idol.code === state.songIdol)) state.songIdol = "";
+  for (const idol of idols) idolSelect.append(el("option", {
+    value: idol.code, text: idol.name_zh || idol.name_ja, selected: state.songIdol === idol.code,
+  }));
+  $("song-group").checked = state.songGrouped;
+  const songs = filterBundles(state.songGrouped ? groupSongs(bundles) : bundles,
+    { keyword: state.songKeyword, idol: state.songIdol }).sort((a, b) =>
+      (Number(a.song?.mst_song_id) || Infinity) - (Number(b.song?.mst_song_id) || Infinity)
+      || bundleLabel(a).localeCompare(bundleLabel(b), "ja"));
+  const totalPages = Math.max(1, Math.ceil(songs.length / PAGE_SIZE_CATALOGUE));
+  state.songPage = Math.min(Math.max(1, state.songPage), totalPages);
+  const pageRows = songs.slice((state.songPage - 1) * PAGE_SIZE_CATALOGUE, state.songPage * PAGE_SIZE_CATALOGUE);
+  const versions = songs.reduce((sum, song) => sum + versionsOf(song).length, 0);
+  $("song-grid-count").textContent = state.songGrouped
+    ? `${songs.length} 首歌曲 · ${versions} 个歌词版本 · 展开歌曲可选择版本`
+    : `${songs.length} 个歌词版本 · 同曲的版本分别展示`;
+  const grid = clear($("song-grid"));
   empty.hidden = songs.length > 0;
   if (!songs.length) empty.textContent = "没有匹配的歌曲。";
-  for (const song of songs) {
-    const percent = progressPercent(song);
-    grid.append(el("button", {
-      class: "song-card",
-      type: "button",
-      onclick: () => navigate("read", { file: song.file }),
-    }, [
-      el("div", { class: "song-name", text: song.song?.name_ja || song.base }),
-      el("div", { class: "song-sub", text: [song.song?.variant_of ? "另一个版本" : "", song.song?.name_zh, song.song?.type].filter(Boolean).join(" · ") || song.base }),
+  for (const song of pageRows) grid.append(renderSongCard(song, state.songIdol));
+  renderPager($("song-grid-pager"), state.songPage, totalPages, (next) => {
+    state.songPage = next;
+    renderSongGrid();
+  });
+}
+
+function renderSongCard(song, idol = "", compact = false) {
+  const primary = primaryVersion(song, idol);
+  const versions = versionsOf(song);
+  const percent = progressPercent(song);
+  const card = el("article", { class: `song-card${compact ? " song-list-card" : ""}` },
+    el("button", { class: "song-open", type: "button", onclick: () => navigate("read", { file: primary.file }) }, [
+      el("div", { class: "song-name", text: bundleLabel(primary) }),
+      el("div", { class: "song-sub", text: [primary.song?.type, `${versions.length} 个歌词版本`].filter(Boolean).join(" · ") }),
+      el("div", { class: "song-sub song-cast", text: `默认演唱：${singerSummary(primary)}` }),
+      idol ? el("span", { class: "pill", text: `${primary.song?.default_singers?.find((singer) => singer.code === idol)?.name_zh || "所选偶像"}参与演唱` }) : null,
       el("div", { class: "progress-track" }, el("div", { class: "progress-fill", style: `width:${percent}%` })),
       el("div", { class: "song-foot" }, [
-        el("span", { text: `${song.translated}/${song.total} 句` }),
+        el("span", { text: `${versions.length > 1 ? "各版本合计 · " : ""}${song.translated}/${song.total} 句` }),
         el("span", { text: `${percent}%` }),
       ]),
     ]));
+  if (versions.length > 1) {
+    card.append(el("details", { class: "song-versions" }, [
+      el("summary", { text: `展开 ${versions.length} 个版本` }),
+      el("div", { class: "song-version-list" }, versions.map((version, index) =>
+        el("button", { type: "button", class: "song-version", onclick: () => navigate("read", { file: version.file }) }, [
+          el("span", { text: `${versionLabel(version, index)} · ${progressPercent(version)}%` }),
+          el("span", { class: "hint", text: singerSummary(version) }),
+        ]))),
+    ]));
   }
+  return card;
 }
 
 // ------------------------------------------------------------------ 索引浏览
@@ -356,6 +396,8 @@ async function renderSongGrid() {
 /// 筛选下拉里带上当前分类的真实数量，让人一眼看出筛完还剩多少：
 /// 「未翻译（1,067 行 · 12 个资源）」。数量基于**当前已加载的分类**，不跨分类瞎算。
 function labelStatusOptions(bundles) {
+  const unit = state.catalogue.category === "lyrics"
+    ? (state.catalogue.filters.groupSongs ? "首歌曲" : "个歌词版本") : "个资源";
   const count = (predicate) => bundles.filter(predicate).length;
   const sum = (pick) => bundles.reduce((total, bundle) => total + pick(bundle), 0);
   const labels = {
@@ -365,7 +407,7 @@ function labelStatusOptions(bundles) {
     complete: `已翻译（全部译完 · ${formatNumber(count((b) => b.untranslated === 0 && b.pending === 0))} 个资源）`,
   };
   for (const option of $("filter-status").options) {
-    if (labels[option.value] !== undefined) option.textContent = labels[option.value];
+    if (labels[option.value] !== undefined) option.textContent = labels[option.value].replaceAll("个资源", unit);
   }
   // 来源下拉也带数量——真实数据里 client 只有 1 个资源，一眼就该看出来
   const client = count((bundle) => (bundle.channel || "assets") === "client");
@@ -392,26 +434,36 @@ async function renderCatalogue(params = {}) {
 
   const index = await loadCategoryIndex(category);
   state.catalogue.bundles = index.bundles || [];
+  const lyrics = category === "lyrics";
+  const presentation = lyrics && state.catalogue.filters.groupSongs ? groupSongs(state.catalogue.bundles) : state.catalogue.bundles;
+  $("filter-song-group-field").hidden = !lyrics;
+  $("filter-song-group").checked = state.catalogue.filters.groupSongs;
+  $("filter-idol-label").textContent = lyrics ? "默认歌唱偶像" : "偶像";
   const meta = CATEGORY_RULES[category];
   $("catalogue-title").textContent = `${meta.icon} ${meta.name}`;
   // 分类卡片说"几个资源"；这里再补一句数据文件数（分页后文件数会大于资源数）。
   const categoryMeta = (state.portal.categories || []).find((item) => item.id === category);
   const files = Number(categoryMeta?.files || 0);
   $("catalogue-meta").textContent = [
-    `${index.total_bundles} 个资源`,
+    lyrics ? `${groupSongs(state.catalogue.bundles).length} 首歌曲 · ${index.total_bundles} 个歌词版本` : `${index.total_bundles} 个资源`,
     `共 ${formatNumber(state.catalogue.bundles.reduce((sum, item) => sum + item.total, 0))} 行`,
-    files > index.total_bundles ? `切成 ${formatNumber(files)} 个数据文件` : null,
+    !lyrics && files > index.total_bundles ? `切成 ${formatNumber(files)} 个数据文件` : null,
     meta.description,
   ].filter(Boolean).join(" · ");
 
   const idolSelect = clear($("filter-idol"));
   idolSelect.append(el("option", { value: "", text: "全部" }));
   const idols = new Map();
-  for (const bundle of state.catalogue.bundles) if (bundle.idol?.code) idols.set(bundle.idol.code, bundle.idol);
+  if (lyrics) {
+    for (const idol of singerOptions(state.catalogue.bundles)) idols.set(idol.code, idol);
+  } else {
+    for (const bundle of state.catalogue.bundles) if (bundle.idol?.code) idols.set(bundle.idol.code, bundle.idol);
+  }
+  if (state.catalogue.filters.idol && !idols.has(state.catalogue.filters.idol)) state.catalogue.filters.idol = "";
   for (const idol of [...idols.values()].sort((a, b) => a.code.localeCompare(b.code))) {
     idolSelect.append(el("option", {
       value: idol.code,
-      text: `${idol.name_ja}（${idol.code}）`,
+      text: lyrics ? (idol.name_zh || idol.name_ja) : `${idol.name_ja}（${idol.code}）`,
       selected: state.catalogue.filters.idol === idol.code,
     }));
   }
@@ -420,9 +472,12 @@ async function renderCatalogue(params = {}) {
   $("filter-sort").value = state.catalogue.filters.sort;
   $("filter-keyword").value = state.catalogue.filters.keyword;
   $("filter-channel").value = state.catalogue.filters.channel;
-  labelStatusOptions(state.catalogue.bundles);
+  labelStatusOptions(presentation);
 
-  const rows = filterBundles(state.catalogue.bundles, state.catalogue.filters);
+  const rows = filterBundles(presentation, state.catalogue.filters);
+  $("catalogue-results").textContent = lyrics
+    ? (state.catalogue.filters.groupSongs ? `找到 ${rows.length} 首歌曲` : `找到 ${rows.length} 个歌词版本`)
+    : `找到 ${rows.length} 个资源`;
   const list = clear($("bundle-list"));
   $("catalogue-empty").hidden = rows.length > 0;
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_CATALOGUE));
@@ -430,6 +485,10 @@ async function renderCatalogue(params = {}) {
   const pageRows = rows.slice((state.catalogue.page - 1) * PAGE_SIZE_CATALOGUE, state.catalogue.page * PAGE_SIZE_CATALOGUE);
 
   for (const bundle of pageRows) {
+    if (lyrics) {
+      list.append(renderSongCard(bundle, state.catalogue.filters.idol, true));
+      continue;
+    }
     const percent = progressPercent(bundle);
     list.append(el("button", {
       class: "bundle-row",
@@ -595,7 +654,9 @@ async function renderRead(params = {}) {
 
   $("read-title").textContent = bundleLabel(bundle);
   const pageCount = Math.max(1, (target.pages || []).length);
-  $("read-meta").textContent = [
+  $("read-meta").textContent = (bundle.category === "lyrics" ? [
+    "歌曲歌词", `默认演唱：${singerSummary(target.entry || bundle)}`,
+  ] : [
     CATEGORY_RULES[bundle.category]?.name,
     bundle.idol ? bundle.idol.name_ja : null,
     bundle.channel === "client" ? "客户端清单" : null,
@@ -603,7 +664,7 @@ async function renderRead(params = {}) {
     bundle.client_version ? `client ${bundle.client_version}` : null,
     pageCount > 1 ? `切为 ${pageCount} 个数据页` : null,
     bundle.repo_path,
-  ].filter(Boolean).join(" · ");
+  ]).filter(Boolean).join(" · ");
 
   const totals = readTotals(bundle, target.entry, state.read.baseline);
   clear($("read-counts")).append(
@@ -615,6 +676,7 @@ async function renderRead(params = {}) {
     totals.not_needed > 0 ? statBox("无需翻译", totals.not_needed, "not_needed") : null,
   );
   renderReadPageBar();
+  await renderReadSongOptions(bundle, target.entry);
 
   $("read-search").value = state.read.filters.keyword;
   $("read-status").value = state.read.filters.status;
@@ -653,6 +715,27 @@ async function renderRead(params = {}) {
 }
 
 /// 数据页控件：bundle 被切成多页时才出现。59 页用 `<select>` 而不是 59 个按钮。
+async function renderReadSongOptions(bundle, entry) {
+  const host = $("read-song-options");
+  const select = clear($("read-song-version"));
+  host.hidden = bundle.category !== "lyrics" || !bundle.song;
+  if (host.hidden) return;
+  const index = await loadCategoryIndex("lyrics");
+  const current = entry || bundle;
+  const group = groupSongs(index.bundles || []).find((song) => songKey(song) === songKey(current));
+  const versions = group ? versionsOf(group) : [current];
+  for (const [offset, version] of versions.entries()) select.append(el("option", {
+    value: version.file,
+    text: `${versionLabel(version, offset)} · ${singerSummary(version)}`,
+    selected: version.file === state.read.file,
+  }));
+  select.disabled = versions.length < 2;
+  const singers = current.song?.default_singers || [];
+  $("read-song-singers-summary").textContent = `默认演唱：${singerSummary(current)}`;
+  $("read-song-singers").textContent = singers.length
+    ? singers.map((idol) => idol.name_zh || idol.name_ja).join("、") : "这首歌的演唱信息尚待补充。";
+}
+
 function renderReadPageBar() {
   const pages = state.read.pages || [];
   const nav = $("read-page-nav");
@@ -1140,9 +1223,9 @@ function bindEvents() {
 
   $("hero-random-song").addEventListener("click", async () => {
     const index = await loadCategoryIndex("lyrics");
-    const songs = index.bundles || [];
+    const songs = groupSongs(index.bundles || []);
     if (!songs.length) return;
-    navigate("read", { file: songs[Math.floor(Math.random() * songs.length)].file });
+    navigate("read", { file: primaryVersion(songs[Math.floor(Math.random() * songs.length)]).file });
   });
   $("hero-untranslated").addEventListener("click", () => {
     state.catalogue.filters.status = "untranslated";
@@ -1153,10 +1236,17 @@ function bindEvents() {
   $("btn-reload-data").addEventListener("click", () => reloadData());
   $("settings-reload").addEventListener("click", () => reloadData());
 
-  $("song-search").addEventListener("input", debounce((event) => {
+  const refreshSongSearch = debounce(() => renderSongGrid(), 150);
+  $("song-search").addEventListener("input", (event) => {
     state.songKeyword = event.target.value;
-    renderSongGrid();
-  }, 150));
+    state.songPage = 1;
+    refreshSongSearch();
+  });
+
+  $("song-idol").addEventListener("change", (event) => { state.songIdol = event.target.value; state.songPage = 1; renderSongGrid(); });
+  $("song-group").addEventListener("change", (event) => { state.songGrouped = event.target.checked; state.songPage = 1; renderSongGrid(); });
+  $("filter-song-group").addEventListener("change", (event) => { state.catalogue.filters.groupSongs = event.target.checked; state.catalogue.page = 1; renderCatalogue(); });
+  $("read-song-version").addEventListener("change", (event) => { navigate("read", { file: event.target.value }); });
 
   $("catalogue-back").addEventListener("click", () => navigate("overview"));
   $("read-back").addEventListener("click", () => navigate("catalogue", { category: state.read.bundle?.category || "lyrics" }));
@@ -1170,11 +1260,12 @@ function bindEvents() {
   $("filter-status").addEventListener("change", (event) => { state.catalogue.filters.status = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
   $("filter-channel").addEventListener("change", (event) => { state.catalogue.filters.channel = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
   $("filter-sort").addEventListener("change", (event) => { state.catalogue.filters.sort = event.target.value; renderCatalogue(); });
-  $("filter-keyword").addEventListener("input", debounce((event) => {
+  const refreshCatalogueSearch = debounce(() => renderCatalogue(), 150);
+  $("filter-keyword").addEventListener("input", (event) => {
     state.catalogue.filters.keyword = event.target.value;
     state.catalogue.page = 1;
-    renderCatalogue();
-  }, 150));
+    refreshCatalogueSearch();
+  });
 
   $("read-search").addEventListener("input", debounce((event) => {
     state.read.filters.keyword = event.target.value;

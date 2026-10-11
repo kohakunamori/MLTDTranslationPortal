@@ -32,25 +32,32 @@ import {
   statusCounts,
   upstreamPathForBundle,
 } from "../public/lib/taxonomy.js";
-import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
+import { IDOLS, SPEAKERS, SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
 
 /// 曲名表：基础表 + 抓包之后新增的补充条目。重复时以基础表为准。
 const SONGS = { ...SONG_MASTER_EXTRA, ...SONG_MASTER };
 
 /// 扩展版本资源名 -> 主曲目代号。
 /// 作为底表，手工核对过的几条覆盖在上面。
-const SONG_VARIANTS = (() => {
+const SONG_DETAILS = (() => {
   const file = new URL("../public/lib/song-variants.json", import.meta.url);
   let imported = {};
   if (existsSync(file)) {
     try {
-      imported = JSON.parse(readFileSync(file, "utf8"))?.variants ?? {};
+      imported = JSON.parse(readFileSync(file, "utf8"));
     } catch (error) {
       throw new Error(`曲名对照文件读不动：${file.pathname}（${error.message}）`);
     }
   }
-  return { ...imported, ...SONG_VARIANT_OVERRIDES };
+  return imported;
 })();
+const SONG_VARIANTS = { ...(SONG_DETAILS.variants ?? {}), ...SONG_VARIANT_OVERRIDES };
+const IDOLS_BY_ID = new Map(IDOLS.map((idol) => [idol.id, idol]));
+for (const [code, speaker] of Object.entries(SPEAKERS)) {
+  if (!/^20\d/.test(code)) continue;
+  const id = Number(code.slice(0, 3));
+  IDOLS_BY_ID.set(id, { id, code, ...speaker, type: "Guest", color: "#7c3aed" });
+}
 
 /// 资源名 -> 曲名记录。先按资源名精确查表；查不到再看它是不是某个扩展版本
 /// （游戏里同一首歌会挂多个包，扩展版本自己不带曲名，但抓包里有父子关系）。
@@ -58,10 +65,14 @@ const SONG_VARIANTS = (() => {
 export function songFor(bundle) {
   const code = String(bundle).replace(/^scrobj_/, "").replace(/\.unity3d$/i, "").toLowerCase();
   const direct = SONGS[code];
-  if (direct) return { ...direct, variant_of: null };
   const parentCode = SONG_VARIANTS[code];
-  const parent = parentCode ? SONGS[parentCode] : null;
-  return parent ? { ...parent, variant_of: parentCode } : null;
+  const song = direct || (parentCode ? SONGS[parentCode] : null);
+  if (!song) return null;
+  const singerIds = SONG_DETAILS.default_singers?.[code] ?? [];
+  return { ...song, variant_of: direct ? null : parentCode, canonical_key: direct ? code : parentCode,
+    default_singer_ids: singerIds,
+    default_singers: singerIds.map((id) => IDOLS_BY_ID.get(id)).filter(Boolean),
+  };
 }
 
 export const SCHEMA_VERSION = 1;
@@ -516,6 +527,9 @@ function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVe
       type: song.type || "All",
       mst_song_id: song.mst_song_id || 0,
       variant_of: song.variant_of || null,
+      canonical_key: song.canonical_key,
+      default_singer_ids: song.default_singer_ids,
+      default_singers: song.default_singers,
     };
   }
   record.edit = {

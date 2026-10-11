@@ -68,9 +68,19 @@
 
     <div class="section-head">
       <h3>歌曲歌词</h3>
-      <input class="input" id="song-search" type="search" placeholder="按曲名 / 日文名 / 资源名筛选歌曲…" />
     </div>
+    <div class="filters card song-filters">
+      <label class="field grow"><span>搜索歌曲</span>
+        <input class="input" id="song-search" type="search" placeholder="曲名 / 默认歌唱偶像…" />
+      </label>
+      <label class="field"><span>默认歌唱偶像</span>
+        <select class="input" id="song-idol"><option value="">全部偶像</option></select>
+      </label>
+      <label class="field checkbox"><input id="song-group" type="checkbox" checked />同曲合并展示</label>
+    </div>
+    <p class="hint" id="song-grid-count" role="status" aria-live="polite"></p>
     <div class="song-grid" id="song-grid"></div>
+    <div class="pager" id="song-grid-pager"></div>
     <p class="empty" id="song-grid-empty" hidden>没有匹配的歌曲。</p>
   </section>
 
@@ -98,7 +108,7 @@
         </select>
       </label>
       <label class="field">
-        <span>偶像</span>
+        <span id="filter-idol-label">偶像</span>
         <select class="input" id="filter-idol"><option value="">全部</option></select>
       </label>
       <label class="field">
@@ -124,7 +134,10 @@
           <option value="name">名称</option>
         </select>
       </label>
+      <label class="field checkbox" id="filter-song-group-field"><input id="filter-song-group" type="checkbox" checked />同曲合并展示</label>
     </div>
+
+    <p class="hint" id="catalogue-results" role="status" aria-live="polite"></p>
 
     <p class="empty" id="catalogue-empty" hidden>没有匹配的资源。</p>
     <div class="bundle-list" id="bundle-list"></div>
@@ -156,6 +169,10 @@
       <span class="page-window" id="read-window"></span>
     </div>
 
+    <div class="filters card" id="read-song-options" hidden>
+      <label class="field grow"><span>歌词版本</span><select class="input" id="read-song-version"></select></label>
+      <details class="song-singers"><summary id="read-song-singers-summary"></summary><p id="read-song-singers"></p></details>
+    </div>
     <div class="filters card read-toolbar">
       <label class="field grow">
         <span>本资源内搜索</span>

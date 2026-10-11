@@ -150,12 +150,15 @@ export function filterBundles(bundles, { idol = "", status = "", channel = "", k
   const needle = String(keyword).trim().toLowerCase();
   let rows = bundles.filter((bundle) => {
     if (channel && (bundle.channel || "assets") !== channel) return false;
-    if (idol && bundle.idol?.code !== idol) return false;
+    if (idol && (bundle.song
+      ? !bundle.song.default_singers?.some((singer) => singer.code === idol)
+      : bundle.idol?.code !== idol)) return false;
     if (status === "untranslated" && bundle.untranslated === 0) return false;
     if (status === "pending" && bundle.pending === 0) return false;
     if (status === "complete" && (bundle.untranslated > 0 || bundle.pending > 0)) return false;
     if (needle) {
-      const haystack = `${bundle.bundle}\n${bundle.base}\n${bundle.song?.name_ja || ""}\n${bundle.song?.name_zh || ""}\n${bundle.repo_path || ""}`.toLowerCase();
+      const searchable = bundle.versions || [bundle];
+      const haystack = searchable.map((entry) => `${entry.bundle}\n${entry.base}\n${entry.song?.name_ja || ""}\n${entry.song?.name_zh || ""}\n${entry.repo_path || ""}\n${(entry.song?.default_singers || []).map((singer) => `${singer.name_ja} ${singer.name_zh} ${singer.code}`).join(" ")}`).join("\n").toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
     return true;

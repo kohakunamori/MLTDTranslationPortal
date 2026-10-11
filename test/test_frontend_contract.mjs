@@ -409,7 +409,7 @@ ok("筛选器出现在页面上，且状态/来源下拉带真实数量", () => 
   }
   const app = readFileSync(join(siteDir, "app.js"), "utf8");
   assert.match(app, /labelStatusOptions\(/);
-  assert.match(app, /filterBundles\(state\.catalogue\.bundles, state\.catalogue\.filters\)/);
+  assert.match(app, /filterBundles\((?:presentation|state\.catalogue\.bundles), state\.catalogue\.filters\)/);
   assert.match(app, /filters\.channel/);
 });
 

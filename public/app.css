@@ -267,6 +267,19 @@ select.input { cursor: pointer; }
 .song-card .song-name { font-size: 0.92rem; font-weight: 800; }
 .song-card .song-sub { font-size: 0.74rem; color: var(--text-muted); }
 .song-card .song-foot { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
+.song-filters { margin-bottom: 0.6rem; }
+.song-open { display: flex; flex-direction: column; gap: 0.45rem; background: none; color: inherit; border: 0; padding: 0; text-align: left; cursor: pointer; width: 100%; }
+.song-open:focus-visible, .song-version:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 4px; }
+.song-versions { border-top: 1px solid var(--border); padding-top: 0.55rem; margin-top: 0.2rem; font-size: 0.78rem; }
+.song-versions summary, .song-singers summary { cursor: pointer; }
+.song-version-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+.song-version { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.55rem; text-align: left; color: inherit; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); cursor: pointer; }
+.song-version:hover { border-color: var(--primary); }
+.song-list-card .song-open .progress-track { max-width: 22rem; }
+.song-list-card .song-foot { max-width: 22rem; }
+.song-singers { max-width: 100%; font-size: 0.8rem; line-height: 1.7; overflow-wrap: anywhere; }
+.song-singers p { margin: 0.5rem 0 0; }
+#filter-song-group-field[hidden], #read-song-options[hidden] { display: none; }
 
 .pill {
   display: inline-flex;

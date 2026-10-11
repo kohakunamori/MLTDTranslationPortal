@@ -21,7 +21,7 @@ import { BuildError, buildOutputs, displayStatus, main, renderDocument, rowStatu
 import { CATEGORY_ORDER } from "../public/lib/taxonomy.js";
 import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
 
-/// 抓包导出的「扩展版本 → 主曲目」对照（scripts/import_song_names.mjs 的产物）。
+/// 曲目扩展版本与主曲目的对照。
 const IMPORTED_VARIANTS = JSON.parse(readFileSync("public/lib/song-variants.json", "utf8")).variants;
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";

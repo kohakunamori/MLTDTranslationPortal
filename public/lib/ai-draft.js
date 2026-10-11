@@ -543,7 +543,7 @@ function resolveChatEndpoint(endpoint) {
   return `${bare}${CHAT_COMPLETIONS_SUFFIX}`;
 }
 
-/// 旧代码的本地服务判定：带 Key 就发，不带 Key 只放行本机端点。
+/// 兼容既有端点的鉴权判定。
 function isLocalEndpoint(endpoint) {
   const text = asTrimmedString(endpoint);
   return text.includes("localhost") || text.includes("127.0.0.1");

@@ -1,20 +1,8 @@
 {
  "schema_version": 1,
- "note": "由 scripts/import_song_names.mjs 从 MLTDLocalServer 的内容覆盖层导出：扩展版本资源名 -> 主曲目代号。抓包更新后重跑该脚本刷新；服务器生成数据时只读这份文件。本文件刻意不含时间戳等每次都变的字段，数据没变时重跑不会产生差异。",
+ "note": "曲目名称与版本对照。",
  "source": {
-  "kind": "sqlite",
-  "file": "fullsave/canonical/local-fullsave-content.sqlite",
-  "asset_version": "1077741",
-  "sha256": "e193c8ea07658782f6f310c2d833d07d9e59ed92f06e5f1ed4d245bc691f8bce",
-  "local_server_release": {
-   "file": "ci/fullsave/latest/RELEASE.json",
-   "schema": "mltd-fullsave-ci-release-v1",
-   "run_number": 84,
-   "commit": "34f186dc633945cb652f0aeb9f8fe8fe25845a11",
-   "asset_version": "1077741",
-   "overlay_sha256": "E193C8EA07658782F6F310C2D833D07D9E59ED92F06E5F1ED4D245BC691F8BCE",
-   "overlay_path": "fullsave/canonical/local-fullsave-content.sqlite"
-  }
+  "asset_version": "1077741"
  },
  "variants": {
   "ahhan+": "ahhan0",

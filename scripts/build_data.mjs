@@ -37,7 +37,7 @@ import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../publi
 /// 曲名表：基础表 + 抓包之后新增的补充条目。重复时以基础表为准。
 const SONGS = { ...SONG_MASTER_EXTRA, ...SONG_MASTER };
 
-/// 扩展版本资源名 -> 主曲目代号。抓包导出的那份（scripts/import_song_names.mjs 生成）
+/// 扩展版本资源名 -> 主曲目代号。
 /// 作为底表，手工核对过的几条覆盖在上面。
 const SONG_VARIANTS = (() => {
   const file = new URL("../public/lib/song-variants.json", import.meta.url);

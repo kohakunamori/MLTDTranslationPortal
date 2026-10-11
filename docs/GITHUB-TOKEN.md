@@ -1,8 +1,8 @@
 # 怎么创建一个 GitHub Token（单行修改用）
 
-站点的"改一行译文并提交"功能需要在**你自己**的浏览器里持有一个能写翻译仓库的 token。
-本指南给两条路，选一条就行。**token 只保存在你这台浏览器的 `localStorage` 里，站点只把它发给
-`api.github.com`，没有别的服务器经手**（页面本身是 GitHub Pages 上的静态文件）。
+目前仅为个人项目，后续开放贡献仍在规划。本指南供有仓库写入权限的维护者使用。
+
+站点的修改功能需要有效的 GitHub Token。请仅授权所需仓库及权限，使用完毕后可在设置页清除。
 
 ---
 
@@ -33,8 +33,7 @@
    **Read and write**（改完这一项，下面的 `Metadata: Read-only` 会自动被带上，这是正常的）。
 4. 点 **Generate token** → 复制 `github_pat_…`。
 
-> 只有想改**客户端仓库**里的资源（真实数据里就 1 个：底部栏清单 `manifests/bottom-bar.manifest.json`）
-> 才需要再加 `kohakunamori/MLTDTranslationClient`，权限同样只给 Contents: Read and write。
+> 修改客户端汉化内容时，还需要授权 `kohakunamori/MLTDTranslationClient`，权限同样为 Contents: Read and write。
 
 ## 路线 B：经典 Token（最省事，但权限更宽）
 
@@ -87,8 +86,8 @@
 | `Token 无效` / `GitHub rejected the token (401)` | token 复制不全、已撤销、已过期 | 重新生成并粘贴 |
 | `Token 权限不足（需要 Contents: Read and write）`（403） | 权限没给写；GitHub 原文是 `Resource not accessible by personal access token` | 按上面「权限给错了怎么改」调整：细粒度 Edit 即可（值不变），经典只能重建 |
 | `✗ … 看不到 <仓库>` | 细粒度没选仓库 / 经典缺 `public_repo` | 按上面两条路线补上 |
-| `上游文件里找不到这一行（可能已被移动）` | 上游刚重排过行 | 等 CI 重新生成数据（每天 03:17 UTC）或手动 Run workflow |
-| `日文源文已变化，请刷新数据后重试` | 上游改了原文，页面数据是旧的 | 刷新页面（必要时等 CI） |
+| `上游文件里找不到这一行（可能已被移动）` | 原内容已被移动 | 等待站点更新后重试 |
+| `日文源文已变化，请刷新数据后重试` | 原文已更新 | 刷新页面后重试 |
 | `文件刚被改过（409），请刷新数据后重试` | 别人/CI 在你提交前刚写了同一个文件 | 刷新后重试；页面**不会**自动覆盖 |
 | 验证通过但写入仍失败 | 没有该仓库的 push 权限（协作者只读）或仓库被归档 | 确认你有写权限 |
 

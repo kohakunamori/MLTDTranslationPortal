@@ -15,11 +15,13 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, posix, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { decorateLibraryBundles, emitLibrary, emitSearch } from "./library_data.mjs";
 
+import { findFiles, relativeFileMap, toPosix } from "./fs-utils.mjs";
+import { collectingSink, writingSink, compareSink, swapIntoPlace, clearStaleStaging } from "./output-sink.mjs";
 import {
   CATEGORY_ORDER,
   CATEGORY_RULES,
@@ -158,24 +160,6 @@ function readJsonFile(path) {
   }
 }
 
-function listFiles(root) {
-  if (!root || !existsSync(root)) return [];
-  const found = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === ".git") continue;
-        walk(full);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".jsonl")) {
-        found.push(full);
-      }
-    }
-  };
-  walk(root);
-  return found.sort();
-}
-
 /// 读一个目录的 git HEAD（CI 里就是克隆到的那次提交）。不是 git 仓库、没装 git、
 /// 或者目录不存在时返回空串——上层据此判断"能不能拿它做跳过比对"，绝不猜。
 export function gitHeadOf(dir) {
@@ -185,10 +169,6 @@ export function gitHeadOf(dir) {
   } catch {
     return "";
   }
-}
-
-function toPosix(path) {
-  return path.split("\\").join("/");
 }
 
 /// 行状态：与旧 Worker 的 `staticAssetRowStatus` 一致 —— 有译文才可能是 accepted/pending，
@@ -344,7 +324,7 @@ function dedupeRows(rowsByBundle, repoLabel, notes) {
 
 function readRepoRows({ root, repoLabel, releaseVersion, resolveCategory, warnings, notes }) {
   const rowsByBundle = new Map();
-  const files = listFiles(root);
+  const files = findFiles(root, (entry) => entry.name.toLowerCase().endsWith(".jsonl"));
   const newerVersions = new Map();
 
   const noSource = makeCounter(warnings, (n) => `${repoLabel}: ${n} 行缺少 ja/source，已跳过`);
@@ -1094,111 +1074,6 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
   sink.put("images.json", renderDocument(images));
 
   return { files: sink.files, fileCount: sink.count(), warnings, notes, portal };
-}
-
-// ---------------------------------------------------------------- 产出汇 / 写盘
-
-/// 生成器每完成一个文件就交给"汇"，不再把 174 MB 产出全堆在内存里——那是
-/// 峰值 815 MB 的主因，而目标机器（1 核 / 1.4 GB 且已跑满服务）扛不住。
-/// 三种汇的对外形状一样：`put(路径, 内容)` + `count()`，只有收集型带 `files`。
-function collectingSink() {
-  const files = new Map();
-  return {
-    files,
-    put: (relativePath, content) => files.set(relativePath, content),
-    count: () => files.size,
-  };
-}
-
-function writingSink(outDir) {
-  let written = 0;
-  return {
-    files: null,
-    put(relativePath, content) {
-      const full = join(outDir, relativePath);
-      mkdirSync(dirname(full), { recursive: true });
-      writeFileSync(full, content, "utf8");
-      written += 1;
-    },
-    count: () => written,
-  };
-}
-
-/// `--check` 的汇：逐文件比对，只记住"磁盘上还有哪些没被认领"，不保留内容。
-function compareSink(outDir) {
-  const drift = [];
-  const onDisk = existingFiles(outDir);
-  let seen = 0;
-  return {
-    files: null,
-    put(relativePath, content) {
-      seen += 1;
-      const full = onDisk.get(relativePath);
-      if (!full) {
-        drift.push(`缺失 ${relativePath}`);
-        return;
-      }
-      const actual = readFileSync(full, "utf8");
-      if (comparable(actual, relativePath) !== comparable(content, relativePath)) drift.push(`内容不同 ${relativePath}`);
-      onDisk.delete(relativePath);
-    },
-    count: () => seen,
-    finish() {
-      for (const leftover of onDisk.keys()) drift.push(`多余 ${leftover}`);
-      return drift.sort();
-    },
-  };
-}
-
-/// 生成物先写进暂存目录，全部成功后再整体换到目标位置。同一文件系统内的 rename
-/// 是原子的，所以中途失败时原有数据一个字节都不会动（以前是"先删再写"，失败会
-/// 留下半份产出——生成搬到服务器上之后，那等于让站点直接读到坏数据）。
-function swapIntoPlace(outDir, staging) {
-  const previous = `${outDir}.previous`;
-  rmSync(previous, { recursive: true, force: true });
-  const hadPrevious = existsSync(outDir);
-  if (hadPrevious) renameSync(outDir, previous);
-  try {
-    renameSync(staging, outDir);
-  } catch (error) {
-    if (hadPrevious) renameSync(previous, outDir);
-    throw error;
-  }
-  rmSync(previous, { recursive: true, force: true });
-}
-
-/// 上一次运行被中断时，暂存目录会留在产物旁边；每次动手前先清掉，
-/// 免得多余目录被 Pages 或自托管站点一起发布出去。
-function clearStaleStaging(outDir) {
-  const parent = dirname(outDir);
-  const base = basename(outDir);
-  if (!existsSync(parent)) return;
-  for (const entry of readdirSync(parent, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name === `${base}.staging` || entry.name === `${base}.previous`) {
-      rmSync(join(parent, entry.name), { recursive: true, force: true });
-    }
-  }
-}
-
-function existingFiles(outDir) {
-  const found = new Map();
-  if (!existsSync(outDir)) return found;
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && entry.name.endsWith(".json")) found.set(toPosix(relative(outDir, full)), full);
-    }
-  };
-  walk(outDir);
-  return found;
-}
-
-/// `generated_at` 是唯一允许变化的字段：比对时把它抹平，否则每天都会"漂移"。
-function comparable(content, relativePath) {
-  if (relativePath !== "portal.json") return content;
-  return content.replace(/"generated_at": "[^"]*"/, '"generated_at": "<ignored>"');
 }
 
 const HELP = `门户静态数据生成器

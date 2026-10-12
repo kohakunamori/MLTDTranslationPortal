@@ -27,10 +27,12 @@ import {
   resolveBundlePage,
 } from "./lib/data.js";
 import { CATEGORY_RULES, CATEGORY_ORDER, IMAGE_CATEGORY_RULES, IMAGE_CATEGORY_ORDER } from "./lib/taxonomy.js";
-import { IDOLS, TERMS } from "./lib/terms.js";
 import { WriteError, getToken, setToken, verifyToken } from "./lib/github-write.js";
 import { commitEdit } from "./lib/relay-write.js";
 import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, testAiConnection } from "./lib/ai-draft.js";
+import { paginate } from "./lib/pagination.js";
+import { countLines, readTotals } from "./lib/read-stats.js";
+import { $, clear, el, formatNumber, hideModal, renderRichText, toast } from "./lib/ui.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
 import { CAST_TYPES, castType, filterSongPresentation, matchingVersions } from "./lib/library.js";
 import { createLibraryUi } from "./lib/library-ui.js";
@@ -70,125 +72,6 @@ const state = {
   images: { data: null, category: "all", keyword: "", sort: "default", page: 1 },
   lightbox: null,
 };
-
-// ------------------------------------------------------------------ DOM 工具
-
-const $ = (id) => document.getElementById(id);
-
-function el(tag, props = {}, children = []) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === null || value === undefined || value === false) continue;
-    if (key === "class") node.className = value;
-    else if (key === "text") node.textContent = value;
-    else if (key.startsWith("on")) node.addEventListener(key.slice(2).toLowerCase(), value);
-    else if (value === true) node.setAttribute(key, "");
-    else node.setAttribute(key, value);
-  }
-  for (const child of Array.isArray(children) ? children : [children]) {
-    if (child === null || child === undefined || child === false) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
-  }
-  return node;
-}
-
-function clear(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
-  return node;
-}
-
-let toastTimer = null;
-function toast(message, kind = "") {
-  const node = $("toast");
-  node.textContent = message;
-  node.className = `toast ${kind}`.trim();
-  node.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { node.hidden = true; }, kind === "err" ? 6000 : 3200);
-}
-
-function hideModal(name) {
-  const modal = name === "confirm" ? $("confirm-modal") : $("lightbox");
-  if (modal) modal.hidden = true;
-}
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString("zh-CN");
-}
-
-// ------------------------------------------------------------------ 文本渲染
-
-const GAME_TAG = /<color=(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20})>|<\/color>|<b>|<\/b>/g;
-
-/// 术语与偶像名的高亮表：长词优先，避免短词先命中把长词切碎。
-const HIGHLIGHTS = (() => {
-  const list = [];
-  for (const idol of IDOLS) if (idol.name_ja) list.push({ text: idol.name_ja, title: idol.name_zh || idol.name_ja, kind: "idol" });
-  for (const term of TERMS) if (term.source) list.push({ text: term.source, title: term.target || term.source, kind: "term" });
-  list.sort((a, b) => b.text.length - a.text.length);
-  return list;
-})();
-
-const HIGHLIGHT_REGEX = HIGHLIGHTS.length
-  ? new RegExp(HIGHLIGHTS.map((item) => item.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g")
-  : null;
-
-function appendHighlighted(host, text) {
-  const raw = String(text ?? "");
-  if (!HIGHLIGHT_REGEX || !raw) {
-    host.append(document.createTextNode(raw));
-    return;
-  }
-  let cursor = 0;
-  let match;
-  HIGHLIGHT_REGEX.lastIndex = 0;
-  while ((match = HIGHLIGHT_REGEX.exec(raw)) !== null) {
-    if (match.index > cursor) host.append(document.createTextNode(raw.slice(cursor, match.index)));
-    const hit = HIGHLIGHTS.find((item) => item.text === match[0]);
-    host.append(el("span", {
-      class: hit?.kind === "idol" ? "idol-hit" : "term-hit",
-      title: hit ? `${match[0]} → ${hit.title}` : "",
-    }, match[0]));
-    cursor = match.index + match[0].length;
-    if (match[0].length === 0) HIGHLIGHT_REGEX.lastIndex += 1;
-  }
-  if (cursor < raw.length) host.append(document.createTextNode(raw.slice(cursor)));
-}
-
-/// 游戏内标记（`<color=…>`、`<b>`）只做白名单转换；所有文本都走 textContent，
-/// 因此源文里的 HTML 不会被当成标签执行。
-function renderRichText(text, { highlight = false } = {}) {
-  const host = el("span");
-  const raw = String(text ?? "");
-  const stack = [];
-  const appendTo = (node) => (stack.length ? stack[stack.length - 1] : host).append(node);
-  const pushText = (value) => {
-    if (!value) return;
-    if (highlight && stack.length === 0) appendHighlighted(host, value);
-    else if (highlight && stack[stack.length - 1] === host) appendHighlighted(host, value);
-    else appendTo(document.createTextNode(value));
-  };
-
-  let cursor = 0;
-  let match;
-  GAME_TAG.lastIndex = 0;
-  while ((match = GAME_TAG.exec(raw)) !== null) {
-    pushText(raw.slice(cursor, match.index));
-    cursor = match.index + match[0].length;
-    const tag = match[0];
-    if (tag === "</color>" || tag === "</b>") {
-      if (stack.length) stack.pop();
-      continue;
-    }
-    const node = tag === "<b>"
-      ? el("strong")
-      : el("span", { class: "game-color", style: /^#/.test(match[1]) ? `color:${match[1]}` : "" });
-    appendTo(node);
-    stack.push(node);
-  }
-  pushText(raw.slice(cursor));
-  return host;
-}
 
 // ------------------------------------------------------------------ 路由
 
@@ -501,11 +384,10 @@ async function renderCatalogue(params = {}) {
     : `找到 ${rows.length} 个资源`;
   const list = clear($("bundle-list"));
   $("catalogue-empty").hidden = rows.length > 0;
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_CATALOGUE));
-  state.catalogue.page = Math.min(Math.max(1, state.catalogue.page), totalPages);
-  const pageRows = rows.slice((state.catalogue.page - 1) * PAGE_SIZE_CATALOGUE, state.catalogue.page * PAGE_SIZE_CATALOGUE);
+  const page = paginate(rows, state.catalogue.page, PAGE_SIZE_CATALOGUE);
+  state.catalogue.page = page.page;
 
-  for (const bundle of pageRows) {
+  for (const bundle of page.rows) {
     if (lyrics) {
       list.append(renderSongCard(bundle, state.catalogue.filters.idol, true, state.catalogue.filters));
       continue;
@@ -534,8 +416,8 @@ async function renderCatalogue(params = {}) {
     ]));
   }
 
-  renderPager($("catalogue-pager"), state.catalogue.page, totalPages, (page) => {
-    state.catalogue.page = page;
+  renderPager($("catalogue-pager"), page.page, page.totalPages, (nextPage) => {
+    state.catalogue.page = nextPage;
     renderCatalogue();
   });
 }
@@ -611,34 +493,6 @@ function currentReadTarget() {
     info: state.read.pageInfo,
     file: state.read.loadedFile,
     bundleFile: state.read.file,
-  };
-}
-
-/// 一次遍历得出四个数：本地改过一行后靠它把增量算回整包计数。
-function countLines(lines) {
-  const counts = { total: 0, translated: 0, pending: 0, untranslated: 0, not_needed: 0 };
-  for (const line of lines || []) {
-    counts.total += 1;
-    if (line.status === "accepted") counts.translated += 1;
-    else if (line.status === "pending") counts.pending += 1;
-    else if (line.status === "not_needed") counts.not_needed += 1;
-    else counts.untranslated += 1;
-  }
-  return counts;
-}
-
-/// 抬头的四个数始终是**整包**口径（来自目录索引），再加上当前这一页上本地改动的增量，
-/// 所以行内提交后数字立刻变，但不会退化成"这一页的计数"。
-function readTotals(bundle, entry, baseline) {
-  const page = countLines(bundle?.lines);
-  if (!entry) return page;
-  const delta = (key) => (page[key] || 0) - (baseline?.[key] || 0);
-  return {
-    total: Number(entry.total ?? page.total),
-    translated: Number(entry.translated || 0) + delta("translated"),
-    pending: Number(entry.pending || 0) + delta("pending"),
-    untranslated: Number(entry.untranslated || 0) + delta("untranslated"),
-    not_needed: Number(entry.not_needed || 0) + delta("not_needed"),
   };
 }
 
@@ -724,19 +578,18 @@ async function renderRead(params = {}) {
     if (focusIndex >= 0) state.read.page = Math.floor(focusIndex / PAGE_SIZE_READ) + 1;
   }
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_READ));
-  state.read.page = Math.min(Math.max(1, state.read.page), totalPages);
-  const pageRows = rows.slice((state.read.page - 1) * PAGE_SIZE_READ, state.read.page * PAGE_SIZE_READ);
+  const page = paginate(rows, state.read.page, PAGE_SIZE_READ);
+  state.read.page = page.page;
 
-  for (const line of pageRows) list.append(renderLine(bundle, line));
-  renderPager($("read-pager"), state.read.page, totalPages, (page) => {
-    state.read.page = page;
+  for (const line of page.rows) list.append(renderLine(bundle, line));
+  renderPager($("read-pager"), page.page, page.totalPages, (nextPage) => {
+    state.read.page = nextPage;
     renderRead();
   });
 
   // 视图内的行号是**整包行号**（跨页连续），所以这里报的是真实的行号区间。
-  const first = pageRows[0]?.index;
-  const last = pageRows[pageRows.length - 1]?.index;
+  const first = page.rows[0]?.index;
+  const last = page.rows[page.rows.length - 1]?.index;
   $("read-window").textContent = rows.length
     ? `筛选后 ${formatNumber(rows.length)} 行 · 当前显示第 ${formatNumber(first)}–${formatNumber(last)} 行`
     : "筛选后没有匹配的行";
@@ -1068,13 +921,12 @@ async function renderImages() {
 
   const grid = clear($("image-grid"));
   $("image-empty").hidden = rows.length > 0;
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_CATALOGUE));
-  state.images.page = Math.min(Math.max(1, state.images.page), totalPages);
-  const pageRows = rows.slice((state.images.page - 1) * PAGE_SIZE_CATALOGUE, state.images.page * PAGE_SIZE_CATALOGUE);
+  const page = paginate(rows, state.images.page, PAGE_SIZE_CATALOGUE);
+  state.images.page = page.page;
 
-  for (const task of pageRows) grid.append(renderImageCard(task));
-  renderPager($("image-pager"), state.images.page, totalPages, (page) => {
-    state.images.page = page;
+  for (const task of page.rows) grid.append(renderImageCard(task));
+  renderPager($("image-pager"), page.page, page.totalPages, (nextPage) => {
+    state.images.page = nextPage;
     renderImages();
   });
 }

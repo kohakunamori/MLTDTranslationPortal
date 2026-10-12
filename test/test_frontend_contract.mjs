@@ -17,6 +17,8 @@ import { buildOutputs } from "../scripts/build_data.mjs";
 import { createStaticServer } from "../scripts/serve.mjs";
 import { applyJsonlEdit } from "../public/lib/github-write.js";
 import { filterBundles, progressPercent } from "../public/lib/data.js";
+import { paginate } from "../public/lib/pagination.js";
+import { countLines, readTotals } from "../public/lib/read-stats.js";
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
 const FIXTURE_CLIENT = "test_helpers/fixtures/client-repo";
@@ -547,6 +549,26 @@ try {
     ok("首页就是新的查阅页", () => {
       assert.ok(html.includes("翻译查阅站"));
       assert.ok(!html.includes("提案与 PR"));
+    });
+
+    ok("共享分页逻辑在空结果与越界页上保持稳定", () => {
+      assert.deepEqual(paginate([1, 2, 3], 99, 2), { page: 2, totalPages: 2, rows: [3] });
+      assert.deepEqual(paginate([], 0, 24), { page: 1, totalPages: 1, rows: [] });
+      assert.throws(() => paginate([], 1, 0), RangeError);
+    });
+
+    ok("阅读统计正确处理无需翻译行，并能合并页内改动", () => {
+      const baseline = countLines([
+        { status: "accepted" },
+        { status: "not_needed" },
+        { status: "untranslated" },
+      ]);
+      assert.deepEqual(baseline, { total: 3, translated: 1, pending: 0, untranslated: 1, not_needed: 1 });
+      assert.deepEqual(readTotals(
+        { lines: [{ status: "accepted" }, { status: "accepted" }, { status: "not_needed" }] },
+        { total: 10, translated: 4, pending: 2, untranslated: 3, not_needed: 1 },
+        baseline,
+      ), { total: 10, translated: 5, pending: 2, untranslated: 2, not_needed: 1 });
     });
   });
 } catch (error) {

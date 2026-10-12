@@ -39,52 +39,18 @@
 /* constants                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** localStorage key holding the user's personal access token. */
-export const PAT_STORAGE_KEY = "mltd.pat";
+import { PAT_STORAGE_KEY, getToken, setToken } from "./token-storage.js";
 
 const GITHUB_API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
 const USER_AGENT = "mltd-portal";
-
-/**
- * The JSON representation of the contents API. NOTE: the task sketch also mentioned
- * `application/vnd.github.raw+json`, but that media type makes GitHub return the
- * *raw file bytes*, which carries neither a base64 `content` field nor an easily
- * readable `sha` in the body — and this module needs both back from one request.
- * The JSON media type is therefore the only workable one:
- *   https://docs.github.com/rest/repos/contents#get-repository-content
- */
 const JSON_ACCEPT = "application/vnd.github+json";
 
 const HEX64 = /^[0-9a-f]{64}$/i;
 const REPO_FULL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-/**
- * Field names that mean "the translation slot of this row", resolved per row by
- * `translationKeyFor()`. Everything else is taken literally.
- */
 const TRANSLATION_SLOT_ALIASES = new Set(["", "auto", "translation"]);
-
-/**
- * 行身份字段的缺省名。上游有两套行布局：`locales` 目录里的 JSONL 行用字符串
- * `item_key`，`lyrics/songs/*.jsonl` 的行没有 `item_key`，身份字段是数值 `index`。
- * 生成数据（`public/data/` 里的 `edit.identity_field`）总是显式给出字段名，这里
- * 的缺省值只为兼容不带该字段的旧调用点。
- */
 export const DEFAULT_IDENTITY_FIELD = "item_key";
 
-/* -------------------------------------------------------------------------- */
-/* errors                                                                      */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Every refusal in this module is a `WriteError`; nothing is ever guessed.
- *
- * Codes: no_token, no_fetch, invalid_edit, invalid_json, invalid_response,
- *        unsupported_encoding, field_missing, ambiguous_field, field_not_string,
- *        not_found, ambiguous, source_changed, unauthorized, forbidden, conflict,
- *        http_error, network_error.
- */
 export class WriteError extends Error {
   constructor(code, message, detail = null) {
     super(message || code);
@@ -96,76 +62,6 @@ export class WriteError extends Error {
 
 function fail(code, message, detail = null) {
   return new WriteError(code, message, detail);
-}
-
-/* -------------------------------------------------------------------------- */
-/* token storage                                                               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * `localStorage` access can throw (private mode, blocked cookies, file:// in some
- * browsers), and `globalThis.localStorage` is `undefined` under plain Node, so the
- * default is resolved lazily and defensively instead of at module top level.
- */
-function defaultStorage() {
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function resolveStorage(storage) {
-  if (storage !== undefined && storage !== null) return storage;
-  return defaultStorage();
-}
-
-/**
- * @param {Storage} [storage]
- * @returns {string} the stored token, or "" when unset/unreadable. Whitespace is
- *   trimmed because a pasted token routinely carries a trailing newline. A GitHub
- *   token never contains whitespace, so trimming cannot corrupt one.
- */
-export function getToken(storage = defaultStorage()) {
-  const store = resolveStorage(storage);
-  if (!store) return "";
-  try {
-    const raw = store.getItem(PAT_STORAGE_KEY);
-    return typeof raw === "string" ? raw.trim() : "";
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Store (or clear) the token. `""` / whitespace-only clears the key entirely.
- *
- * @param {string} value
- * @param {Storage} [storage]
- * @returns {string} the value that is actually stored ("" when cleared or when the
- *   storage refused the write). Storage failures are swallowed on purpose: this is
- *   not a data write and must not throw into the UI.
- */
-export function setToken(value, storage = defaultStorage()) {
-  const store = resolveStorage(storage);
-  const text = typeof value === "string" ? value.trim() : "";
-  if (!text) {
-    if (store) {
-      try {
-        store.removeItem(PAT_STORAGE_KEY);
-      } catch {
-        /* nothing else we can do */
-      }
-    }
-    return "";
-  }
-  if (!store) return "";
-  try {
-    store.setItem(PAT_STORAGE_KEY, text);
-    return text;
-  } catch {
-    return "";
-  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1102,3 +998,5 @@ export async function commitLineEdit(options) {
     changed: true,
   };
 }
+
+export { PAT_STORAGE_KEY, getToken, setToken };

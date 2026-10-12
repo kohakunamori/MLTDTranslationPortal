@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import { decorateLibraryBundles, emitLibrary, emitSearch } from "./library_data.mjs";
 
 import {
   CATEGORY_ORDER,
@@ -828,6 +829,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
 
   // ---- 汇总。注意 `bundles` 数的是**唯一资源**，`files` 数的是落盘文件：巨型
   // bundle 会被切成多页，所以两者不再相等。
+  decorateLibraryBundles(bundles);
   const categoryCounts = new Map(CATEGORY_ORDER.map((id) => [id, { bundles: 0, files: 0, total: 0, translated: 0, not_needed: 0 }]));
   const seenBundleKeys = new Set();
   // 对账只跟 assets 轴比：客户端底栏清单不属于 assets 清单的统计范围。
@@ -928,6 +930,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
 
   const portal = {
     schema_version: SCHEMA_VERSION,
+    discovery: { library: "library/index.json", search: "search/index.json" },
     generated_at: generatedAt,
     image_base: String(settings.imageBase || "").replace(/\/+$/, ""),
     sources: {
@@ -1034,6 +1037,9 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     }));
   }
 
+  const discoverySink = { putDocument: (file, doc) => sink.put(file, renderDocument(doc)) };
+  emitLibrary(discoverySink, [...catalogueEntries.values()]);
+  emitSearch(discoverySink, bundles, [...catalogueEntries.values()]);
   const emitted = new Set();
   for (const { record, rows, slotBased } of bundles) {
     const file = record.file;
@@ -1052,6 +1058,10 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
       edit: record.edit,
       song: record.song || null,
       idol: record.idol || null,
+      title: record.title || null,
+      reading_category: record.reading_category,
+      topic: record.topic || null,
+      participants: record.participants || [],
       page: record.page,
       page_count: record.page_count,
       first_index: record.first_index,
@@ -1069,6 +1079,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
         source: row.source,
         translation: row.translation,
         status: row.status,
+        idol_code: row.idol?.code || null,
         source_sha256: row.source_sha256,
         line: row.line,
         ...(row.category === record.category ? {} : { category: row.category }),

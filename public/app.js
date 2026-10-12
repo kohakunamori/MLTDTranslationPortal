@@ -32,6 +32,8 @@ import { WriteError, getToken, setToken, verifyToken } from "./lib/github-write.
 import { commitEdit } from "./lib/relay-write.js";
 import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, testAiConnection } from "./lib/ai-draft.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
+import { CAST_TYPES, castType, filterSongPresentation, matchingVersions } from "./lib/library.js";
+import { createLibraryUi } from "./lib/library-ui.js";
 
 const PAGE_SIZE_CATALOGUE = 24;
 const PAGE_SIZE_READ = 200;
@@ -42,11 +44,13 @@ const state = {
   domain: "all",
   songKeyword: "",
   songIdol: "",
+  songAttribute: "",
+  songCast: "",
   songGrouped: true,
   songPage: 1,
   songRenderId: 0,
   writeStatus: null,
-  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", channel: "", keyword: "", sort: "default", groupSongs: true } },
+  catalogue: { category: "lyrics", bundles: [], page: 1, filters: { idol: "", status: "", channel: "", keyword: "", sort: "default", groupSongs: true, attribute: "", cast: "" } },
   read: {
     // `file` 是当前 bundle 的规范文件；`urlFile` 是 URL 里那个 file（原样带回，不在渲染中改写 URL）。
     file: "",
@@ -58,6 +62,7 @@ const state = {
     entry: null,
     pages: [],
     baseline: null,
+    renderId: 0,
     page: 1,
     filters: { keyword: "", status: "", display: "both", size: "normal", highlight: true },
   },
@@ -187,6 +192,8 @@ function renderRichText(text, { highlight = false } = {}) {
 
 // ------------------------------------------------------------------ 路由
 
+const libraryUi = createLibraryUi({ $, el, clear, navigate, renderPager, toast, renderSongCard, state });
+
 function navigate(view, params = {}) {
   // 路径直接写在 hash 里更好读（`file=bundles/system_ui/x.json`），URLSearchParams 会把 `/`
   // 转义成 %2F，这里只把 `/` 还原回去；其余字符保持转义。
@@ -202,8 +209,10 @@ function parseRoute() {
 
 async function applyRoute() {
   const { view, params } = parseRoute();
-  const known = ["overview", "catalogue", "read", "images", "settings"];
-  state.view = known.includes(view) ? view : "overview";
+  const known = ["overview", "catalogue", "read", "images", "settings", "idols", "idol", "topics", "topic", "personal", "compare", "search"];
+  const nextView = known.includes(view) ? view : "overview";
+  libraryUi.beforeRoute(nextView);
+  state.view = nextView;
   for (const section of document.querySelectorAll(".view")) section.hidden = true;
   $(`view-${state.view}`).hidden = false;
   for (const button of document.querySelectorAll(".nav-btn")) {
@@ -215,7 +224,9 @@ async function applyRoute() {
   else if (state.view === "read") await renderRead(params);
   else if (state.view === "images") await renderImages();
   else if (state.view === "settings") await renderSettings();
+  else await libraryUi.render(state.view, params);
   window.scrollTo({ top: 0 });
+  await libraryUi.afterRoute(params);
 }
 
 // ------------------------------------------------------------------ 顶部
@@ -254,10 +265,7 @@ async function renderOverview() {
   const totals = portal.totals || {};
 
   $("hero-meta").textContent = [
-    `生成于 ${portal.generated_at || "未知时间"}`,
-    portal.releases?.assets?.asset_version ? `Assets ${portal.releases.assets.asset_version}` : null,
-    portal.releases?.client?.client_version ? `Client ${portal.releases.client.client_version}` : null,
-    portal.sources?.assets?.commit ? `assets@${String(portal.sources.assets.commit).slice(0, 8)}` : null,
+    `内容更新于 ${portal.generated_at ? new Date(portal.generated_at).toLocaleString("zh-CN") : "未知时间"}`,
   ].filter(Boolean).join(" · ");
 
   $("hero-progress").style.width = `${Math.min(100, Number(totals.progress_percent) || 0)}%`;
@@ -341,8 +349,11 @@ async function renderSongGrid() {
     value: idol.code, text: idol.name_zh || idol.name_ja, selected: state.songIdol === idol.code,
   }));
   $("song-group").checked = state.songGrouped;
-  const songs = filterBundles(state.songGrouped ? groupSongs(bundles) : bundles,
-    { keyword: state.songKeyword, idol: state.songIdol }).sort((a, b) =>
+  $("song-attribute").value = state.songAttribute;
+  $("song-cast").value = state.songCast;
+  const filters = { idol: state.songIdol, attribute: state.songAttribute, cast: state.songCast };
+  const songs = filterSongPresentation(filterBundles(state.songGrouped ? groupSongs(bundles) : bundles,
+    { keyword: state.songKeyword, idol: state.songIdol }), filters).sort((a, b) =>
       (Number(a.song?.mst_song_id) || Infinity) - (Number(b.song?.mst_song_id) || Infinity)
       || bundleLabel(a).localeCompare(bundleLabel(b), "ja"));
   const totalPages = Math.max(1, Math.ceil(songs.length / PAGE_SIZE_CATALOGUE));
@@ -355,23 +366,25 @@ async function renderSongGrid() {
   const grid = clear($("song-grid"));
   empty.hidden = songs.length > 0;
   if (!songs.length) empty.textContent = "没有匹配的歌曲。";
-  for (const song of pageRows) grid.append(renderSongCard(song, state.songIdol));
+  for (const song of pageRows) grid.append(renderSongCard(song, state.songIdol, false, filters));
   renderPager($("song-grid-pager"), state.songPage, totalPages, (next) => {
     state.songPage = next;
     renderSongGrid();
   });
 }
 
-function renderSongCard(song, idol = "", compact = false) {
-  const primary = primaryVersion(song, idol);
+function renderSongCard(song, idol = "", compact = false, filters = {}) {
+  const matching = matchingVersions(song, { ...filters, idol });
+  const primary = matching[0] || primaryVersion(song, idol);
   const versions = versionsOf(song);
   const percent = progressPercent(song);
   const card = el("article", { class: `song-card${compact ? " song-list-card" : ""}` },
     el("button", { class: "song-open", type: "button", onclick: () => navigate("read", { file: primary.file }) }, [
       el("div", { class: "song-name", text: bundleLabel(primary) }),
-      el("div", { class: "song-sub", text: [primary.song?.type, `${versions.length} 个歌词版本`].filter(Boolean).join(" · ") }),
+      el("div", { class: "song-sub", text: [primary.song?.type, CAST_TYPES[castType(primary)], `${versions.length} 个歌词版本`].filter(Boolean).join(" · ") }),
       el("div", { class: "song-sub song-cast", text: `默认演唱：${singerSummary(primary)}` }),
       idol ? el("span", { class: "pill", text: `${primary.song?.default_singers?.find((singer) => singer.code === idol)?.name_zh || "所选偶像"}参与演唱` }) : null,
+      (filters.attribute || filters.cast) ? el("span", { class: "pill", text: `${matching.length} 个版本符合筛选` }) : null,
       el("div", { class: "progress-track" }, el("div", { class: "progress-fill", style: `width:${percent}%` })),
       el("div", { class: "song-foot" }, [
         el("span", { text: `${versions.length > 1 ? "各版本合计 · " : ""}${song.translated}/${song.total} 句` }),
@@ -388,6 +401,9 @@ function renderSongCard(song, idol = "", compact = false) {
         ]))),
     ]));
   }
+  const actions = el("div", { class: "library-actions" }, libraryUi.favoriteButton(primary));
+  if (versions.length > 1) actions.append(el("button", { type: "button", class: "btn btn-ghost", text: "版本对照", onclick: () => navigate("compare", { file: primary.file }) }));
+  card.append(actions);
   return card;
 }
 
@@ -437,6 +453,10 @@ async function renderCatalogue(params = {}) {
   const lyrics = category === "lyrics";
   const presentation = lyrics && state.catalogue.filters.groupSongs ? groupSongs(state.catalogue.bundles) : state.catalogue.bundles;
   $("filter-song-group-field").hidden = !lyrics;
+  $("filter-song-attribute-field").hidden = !lyrics;
+  $("filter-song-cast-field").hidden = !lyrics;
+  $("filter-song-attribute").value = state.catalogue.filters.attribute;
+  $("filter-song-cast").value = state.catalogue.filters.cast;
   $("filter-song-group").checked = state.catalogue.filters.groupSongs;
   $("filter-idol-label").textContent = lyrics ? "默认歌唱偶像" : "偶像";
   const meta = CATEGORY_RULES[category];
@@ -474,7 +494,8 @@ async function renderCatalogue(params = {}) {
   $("filter-channel").value = state.catalogue.filters.channel;
   labelStatusOptions(presentation);
 
-  const rows = filterBundles(presentation, state.catalogue.filters);
+  const filtered = filterBundles(presentation, state.catalogue.filters);
+  const rows = lyrics ? filterSongPresentation(filtered, state.catalogue.filters) : filtered;
   $("catalogue-results").textContent = lyrics
     ? (state.catalogue.filters.groupSongs ? `找到 ${rows.length} 首歌曲` : `找到 ${rows.length} 个歌词版本`)
     : `找到 ${rows.length} 个资源`;
@@ -486,7 +507,7 @@ async function renderCatalogue(params = {}) {
 
   for (const bundle of pageRows) {
     if (lyrics) {
-      list.append(renderSongCard(bundle, state.catalogue.filters.idol, true));
+      list.append(renderSongCard(bundle, state.catalogue.filters.idol, true, state.catalogue.filters));
       continue;
     }
     const percent = progressPercent(bundle);
@@ -600,7 +621,7 @@ function countLines(lines) {
     counts.total += 1;
     if (line.status === "accepted") counts.translated += 1;
     else if (line.status === "pending") counts.pending += 1;
-    else if (status === "not_needed") counts.not_needed += 1;
+    else if (line.status === "not_needed") counts.not_needed += 1;
     else counts.untranslated += 1;
   }
   return counts;
@@ -622,6 +643,7 @@ function readTotals(bundle, entry, baseline) {
 }
 
 async function renderRead(params = {}) {
+  const request = ++state.read.renderId;
   state.portal = state.portal || await loadPortal();
   const requested = params.file || state.read.urlFile || state.read.file;
   if (!requested) {
@@ -633,10 +655,13 @@ async function renderRead(params = {}) {
   const target = (!fileChanged && params.p === undefined && state.read.pages.length)
     ? currentReadTarget()
     : await resolveReadTarget(requested, params.p !== undefined ? params.p : (fileChanged ? undefined : state.read.bundlePage));
+  if (request !== state.read.renderId || state.view !== "read") return;
 
   if (target.file !== state.read.loadedFile) {
     // 换资源或换数据页：只抓这一个页面文件，视图内分页回到第一屏，筛选条件原样保留。
-    state.read.bundle = await loadBundle(target.file);
+    const loaded = await loadBundle(target.file);
+    if (request !== state.read.renderId || state.view !== "read") return;
+    state.read.bundle = loaded;
     state.read.baseline = countLines(state.read.bundle?.lines);
     state.read.loadedFile = target.file;
     state.read.page = 1;
@@ -657,13 +682,9 @@ async function renderRead(params = {}) {
   $("read-meta").textContent = (bundle.category === "lyrics" ? [
     "歌曲歌词", `默认演唱：${singerSummary(target.entry || bundle)}`,
   ] : [
-    CATEGORY_RULES[bundle.category]?.name,
-    bundle.idol ? bundle.idol.name_ja : null,
-    bundle.channel === "client" ? "客户端清单" : null,
-    bundle.asset_version ? `assets ${bundle.asset_version}` : null,
-    bundle.client_version ? `client ${bundle.client_version}` : null,
-    pageCount > 1 ? `切为 ${pageCount} 个数据页` : null,
-    bundle.repo_path,
+    CATEGORY_RULES[bundle.reading_category || bundle.category]?.name,
+    bundle.topic?.chapter_label,
+    pageCount > 1 ? `共 ${pageCount} 页` : null,
   ]).filter(Boolean).join(" · ");
 
   const totals = readTotals(bundle, target.entry, state.read.baseline);
@@ -677,6 +698,8 @@ async function renderRead(params = {}) {
   );
   renderReadPageBar();
   await renderReadSongOptions(bundle, target.entry);
+  if (request !== state.read.renderId || state.view !== "read") return;
+  if (params.l !== undefined) { state.read.filters.keyword = ""; state.read.filters.status = ""; }
 
   $("read-search").value = state.read.filters.keyword;
   $("read-status").value = state.read.filters.status;
@@ -696,6 +719,11 @@ async function renderRead(params = {}) {
   });
   $("read-empty").hidden = rows.length > 0;
 
+  if (params.l !== undefined) {
+    const focusIndex = rows.findIndex((line) => String(line.item_key) === String(params.l));
+    if (focusIndex >= 0) state.read.page = Math.floor(focusIndex / PAGE_SIZE_READ) + 1;
+  }
+
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_READ));
   state.read.page = Math.min(Math.max(1, state.read.page), totalPages);
   const pageRows = rows.slice((state.read.page - 1) * PAGE_SIZE_READ, state.read.page * PAGE_SIZE_READ);
@@ -712,6 +740,7 @@ async function renderRead(params = {}) {
   $("read-window").textContent = rows.length
     ? `筛选后 ${formatNumber(rows.length)} 行 · 当前显示第 ${formatNumber(first)}–${formatNumber(last)} 行`
     : "筛选后没有匹配的行";
+  await libraryUi.afterRead(bundle, target.entry, params);
 }
 
 /// 数据页控件：bundle 被切成多页时才出现。59 页用 `<select>` 而不是 59 个按钮。
@@ -808,6 +837,7 @@ function renderLine(bundle, line) {
   return el("li", {
     class: `line-item status-${line.status}${editing ? " editing" : ""}`,
     id: `line-${encodeURIComponent(line.item_key)}`,
+    "data-line-key": line.item_key,
   }, [
     el("div", { class: "line-no" }, [
       String(line.index),
@@ -1208,6 +1238,7 @@ function debounce(fn, wait) {
 }
 
 function bindEvents() {
+  libraryUi.bindEvents();
   $("logo-home").addEventListener("click", (event) => { event.preventDefault(); navigate("overview"); });
   // 密码输入框放在 <form> 里 Chrome 才不报 "Password field is not contained in a form"；
   // 这两行表单不提交到任何地方，只是把输入框圈起来。
@@ -1245,6 +1276,10 @@ function bindEvents() {
 
   $("song-idol").addEventListener("change", (event) => { state.songIdol = event.target.value; state.songPage = 1; renderSongGrid(); });
   $("song-group").addEventListener("change", (event) => { state.songGrouped = event.target.checked; state.songPage = 1; renderSongGrid(); });
+  $("song-attribute").addEventListener("change", (event) => { state.songAttribute = event.target.value; state.songPage = 1; renderSongGrid(); });
+  $("song-cast").addEventListener("change", (event) => { state.songCast = event.target.value; state.songPage = 1; renderSongGrid(); });
+  $("filter-song-attribute").addEventListener("change", (event) => { state.catalogue.filters.attribute = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
+  $("filter-song-cast").addEventListener("change", (event) => { state.catalogue.filters.cast = event.target.value; state.catalogue.page = 1; renderCatalogue(); });
   $("filter-song-group").addEventListener("change", (event) => { state.catalogue.filters.groupSongs = event.target.checked; state.catalogue.page = 1; renderCatalogue(); });
   $("read-song-version").addEventListener("change", (event) => { navigate("read", { file: event.target.value }); });
 

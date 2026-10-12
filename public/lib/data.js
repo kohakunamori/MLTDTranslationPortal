@@ -76,6 +76,15 @@ export function loadImages(options = {}) {
   return cached(dataUrl("images.json"), "no-store", options);
 }
 
+export function loadLibrary(options = {}) {
+  return cached(dataUrl("library/index.json"), "no-store", options);
+}
+
+export function loadLibraryFile(file, options = {}) {
+  if (!/^library\/(?:idols|topics)\/[a-zA-Z0-9_-]+\.json$/.test(file)) throw new DataError("invalid_path", "无法识别此内容。");
+  return cached(dataUrl(file), "no-cache", options);
+}
+
 export function clearCache() {
   jsonCache.clear();
 }
@@ -177,6 +186,7 @@ export function filterBundles(bundles, { idol = "", status = "", channel = "", k
 /// 列表/标题里显示什么：歌曲用曲名，其余用资源名。
 export function bundleLabel(bundle) {
   if (!bundle) return "—";
+  if (bundle.title?.name_zh || bundle.title?.name_ja) return bundle.title.name_zh || bundle.title.name_ja;
   const name = bundle.song?.name_ja || bundle.base || bundle.bundle;
   return bundle.song?.name_zh && bundle.song.name_zh !== bundle.song.name_ja
     ? `${name} / ${bundle.song.name_zh}`

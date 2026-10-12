@@ -167,6 +167,41 @@ code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 4px; font-siz
 .input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 
 select.input { cursor: pointer; }
+:where([hidden]) { display: none !important; }
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1rem; margin: 1rem 0; }
+.library-card { display: flex; flex-direction: column; gap: .5rem; padding: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.library-open { background: none; border: none; padding: 0; color: inherit; font: inherit; font-weight: 800; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.library-open:hover { color: var(--primary); }
+.library-actions, .reader-related { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.library-excerpt { white-space: pre-line; font-size: .85rem; line-height: 1.7; color: var(--text-muted); margin: 0; }
+.library-tabs { margin: 1rem 0; }
+.idol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 1rem; }
+.idol-card { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); color: inherit; text-align: left; cursor: pointer; }
+.idol-avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: white; font-size: 1.3rem; font-weight: 800; }
+.idol-link { color: var(--primary); background: transparent; border: 1px solid var(--border); padding: .3rem .6rem; border-radius: 6px; cursor: pointer; }
+.reader-related:empty { display: none; }
+.reader-related, .reader-idols { margin-bottom: 1rem; }
+.reader-idols summary { cursor: pointer; }
+.reader-idols .library-actions { margin-top: .7rem; }
+.target-line { outline: 2px solid var(--primary); outline-offset: 3px; scroll-margin-top: 180px; }
+.import-label { cursor: pointer; }
+.import-label input { width: 1px; height: 1px; opacity: 0; position: absolute; }
+.compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: .6rem 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card-bg); }
+.diff-label { grid-column: 1 / -1; padding: .4rem .8rem; font-size: .75rem; background: #f1f5f9; color: #475569; }
+.compare-cell { padding: .8rem; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; border-right: 1px solid var(--border); }
+.compare-cell:last-child { border-right: 0; }
+.compare-cell p { margin: .3rem 0; }
+.diff-changed .diff-label, .diff-translation .diff-label { background: #fff1cc; color: #854d0e; }
+.diff-added .diff-label { background: #dcfce7; color: #166534; }
+.diff-removed .diff-label { background: #ffe4e6; color: #9f1239; }
+.search-result { margin: .75rem 0; }
+.search-snippet { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; margin: .5rem 0; }
+.search-snippet mark { background: #ffedb8; border-radius: 3px; }
+@media (max-width: 640px) {
+  .header-actions { max-width: 100%; }
+  .compare-row { grid-template-columns: 1fr; }
+  .compare-cell { border-right: 0; border-top: 1px solid var(--border); }
+}
 
 .field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 8rem; }
 .field > span { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }

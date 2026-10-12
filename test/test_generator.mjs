@@ -420,6 +420,11 @@ ok("索引里的每个文件都存在，行数与索引一致", () => {
 
 ok("每个生成的文件都在某个索引里被引用（没有孤儿）", () => {
   const referenced = new Set(["portal.json", "images.json"]);
+  referenced.add(portal.discovery.library);
+  referenced.add(portal.discovery.search);
+  const library = parse(result, portal.discovery.library);
+  for (const item of [...library.idols, ...library.topics]) referenced.add(item.file);
+  for (const shard of parse(result, portal.discovery.search).shards) referenced.add(shard.file);
   for (const category of portal.categories) {
     referenced.add(`catalogue/${category.id}.json`);
     for (const bundle of parse(result, `catalogue/${category.id}.json`).bundles) {

@@ -21,6 +21,10 @@
     <nav class="header-actions" id="header-nav">
       <button class="nav-btn" data-nav="overview">概览</button>
       <button class="nav-btn" data-nav="catalogue">全部资源</button>
+      <button class="nav-btn" data-nav="idols">偶像</button>
+      <button class="nav-btn" data-nav="topics">专题</button>
+      <button class="nav-btn" data-nav="search">搜索</button>
+      <button class="nav-btn" data-nav="personal">我的收藏</button>
       <button class="nav-btn" data-nav="images">图片</button>
       <button class="nav-btn" data-nav="settings">设置</button>
       <span class="write-chip" id="write-chip" title="未配置 GitHub Token，只能查看"></span>
@@ -32,9 +36,7 @@
   <h2>数据载入失败</h2>
   <p id="fatal-detail"></p>
   <p class="hint">
-    静态数据由本仓 GitHub Actions 从翻译仓库生成到 <code>public/data/</code>。
-    本地想在浏览器里看，先跑 <code>npm run data:demo</code>（合成数据）或
-    <code>npm run data</code>（真实数据），再用 <code>npm run serve</code> 打开。
+    内容暂时无法载入，请刷新页面或稍后再试。
   </p>
 </div>
 
@@ -77,6 +79,8 @@
         <select class="input" id="song-idol"><option value="">全部偶像</option></select>
       </label>
       <label class="field checkbox"><input id="song-group" type="checkbox" checked />同曲合并展示</label>
+      <label class="field"><span>歌曲属性</span><select class="input" id="song-attribute"><option value="">全部属性</option><option>Princess</option><option>Fairy</option><option>Angel</option><option value="All">全属性</option></select></label>
+      <label class="field"><span>演唱形式</span><select class="input" id="song-cast"><option value="">全部形式</option><option value="solo">独唱</option><option value="unit">组合</option><option value="all">全员</option><option value="unknown">资料待补充</option></select></label>
     </div>
     <p class="hint" id="song-grid-count" role="status" aria-live="polite"></p>
     <div class="song-grid" id="song-grid"></div>
@@ -135,6 +139,8 @@
         </select>
       </label>
       <label class="field checkbox" id="filter-song-group-field"><input id="filter-song-group" type="checkbox" checked />同曲合并展示</label>
+      <label class="field" id="filter-song-attribute-field"><span>歌曲属性</span><select class="input" id="filter-song-attribute"><option value="">全部属性</option><option>Princess</option><option>Fairy</option><option>Angel</option><option value="All">全属性</option></select></label>
+      <label class="field" id="filter-song-cast-field"><span>演唱形式</span><select class="input" id="filter-song-cast"><option value="">全部形式</option><option value="solo">独唱</option><option value="unit">组合</option><option value="all">全员</option><option value="unknown">资料待补充</option></select></label>
     </div>
 
     <p class="hint" id="catalogue-results" role="status" aria-live="polite"></p>
@@ -153,6 +159,7 @@
         <p class="hero-meta" id="read-meta"></p>
       </div>
       <div class="read-counts" id="read-counts"></div>
+      <div class="library-actions" id="read-personal-actions"></div>
     </div>
 
     <div class="card page-bar" id="read-pagebar">
@@ -173,6 +180,8 @@
       <label class="field grow"><span>歌词版本</span><select class="input" id="read-song-version"></select></label>
       <details class="song-singers"><summary id="read-song-singers-summary"></summary><p id="read-song-singers"></p></details>
     </div>
+    <div class="reader-related card" id="read-related"></div>
+    <details class="card reader-idols" id="read-idols-block" hidden><summary>相关偶像 · 查看主页</summary><div class="library-actions" id="read-idol-links"></div></details>
     <div class="filters card read-toolbar">
       <label class="field grow">
         <span>本资源内搜索</span>
@@ -213,6 +222,39 @@
     <p class="empty" id="read-empty" hidden>没有匹配的句子。</p>
     <ol class="line-list" id="line-list"></ol>
     <div class="pager" id="read-pager"></div>
+  </section>
+
+  <section class="view" id="view-idols" hidden>
+    <div class="view-head card"><h2>偶像主页</h2><p class="hint">从偶像出发，浏览歌曲、剧情和生日纪念。</p></div>
+    <form class="filters card" id="idols-form"><label class="field grow"><span>寻找偶像</span><input class="input" id="idols-query" type="search" placeholder="中文或日文名字" /></label><button class="btn btn-primary" type="submit">查找</button></form>
+    <p class="hint" id="idols-count" role="status"></p><div class="idol-grid" id="idols-list"></div>
+  </section>
+  <section class="view" id="view-idol" hidden>
+    <div class="view-head card"><button class="btn" data-nav="idols">← 全部偶像</button><div><h2 id="idol-name">偶像主页</h2><p class="hint" id="idol-description"></p></div></div>
+    <div class="domain-tabs library-tabs" id="idol-tabs"></div><div id="idol-content"></div>
+  </section>
+  <section class="view" id="view-topics" hidden>
+    <div class="view-head card"><h2>专题与连续阅读</h2><p class="hint">按活动、主线、周年与生日纪念浏览；有明确顺序的故事可连续阅读。</p></div>
+    <form class="filters card" id="topics-form"><label class="field grow"><span>寻找专题</span><input class="input" id="topics-query" type="search" placeholder="标题或故事简介" /></label><label class="field"><span>类型</span><select class="input" id="topics-kind"><option value="">全部专题</option><option value="event">活动</option><option value="main">主线</option><option value="anniversary">周年</option><option value="special">特别企划</option><option value="birthday">生日</option></select></label><button class="btn btn-primary" type="submit">查找</button></form>
+    <p class="hint" id="topics-count" role="status"></p><div id="topics-list"></div>
+  </section>
+  <section class="view" id="view-topic" hidden>
+    <div class="view-head card"><button class="btn" data-nav="topics">← 全部专题</button><div><h2 id="topic-name">专题</h2><p class="hint" id="topic-description"></p></div></div><div id="topic-content"></div>
+  </section>
+  <section class="view" id="view-personal" hidden>
+    <div class="view-head card"><h2>我的收藏与阅读</h2><p class="hint" id="personal-note"></p></div>
+    <div class="filters card"><button class="btn" id="personal-export" type="button">导出备份</button><label class="btn import-label">导入备份<input id="personal-import" type="file" accept="application/json,.json" /></label><button class="btn" id="personal-clear" type="button">清空阅读记录</button></div>
+    <h3 id="personal-favorites-count">收藏</h3><div id="personal-favorites"></div><h3 id="personal-recent-count">最近阅读</h3><div id="personal-recent"></div>
+  </section>
+  <section class="view" id="view-compare" hidden>
+    <div class="view-head card"><button class="btn" data-nav="catalogue">← 歌曲目录</button><div><h2 id="compare-title">多版本歌词对照</h2><p class="hint">按歌词段落对应，重复的副歌也会保留各自的位置。</p></div></div>
+    <div class="filters card"><label class="field grow"><span>左侧版本</span><select class="input" id="compare-left"></select></label><label class="field grow"><span>右侧版本</span><select class="input" id="compare-right"></select></label><label class="field checkbox"><input id="compare-only" type="checkbox" />只看差异</label><label class="field checkbox"><input id="compare-whitespace" type="checkbox" />忽略原文空白差异</label></div>
+    <p class="hint" id="compare-summary" role="status"></p><div id="compare-lines"></div>
+  </section>
+  <section class="view" id="view-search" hidden>
+    <div class="view-head card"><h2>全站正文搜索</h2><p class="hint">搜索日文原文与中文译文，点击结果可直达对应段落。</p></div>
+    <form class="filters card" id="search-form"><label class="field grow"><span>正文关键词</span><input class="input" id="search-query" type="search" maxlength="100" required placeholder="中文或日文正文" /></label><label class="field"><span>范围</span><select class="input" id="search-scope"><option value="all">全站</option><option value="lyrics">歌词</option><option value="story">剧情</option><option value="card">卡片内容</option><option value="dialogue">剧场日常</option><option value="birth">生日</option><option value="system">界面与系统</option></select></label><label class="field"><span>相关偶像</span><select class="input" id="search-idol"><option value="">全部偶像</option></select></label><label class="field"><span>翻译状态</span><select class="input" id="search-state"><option value="">全部</option><option value="accepted">已确认</option><option value="untranslated">未翻译</option><option value="pending">待确认</option><option value="not_needed">无需翻译</option></select></label><button class="btn btn-primary" type="submit">搜索</button><button class="btn" id="search-cancel" type="button" disabled>停止搜索</button></form>
+    <p class="hint" id="search-status" role="status" aria-live="polite"></p><div id="search-results"></div><div class="pager" id="search-pager"></div>
   </section>
 
   <!-- ============================ 图片 ============================ -->
@@ -327,18 +369,18 @@
       <dl class="kv" id="settings-sources"></dl>
       <div class="settings-row">
         <button class="btn" id="settings-reload">↻ 重新拉取数据</button>
-        <span class="hint">数据由本仓 GitHub Actions 生成；刚提交的改动会在下次生成后出现在页面里。</span>
+        <span class="hint">内容会定期更新；刚保存的修改将在下次更新后出现在页面里。</span>
       </div>
     </div>
 
     <div class="card settings-card">
       <h3>怎么用</h3>
       <ul class="help-list">
-        <li>概览页按 domain / 分类进入；点歌曲卡片或资源行打开日中对照阅读。</li>
-        <li>大资源被上游切成了多个数据页：阅读页顶部可以翻页，地址形如 <code>#read?file=bundles/system_ui/MD_jp.gtx.p1.json&amp;p=3</code>，收藏/分享即可直达某一页。</li>
-        <li>未翻译的句子显示灰色「未翻译」，可以直接在行内填入译文。</li>
-        <li>行内编辑只替换上游 JSONL 里那一行的 <code>zh</code> 字段，其余字节不动；提交前先核对日文源文 hash，源文变了就拒绝写入。</li>
-        <li>图片走公开对象存储直接外链（清单里给的是绝对地址）；打不开时显示占位，不伪造。</li>
+        <li>从分类、偶像主页或专题进入，浏览日中对照内容；正文搜索可以直达匹配段落。</li>
+        <li>歌词可按属性和演唱形式筛选，同曲的不同版本可切换阅读或并排对照。</li>
+        <li>点击收藏保存喜欢的内容；「我的收藏」也会记录最近阅读和阅读位置，可导入、导出备份。</li>
+        <li>有明确章节顺序的专题支持上一章、下一章；生日与周年纪念也可单独浏览。</li>
+        <li>维护者可在阅读页修改译文；提交前会核对原文，避免覆盖已经变化的内容。</li>
       </ul>
     </div>
   </section>

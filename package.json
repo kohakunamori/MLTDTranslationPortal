@@ -10,6 +10,6 @@
     "data:check": "node scripts/build_data.mjs --assets-root vendor/MLTDTranslationAssets --client-root vendor/MLTDTranslationClient --check",
     "serve": "node scripts/serve.mjs",
     "relay": "node scripts/relay.mjs",
-    "test": "node test/test_songs.mjs && node test/test_generator.mjs && node test/test_frontend_contract.mjs && node test/test_github_write.mjs && node test/test_ai_draft.mjs && node test/test_ci_decide.mjs && node test/test_relay.mjs"
+    "test": "node test/test_library.mjs && node test/test_songs.mjs && node test/test_generator.mjs && node test/test_frontend_contract.mjs && node test/test_github_write.mjs && node test/test_ai_draft.mjs && node test/test_ci_decide.mjs && node test/test_relay.mjs"
   }
 }

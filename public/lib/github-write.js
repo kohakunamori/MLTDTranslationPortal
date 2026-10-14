@@ -64,6 +64,19 @@ function fail(code, message, detail = null) {
   return new WriteError(code, message, detail);
 }
 
+/** Normalize the optional upstream write status; keep adapter-specific diagnostics. */
+export function normalizeWriteStatus(status, invalidMessage = "status must be a non-empty string when provided") {
+  if (status === undefined || status === null) return null;
+  if (typeof status !== "string" || status.trim() === "") {
+    throw fail("invalid_edit", invalidMessage);
+  }
+  const value = status.trim();
+  if (value === "not_needed") {
+    throw fail("invalid_edit", "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
+  }
+  return value;
+}
+
 /* -------------------------------------------------------------------------- */
 /* sha256 (own helper — the caller's hash is never trusted)                     */
 /* -------------------------------------------------------------------------- */
@@ -884,18 +897,7 @@ export async function commitLineEdit(options) {
   }
   const nextTranslation = translation === null || translation === undefined ? "" : translation;
 
-  let statusValue = null;
-  if (opts.status !== undefined && opts.status !== null) {
-    if (typeof opts.status !== "string" || opts.status.trim() === "") {
-      throw fail("invalid_edit", "status must be a non-empty string when provided");
-    }
-    statusValue = opts.status.trim();
-    // `not_needed` 是本站按"原文有没有日文"派生的状态，上游 schema 里没有这个取值。
-    // 真写进去会让上游多出一个不认识的 status，所以这里直接拒绝。
-    if (statusValue === "not_needed") {
-      throw fail("invalid_edit", "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
-    }
-  }
+  const statusValue = normalizeWriteStatus(opts.status);
 
   const identity = target.kind === "jsonl" ? target.item_key : `slot ${target.manifest_index}`;
   const message =

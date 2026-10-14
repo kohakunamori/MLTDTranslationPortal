@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, posix } from "node:path";
 
-import { WriteError, applyJsonlEdit, applyManifestEdit } from "../public/lib/github-write.js";
+import { WriteError, applyJsonlEdit, applyManifestEdit, normalizeWriteStatus } from "../public/lib/github-write.js";
 
 const DEFAULT_BRANCH = "main";
 const DEFAULT_AUTHOR_NAME = "MLTD portal relay";
@@ -152,17 +152,7 @@ export async function patchText(currentText, body) {
   const translation = body.translation === null || body.translation === undefined ? "" : body.translation;
   if (typeof translation !== "string") throw fail("invalid_edit", "translation 必须是字符串或 null");
 
-  let statusValue = null;
-  if (body.status !== undefined && body.status !== null) {
-    if (typeof body.status !== "string" || body.status.trim() === "") {
-      throw fail("invalid_edit", "status 必须是非空字符串");
-    }
-    statusValue = body.status.trim();
-    // `not_needed` 是本站自己派生的状态，上游 schema 里没有；和网页端一样直接拒绝。
-    if (statusValue === "not_needed") {
-      throw fail("invalid_edit", "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
-    }
-  }
+  const statusValue = normalizeWriteStatus(body.status, "status 必须是非空字符串");
 
   if (body.kind === "jsonl") {
     if (itemKey === undefined || itemKey === null || itemKey === "") {

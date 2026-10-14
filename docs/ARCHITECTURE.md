@@ -39,7 +39,14 @@
 - `public/app.js` 是浏览器组合根。视图函数可以依赖纯模块，但纯模块不能反向导入 `app.js`。
 - `scripts/build_data.mjs` 只编排输入、转换和输出；文件系统行为集中在 `fs-utils.mjs` 与 `output-sink.mjs`。
 - GitHub、中继、静态服务器和 CI 判断都属于适配器。新增外部服务时，应新增适配器并保持领域逻辑不变。
+- 上游写入状态由 `github-write.js` 的 `normalizeWriteStatus` 统一校验；浏览器直连和中继保留各自的错误文案。`not_needed` 是展示派生状态，不能写回；已有上游状态词汇保持兼容。
 - 生成数据的 schema 由 `docs/DATA-CONTRACT.md` 约束；模块之间传递对象时不得依赖隐式字段或页面状态。
+
+## 事实来源与生产消费者
+
+`terms.js` 的主曲名表、补充表和人工覆盖项有明确优先级；LocalServer 导出的 `song-variants.json` 提供扩展版本关系与默认演唱信息。生成器只在一处组合这些事实，不能把不同字段或补充规则当作重复副本删除。
+
+自托管生产入口是 Control 仓库的 `deploy/vps-racknerd-mltd-portal/generate.sh`，调用 `scripts/build_data.mjs`；同源中继复用本仓写入逻辑。读取上游与写入上游的检出分别服务定时生成和 git 提交，保留各自职责。Pages 工作流仍是手动备份入口，`legacy-tools` 是明确隔离的历史工具，不属于这些生产调用链。
 
 ## 扩展方式
 

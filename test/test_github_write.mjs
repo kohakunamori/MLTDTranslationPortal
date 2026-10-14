@@ -16,6 +16,7 @@ import {
   applyManifestEdit,
   commitLineEdit,
   getToken,
+  normalizeWriteStatus,
   replaceJsonStringField,
   setToken,
   sha256Hex,
@@ -1092,6 +1093,22 @@ await test("verifyToken: bare github_pat_ token goes down the repo probe path", 
 });
 
 /* -------------------------------------------------------------------- exit */
+
+await test("write status: optional values, historical vocabulary and adapter diagnostics stay stable", () => {
+  assert.equal(normalizeWriteStatus(undefined), null);
+  assert.equal(normalizeWriteStatus(null), null);
+  for (const value of ["accepted", "pending", "needs_review", "historical_status"]) {
+    assert.equal(normalizeWriteStatus(` ${value} `), value);
+  }
+  for (const value of ["", " ", true, 1, {}]) {
+    assert.throws(() => normalizeWriteStatus(value),
+      (error) => error.code === "invalid_edit" && error.message === "status must be a non-empty string when provided");
+    assert.throws(() => normalizeWriteStatus(value, "status 必须是非空字符串"),
+      (error) => error.code === "invalid_edit" && error.message === "status 必须是非空字符串");
+  }
+  assert.throws(() => normalizeWriteStatus(" not_needed "),
+    (error) => error.code === "invalid_edit" && error.message === "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
+});
 
 if (failures.length > 0) {
   console.error(`\n${failures.length} of ${failures.length + passed} tests failed:`);

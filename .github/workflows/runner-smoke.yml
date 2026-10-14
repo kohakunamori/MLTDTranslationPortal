@@ -1,0 +1,31 @@
+name: Verify RackNerd runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Linux, X64, racknerd-light]
+    timeout-minutes: 5
+    steps:
+      - name: Verify tools and effective resource limits
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = self-hosted
+          python --version
+          node --version
+          npm --version
+          pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          gh --version
+          python - <<'PY'
+          from pathlib import Path
+          group = Path('/sys/fs/cgroup') / Path('/proc/self/cgroup').read_text().strip().split(':', 2)[2].lstrip('/')
+          assert int((group / 'memory.max').read_text()) == 640 * 1024**2
+          assert int((group / 'memory.swap.max').read_text()) == 128 * 1024**2
+          quota, period = map(int, (group / 'cpu.max').read_text().split())
+          assert quota * 2 == period
+          print('Confirmed: 50% CPU, 640 MiB RAM, 128 MiB swap')
+          PY

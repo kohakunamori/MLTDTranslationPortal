@@ -1,3 +1,4 @@
+# RackNerd dispatches these labeled jobs one at a time under CPU/memory limits.
 name: 生成数据并部署 Pages（已停用自动触发）
 
 # 2026-10-10 起本站自托管在 vps_racknerd 上（https://mltd-portal.nyaneko.cn/）：数据生成、
@@ -44,7 +45,7 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, racknerd-light]
     timeout-minutes: 5
     outputs:
       build: ${{ steps.decide.outputs.build }}
@@ -96,7 +97,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   verify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, racknerd-light]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +199,7 @@ jobs:
   deploy:
     needs: [check, build]
     if: needs.check.outputs.build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, racknerd-light]
     timeout-minutes: 10
     environment:
       name: github-pages

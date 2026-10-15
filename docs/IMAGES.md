@@ -18,7 +18,7 @@
 
 状态分别为 `localized`（已汉化）、`original_only`（已收录但无汉化图）、`pending`（待确认汉化需求或审核）、`derived`（缩略图，随原图派生）、`not_needed`（明确无需汉化）。「未汉化（含待确认）」筛选合并 `original_only` 与 `pending`，不含缩略图与无需汉化项。
 
-缩略图资源包按上游 `configs/image-resources.json` 的 `thumbnail_rules` 识别（漫画、白板、单格漫画、博客、称号背景、活动横幅的 `*_thumb.unity3d`）。上游 `manifests/image-family-audit.json` 对这几类的结论是 `derive_from_approved_parent`：缩略图从已审核原图派生，不单独翻译，也不单独送审。因此它们单独计数，不计入待翻译资源包；原图未汉化时，缩略图同样是日文。当前数据里 6,394 个待确认资源包中有 2,301 个属于这一类。
+缩略图资源包按上游 `configs/image-resources.json` 的 `thumbnail_rules` 识别（漫画、白板、单格漫画、博客、称号背景、活动横幅的 `*_thumb.unity3d`）。上游 `manifests/image-family-audit.json` 对这几类的结论是 `derive_from_approved_parent`：缩略图从已审核原图派生，不单独翻译，也不单独送审。因此它们单独计数，不计入待翻译资源包；原图未汉化时，缩略图同样是日文。当前 8 个图片家族的未审核资源包共 6,394 个，其中 2,301 个是缩略图，扣掉后待确认资源包为 4,093 个。
 
 ## 原图与发布
 

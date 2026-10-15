@@ -32,6 +32,9 @@ snapshots/
 # 本地工作区与历史快照
 /local-data/
 
+# 浏览器验收工具默认把截图和日志写进当前目录，属本地证据
+/.playwright-mcp/
+
 # Pages 产物：数据与图片都由 CI 生成，不入库（仓库只放站点代码）
 /_site/
 /public/data/

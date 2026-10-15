@@ -23,9 +23,17 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           group = Path('/sys/fs/cgroup') / Path('/proc/self/cgroup').read_text().strip().split(':', 2)[2].lstrip('/')
-          assert int((group / 'memory.max').read_text()) == 640 * 1024**2
-          assert int((group / 'memory.swap.max').read_text()) == 128 * 1024**2
+          assert int((group / 'memory.high').read_text()) == 480 * 1024**2
+          assert int((group / 'memory.max').read_text()) == 512 * 1024**2
+          assert int((group / 'memory.swap.max').read_text()) == 32 * 1024**2
           quota, period = map(int, (group / 'cpu.max').read_text().split())
-          assert quota * 2 == period
-          print('Confirmed: 50% CPU, 640 MiB RAM, 128 MiB swap')
+          assert quota * 100 == period * 35
+          assert int((group / 'pids.max').read_text()) == 128
+          # Both temporary locations must map into this job's cleaned home.
+          import os
+          for path, child in (('/tmp', 'tmp'), ('/var/tmp', 'var-tmp')):
+              probe = Path(path) / 'racknerd-storage-smoke'
+              probe.write_text('bounded job storage')
+              assert probe.samefile(Path(os.environ['HOME']) / child / probe.name)
+          print('Confirmed: 35% CPU, 512 MiB RAM, 32 MiB swap; tracked temporary storage')
           PY

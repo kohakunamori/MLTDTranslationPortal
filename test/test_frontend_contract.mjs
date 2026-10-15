@@ -289,7 +289,7 @@ ok("图片索引结构完整，地址是站点内相对路径", () => {
   const images = JSON.parse(readFileSync(join(siteDir, "data", "images.json"), "utf8"));
   assert.equal(images.categories.all, images.total);
   assert.equal(images.statuses.all, images.total);
-  assert.equal(images.statuses.localized + images.statuses.original_only + images.statuses.pending + images.statuses.not_needed, images.total);
+  assert.equal(images.statuses.localized + images.statuses.original_only + images.statuses.pending + images.statuses.derived + images.statuses.not_needed, images.total);
   assert.equal(portal.image_statuses.all, images.total, "portal 与 images.json 的图片总数要一致");
   assert.deepEqual(portal.image_statuses, images.statuses);
   for (const task of images.tasks) {

@@ -4,7 +4,7 @@ import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs
 import { extname, join, posix } from "node:path";
 import { relativeFileMap } from "./fs-utils.mjs";
 import { IMAGE_CATEGORY_ORDER, IMAGE_CATEGORY_RULES, detectImageCategory } from "../public/lib/taxonomy.js";
-import { IMAGE_STATUSES, imageStatus } from "../public/lib/images.js";
+import { IMAGE_STATUSES, imageStatus, thumbnailParent } from "../public/lib/images.js";
 import { validateComposition } from "../public/lib/image-composition.js";
 
 const COMPOSITIONS = JSON.parse(readFileSync(new URL("./image-compositions.json", import.meta.url), "utf8")).sources;
@@ -62,7 +62,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
     };
     const localizedPath = imagePath("localized");
     const originalPath = imagePath("original");
-    const status = task.status === "pending" ? "pending" : localizedPath ? "localized"
+    const status = ["pending", "derived"].includes(task.status) ? task.status : localizedPath ? "localized"
       : task.status === "not_needed" || task.needs_translation === false ? "not_needed" : "original_only";
     const row = {
       task_id: taskId, bundle, kind: String(task.kind || "ui_texture"), category,
@@ -81,6 +81,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
       has_localized: status === "localized",
       image_layout: task.image_layout === "complete" ? "complete" : "unprepared",
       review_status: String(task.review_status || ""),
+      thumbnail_parent: String(task.thumbnail_parent || "") || null,
     };
     normalized.set(taskId, row);
     if (originalPath) byOriginalPath.set(originalPath.replace(/^images\/original\/original\//, "images/original/"), row);
@@ -123,12 +124,15 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
   const families = coverage?.images?.families;
   const knownBundles = new Set([...normalized.values()].map((task) => task.bundle));
   // 覆盖清单按包计数，不能假设每包只有一张图，或每张图都含日文。
+  // 缩略图按上游政策由已审核原图派生，不单独翻译，因此单独归类而不是算作待翻译。
   for (const [family, inventory] of Object.entries(families || {})) {
     for (const bundle of inventory.missing_reviewed_bundles || []) {
       if (typeof bundle !== "string" || !bundle.endsWith(".unity3d") || knownBundles.has(bundle)) continue;
       knownBundles.add(bundle);
-      normalize({ task_id: `${bundle}:inventory`, bundle, kind: "bundle_inventory",
-        category: FAMILY_CATEGORY[family] || "other", status: "pending", review_status: "not_reviewed" });
+      const parent = thumbnailParent(bundle);
+      normalize({ task_id: `${bundle}:inventory`, bundle, kind: parent ? "bundle_thumbnail" : "bundle_inventory",
+        category: FAMILY_CATEGORY[family] || "other", status: parent ? "derived" : "pending",
+        review_status: "not_reviewed", thumbnail_parent: parent });
     }
   }
 
@@ -145,11 +149,14 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
   const categories = { all: rows.length, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, 0])) };
   const statuses = { all: rows.length, ...Object.fromEntries(Object.keys(IMAGE_STATUSES).map((id) => [id, 0])) };
   for (const task of rows) { categories[task.category] += 1; statuses[imageStatus(task)] += 1; }
+  const bundleRows = rows.filter((task) => task.kind.startsWith("bundle_"));
   if (statuses.original_only) notes.push(`images: ${statuses.original_only} 个任务没有中文版文件，列为未汉化`);
+  if (statuses.derived) notes.push(`images: ${statuses.derived} 个缩略图资源包由原图派生，不计入待翻译`);
   if (!families) notes.push("images: 未提供图片覆盖清单，无法列出尚未收录的资源包");
   return { total: rows.length, manifest_total: manifestTotal,
-    texture_count: rows.filter((task) => task.kind !== "bundle_inventory").length,
-    inventory_bundle_count: rows.filter((task) => task.kind === "bundle_inventory").length,
+    texture_count: rows.length - bundleRows.length,
+    inventory_bundle_count: bundleRows.filter((task) => task.kind === "bundle_inventory").length,
+    thumbnail_bundle_count: bundleRows.filter((task) => task.kind === "bundle_thumbnail").length,
     coverage: { available: Boolean(families), asset_version: coverage?.asset_version || null },
     categories, statuses, tasks: rows };
 }

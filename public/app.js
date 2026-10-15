@@ -914,9 +914,12 @@ async function renderImages(params = {}) {
   const data = state.images.data;
   const tasks = data.tasks || [];
   const inventoryCount = data.inventory_bundle_count || 0;
-  $("images-meta").textContent = `已收录 ${formatNumber(data.texture_count ?? tasks.length)} 张图片 · 另有 ${formatNumber(inventoryCount)} 个待确认资源包`;
+  const thumbnailCount = data.thumbnail_bundle_count || 0;
+  $("images-meta").textContent = `已收录 ${formatNumber(data.texture_count ?? tasks.length)} 张图片 · 另有 ${formatNumber(inventoryCount)} 个待确认资源包`
+    + (thumbnailCount ? ` · ${formatNumber(thumbnailCount)} 个缩略图资源包` : "");
   $("images-coverage-note").textContent = data.coverage?.available
     ? "待确认资源包含尚未提取或审核的图片，也可能包含无需汉化的缩略图、插画。资源包数不等于图片张数。"
+      + (thumbnailCount ? "缩略图由原图自动生成，不单独翻译；原图未汉化时缩略图同样是日文。" : "")
     : "当前数据尚未提供完整图片目录，列表数量不代表全部待汉化图片。";
   const summary = clear($("image-summary"));
   const unlocalized = tasks.filter((task) => ["original_only", "pending"].includes(imageStatus(task))).length;
@@ -961,10 +964,14 @@ async function renderImages(params = {}) {
 
 function imageMissingText(task, side) {
   if (imageSrc(task, side) && !imageDisplayReady(task, side)) return "完整图尚未拼接";
-  if (side === "original") return task.kind === "bundle_inventory" ? "尚未提取原图" : "原图尚未发布";
+  if (side === "original") {
+    if (task.kind === "bundle_thumbnail") return "缩略图由原图生成，尚未提取";
+    return task.kind === "bundle_inventory" ? "尚未提取原图" : "原图尚未发布";
+  }
   const status = imageStatus(task);
   if (status === "localized") return "汉化图片暂不可用";
   if (status === "not_needed") return "无需汉化";
+  if (status === "derived") return "缩略图随原图汉化，暂不可查看";
   if (status === "pending") return "待确认汉化需求或审核结果";
   return "尚未汉化";
 }
@@ -992,19 +999,27 @@ function renderImagePreview(task, side) {
   ]);
 }
 
+function imageRowLabel(task) {
+  if (task.kind === "bundle_thumbnail") return "缩略图 · 随原图自动生成，不单独翻译";
+  if (task.kind === "bundle_inventory") return "资源包 · 图片张数待确认";
+  return task.width && task.height ? `${task.width}×${task.height}` : "尺寸待确认";
+}
+
 function renderImageCard(task) {
   const status = IMAGE_STATUSES[imageStatus(task)];
+  const bundleRow = task.kind.startsWith("bundle_");
   return el("article", { class: "image-card" }, [
     el("div", { class: "image-body" }, [
-      el("div", { class: "image-id", text: task.kind === "bundle_inventory" ? task.bundle : task.task_id }),
+      el("div", { class: "image-id", text: bundleRow ? task.bundle : task.task_id }),
       el("div", { class: "image-sub" }, [
         el("span", {
           class: `badge ${status.badge}`,
           text: status.name,
         }),
-        el("span", { text: task.kind === "bundle_inventory" ? "资源包 · 图片张数待确认" : task.width && task.height ? `${task.width}×${task.height}` : "尺寸待确认" }),
+        el("span", { text: imageRowLabel(task) }),
         el("span", { text: task.category_name || task.category }),
       ]),
+      task.thumbnail_parent ? el("div", { class: "image-sub" }, [el("span", { text: `对应原图：${task.thumbnail_parent}` })]) : null,
       el("button", { class: "btn btn-ghost", type: "button", text: "放大对照", onclick: () => openLightbox(task) }),
     ]),
     renderImagePreview(task, "original"),
@@ -1029,7 +1044,7 @@ function renderLightbox() {
   const { task } = state.lightbox;
   const reference = originalReference(task);
 
-  $("lightbox-title").textContent = task.kind === "bundle_inventory" ? task.bundle : task.task_id;
+  $("lightbox-title").textContent = task.kind.startsWith("bundle_") ? task.bundle : task.task_id;
   lightboxImage("lightbox-original", "lightbox-original-missing", task, "original", "lightbox-download-original");
   lightboxImage("lightbox-image", "lightbox-image-missing", task, "localized", "lightbox-download");
 
@@ -1040,6 +1055,7 @@ function renderLightbox() {
     el("span", { text: `分类：${task.category_name || task.category}` }),
     el("span", { text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
   );
+  if (task.thumbnail_parent) meta.append(el("span", { text: `对应原图：${task.thumbnail_parent}` }));
   if (reference && !reference.published) {
     meta.append(el("span", { class: "warn", text: "原图尚未发布" }));
     meta.append(el("span", { class: "hint", text: `原图 sha256：${reference.sha || "（未提供）"}` }));

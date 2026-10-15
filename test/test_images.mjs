@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { buildImageIndex, validImagePath } from "../scripts/image_data.mjs";
 import { copyImageMedia } from "../scripts/copy_image_media.mjs";
 import { buildOutputs } from "../scripts/build_data.mjs";
-import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus } from "../public/lib/images.js";
+import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus, thumbnailParent } from "../public/lib/images.js";
 import { validateComposition } from "../public/lib/image-composition.js";
 import { imageSrc, originalReference } from "../public/lib/data.js";
 import { detectImageCategory } from "../public/lib/taxonomy.js";
@@ -46,16 +46,32 @@ function ok(name, test) {
 ok("已汉化、未汉化、原图与覆盖目录合并且去重，纹理 ID 不丢精度", () => {
   assert.equal(index.manifest_total, 3);
   assert.equal(index.texture_count, 4);
-  assert.equal(index.inventory_bundle_count, 5);
+  assert.equal(index.inventory_bundle_count, 4);
+  assert.equal(index.thumbnail_bundle_count, 1);
   assert.equal(index.total, 9);
-  assert.deepEqual(index.statuses, { all: 9, localized: 1, original_only: 1, pending: 6, not_needed: 1 });
+  assert.deepEqual(index.statuses, { all: 9, localized: 1, original_only: 1, pending: 5, derived: 1, not_needed: 1 });
   assert.equal(index.categories.comic, 2);
   assert.equal(index.categories.other, 2);
   assert.equal(index.tasks.filter((task) => task.bundle === "tutorialinfo02.unity3d").length, 1);
   assert.equal(byId.get("event_0001_info.unity3d:-9223372036854775807").original_path, original);
   assert.equal(index.tasks.find((task) => task.bundle === "hitokoma_100.unity3d").width, 1);
-  assert.equal(byId.get("ex4c00001_thumb.unity3d:inventory").status, "pending", "缩略图不能直接算已知需要汉化");
+  const thumb = byId.get("ex4c00001_thumb.unity3d:inventory");
+  assert.equal(thumb.status, "derived", "缩略图由原图派生，不单独翻译");
+  assert.equal(thumb.kind, "bundle_thumbnail");
+  assert.equal(thumb.thumbnail_parent, "ex4c00001.unity3d");
   assert.equal(index.coverage.asset_version, "1077750");
+});
+
+ok("缩略图识别与上游 thumbnail_rules 一致，普通资源包不受影响", () => {
+  assert.equal(thumbnailParent("ex4c00001_thumb.unity3d"), "ex4c00001.unity3d");
+  assert.equal(thumbnailParent("exwb2261231_thumb.unity3d"), "exwb2261231.unity3d");
+  assert.equal(thumbnailParent("hitokoma_99_thumb.unity3d"), "hitokoma_99.unity3d");
+  assert.equal(thumbnailParent("blog60002_thumb.unity3d"), "blog60002.unity3d");
+  assert.equal(thumbnailParent("titlebg_event_0001_thumb.unity3d"), "titlebg_event_0001.unity3d");
+  assert.equal(thumbnailParent("event_0448_info_thumb.unity3d"), "event_0448_info.unity3d");
+  for (const bundle of ["ex4c00001.unity3d", "chat_stamp.unity3d", "event_0448_info.unity3d", "ex4c00001_thumb.png", ""]) {
+    assert.equal(thumbnailParent(bundle), null, bundle);
+  }
 });
 
 ok("原图有文件才发布，不能照抄分发模板或用汉化图代替原图", () => {
@@ -95,8 +111,11 @@ ok("筛选可组合状态、分类、原图可用性和文件名，排序不改�
   assert.deepEqual(filterImageTasks(index.tasks, { category: "tutorial", status: "original_only", original: "available", keyword: "TUTORIALINFO02 info_00" })
     .map((task) => task.task_id), ["tutorialinfo02.unity3d:123"]);
   assert.equal(filterImageTasks(index.tasks, { status: "localized", original: "missing" }).length, 0);
-  assert.equal(filterImageTasks(index.tasks, { status: "pending", original: "missing" }).length, 6);
-  assert.equal(filterImageTasks(index.tasks, { status: "unlocalized" }).length, 7, "未汉化包含尚待确认的资源，不包含无需汉化");
+  assert.equal(filterImageTasks(index.tasks, { status: "pending", original: "missing" }).length, 5);
+  assert.equal(filterImageTasks(index.tasks, { status: "unlocalized" }).length, 6, "未汉化包含尚待确认的资源，不包含无需汉化和缩略图");
+  assert.equal(filterImageTasks(index.tasks, { status: "derived" }).length, 1, "缩略图要能单独筛出来");
+  assert.deepEqual(filterImageTasks(index.tasks, { keyword: "EX4C00001.UNITY3D", status: "derived" }).map((task) => task.task_id),
+    ["ex4c00001_thumb.unity3d:inventory"], "按原图名也能搜到缩略图");
   assert.equal(filterImageTasks(index.tasks, { keyword: "不存在" }).length, 0);
   assert.equal(imageStatus(filterImageTasks(index.tasks)[0]), "original_only");
   assert.equal(filterImageTasks(index.tasks, { sort: "size" })[0].width, 1);

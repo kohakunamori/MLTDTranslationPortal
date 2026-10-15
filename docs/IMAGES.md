@@ -14,9 +14,11 @@
 
 图片张数与待确认资源包数分别统计；一个包可能包含多张图片，也可能只是缩略图或无需汉化的插画。覆盖报告不能证明某包一定含有待翻译日文，因此包级占位记录不会直接列为已确认需要汉化的图片。
 
-`images.json` 保留 `total/categories/statuses/tasks`，补充 `manifest_total`（用于与审核清单对账）、`texture_count`、`inventory_bundle_count` 和 `coverage`。`portal.image_statuses` 与图片索引一致。
+`images.json` 保留 `total/categories/statuses/tasks`，补充 `manifest_total`（用于与审核清单对账）、`texture_count`、`inventory_bundle_count`、`thumbnail_bundle_count` 和 `coverage`。`portal.image_statuses` 与图片索引一致。
 
-状态分别为 `localized`（已汉化）、`original_only`（已收录但无汉化图）、`pending`（待确认汉化需求或审核）、`not_needed`（明确无需汉化）。「未汉化（含待确认）」筛选合并 `original_only` 与 `pending`，排除无需汉化项。
+状态分别为 `localized`（已汉化）、`original_only`（已收录但无汉化图）、`pending`（待确认汉化需求或审核）、`derived`（缩略图，随原图派生）、`not_needed`（明确无需汉化）。「未汉化（含待确认）」筛选合并 `original_only` 与 `pending`，不含缩略图与无需汉化项。
+
+缩略图资源包按上游 `configs/image-resources.json` 的 `thumbnail_rules` 识别（漫画、白板、单格漫画、博客、称号背景、活动横幅的 `*_thumb.unity3d`）。上游 `manifests/image-family-audit.json` 对这几类的结论是 `derive_from_approved_parent`：缩略图从已审核原图派生，不单独翻译，也不单独送审。因此它们单独计数，不计入待翻译资源包；原图未汉化时，缩略图同样是日文。当前数据里 6,394 个待确认资源包中有 2,301 个属于这一类。
 
 ## 原图与发布
 

@@ -427,6 +427,7 @@ select.input { cursor: pointer; }
 .badge.untranslated { background: #f1f5f9; color: #64748b; }
 .badge.neutral { background: #eef2f7; color: #475569; }
 .badge.original-only { background: #f1f5f9; color: #64748b; }
+.badge.derived { background: #f5f3ff; color: #6d28d9; }
 
 .game-color { font-weight: 700; }
 .term-hit { background: rgba(59, 130, 246, 0.12); border-bottom: 1px dashed var(--accent); cursor: help; }

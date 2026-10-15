@@ -347,7 +347,7 @@ ok("图片任务读真实清单形状，中文版来自站点内的 media 路径
   const images = parse(result, "images.json");
   assert.equal(images.total, 4);
   assert.deepEqual(images.categories, { all: 4, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, { event: 2, costume: 1, tutorial: 1 }[id] || 0])) });
-  assert.deepEqual(images.statuses, { all: 4, localized: 3, original_only: 1, pending: 0, not_needed: 0 });
+  assert.deepEqual(images.statuses, { all: 4, localized: 3, original_only: 1, pending: 0, derived: 0, not_needed: 0 });
 
   const byId = new Map(images.tasks.map((task) => [task.task_id, task]));
   const banner = byId.get("eventbanner0001.unity3d:1111111111111111111");

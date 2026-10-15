@@ -1,6 +1,6 @@
 // MLTD 翻译查阅站 —— 纯静态前端。
 //
-// 只读 public/data/** 的生成文件 + 公开对象存储上的图片；唯一的写操作是用户在阅读页
+// 只读 public/data/** 的生成文件与明确发布的图片；唯一的写操作是用户在阅读页
 // 用自己存在本机的 GitHub Token 改一行译文（见 lib/github-write.js）。
 //
 // 路由用 hash：`#overview` / `#catalogue?category=` / `#read?file=&p=` / `#images` / `#settings`。
@@ -31,6 +31,8 @@ import { WriteError, getToken, setToken, verifyToken } from "./lib/github-write.
 import { commitEdit } from "./lib/relay-write.js";
 import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, testAiConnection } from "./lib/ai-draft.js";
 import { paginate } from "./lib/pagination.js";
+import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus } from "./lib/images.js";
+import { displayImageBlob, loadDisplayImage } from "./lib/image-renderer.js";
 import { countLines, readTotals } from "./lib/read-stats.js";
 import { $, clear, el, formatNumber, hideModal, renderRichText, toast } from "./lib/ui.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
@@ -69,7 +71,7 @@ const state = {
     filters: { keyword: "", status: "", display: "both", size: "normal", highlight: true },
   },
   editing: null,
-  images: { data: null, category: "all", keyword: "", sort: "default", page: 1 },
+  images: { data: null, category: "all", status: "all", original: "all", keyword: "", sort: "default", page: 1 },
   lightbox: null,
 };
 
@@ -105,7 +107,7 @@ async function applyRoute() {
   if (state.view === "overview") await renderOverview();
   else if (state.view === "catalogue") await renderCatalogue(params);
   else if (state.view === "read") await renderRead(params);
-  else if (state.view === "images") await renderImages();
+  else if (state.view === "images") await renderImages(params);
   else if (state.view === "settings") await renderSettings();
   else await libraryUi.render(state.view, params);
   window.scrollTo({ top: 0 });
@@ -888,14 +890,46 @@ function writeErrorText(error) {
 
 // ------------------------------------------------------------------ 图片
 
-async function renderImages() {
+function navigateImages(changes = {}) {
+  const filters = { ...state.images, keyword: $("image-search").value, page: 1, ...changes };
+  const params = {};
+  for (const key of ["category", "status", "original"]) if (filters[key] !== "all") params[key] = filters[key];
+  if (filters.keyword.trim()) params.q = filters.keyword.trim();
+  if (filters.sort !== "default") params.sort = filters.sort;
+  if (filters.page > 1) params.p = filters.page;
+  navigate("images", params);
+}
+
+async function renderImages(params = {}) {
   state.portal = state.portal || await loadPortal();
   if (!state.images.data) state.images.data = await loadImages();
+  if (state.view !== "images") return;
+  const filters = state.images;
+  filters.category = Object.hasOwn(IMAGE_CATEGORY_RULES, params.category) ? params.category : "all";
+  filters.status = params.status === "unlocalized" || Object.hasOwn(IMAGE_STATUSES, params.status) ? params.status : "all";
+  filters.original = ["available", "missing"].includes(params.original) ? params.original : "all";
+  filters.keyword = params.q || "";
+  filters.sort = ["name", "size"].includes(params.sort) ? params.sort : "default";
+  filters.page = Math.max(1, Number(params.p) || 1);
   const data = state.images.data;
   const tasks = data.tasks || [];
-  const localized = tasks.filter((task) => task.has_localized).length;
-  $("images-meta").textContent =
-    `共 ${formatNumber(data.total)} 张图片任务 · 有中文版 ${formatNumber(localized)} · 图片随站点发布（media/）`;
+  const inventoryCount = data.inventory_bundle_count || 0;
+  $("images-meta").textContent = `已收录 ${formatNumber(data.texture_count ?? tasks.length)} 张图片 · 另有 ${formatNumber(inventoryCount)} 个待确认资源包`;
+  $("images-coverage-note").textContent = data.coverage?.available
+    ? "待确认资源包含尚未提取或审核的图片，也可能包含无需汉化的缩略图、插画。资源包数不等于图片张数。"
+    : "当前数据尚未提供完整图片目录，列表数量不代表全部待汉化图片。";
+  const summary = clear($("image-summary"));
+  const unlocalized = tasks.filter((task) => ["original_only", "pending"].includes(imageStatus(task))).length;
+  for (const [id, meta] of Object.entries(IMAGE_STATUSES)) {
+    const count = tasks.filter((task) => imageStatus(task) === id).length;
+    summary.append(statBox(id === "original_only" ? "未汉化（含待确认）" : meta.name, id === "original_only" ? unlocalized : count, meta.badge));
+    $("image-status").querySelector(`option[value="${id}"]`).textContent = `${id === "original_only" ? "已收录未汉化" : meta.name}（${formatNumber(count)}）`;
+  }
+  $("image-status").querySelector('option[value="unlocalized"]').textContent = `未汉化（含待确认） · ${formatNumber(unlocalized)}`;
+  $("image-status").value = filters.status;
+  $("image-original").value = filters.original;
+  $("image-search").value = filters.keyword;
+  $("image-sort").value = filters.sort;
 
   const tabs = clear($("image-category-tabs"));
   const categories = [{ id: "all", name: "全部", icon: "🖼️", count: data.categories?.all ?? data.total }].concat(
@@ -906,127 +940,150 @@ async function renderImages() {
       class: `domain-tab${state.images.category === category.id ? " active" : ""}`,
       type: "button",
       text: `${category.icon} ${category.name}（${category.count}）`,
-      onclick: () => { state.images.category = category.id; state.images.page = 1; renderImages(); },
+      "aria-pressed": state.images.category === category.id ? "true" : "false",
+      onclick: () => navigateImages({ category: category.id }),
     }));
   }
 
-  const rows = (data.tasks || []).filter((task) => {
-    if (state.images.category !== "all" && task.category !== state.images.category) return false;
-    const keyword = state.images.keyword.trim().toLowerCase();
-    if (!keyword) return true;
-    return `${task.task_id}\n${task.bundle}\n${task.kind || ""}\n${task.category_name || ""}`.toLowerCase().includes(keyword);
-  });
-  if (state.images.sort === "name") rows.sort((a, b) => a.task_id.localeCompare(b.task_id));
-  else if (state.images.sort === "size") rows.sort((a, b) => b.width * b.height - a.width * a.height);
+  const rows = filterImageTasks(tasks, filters);
 
   const grid = clear($("image-grid"));
   $("image-empty").hidden = rows.length > 0;
   const page = paginate(rows, state.images.page, PAGE_SIZE_CATALOGUE);
   state.images.page = page.page;
+  $("image-results").textContent = `找到 ${formatNumber(rows.length)} 条记录${rows.length ? ` · 第 ${page.page} / ${page.totalPages} 页` : ""}`;
 
   for (const task of page.rows) grid.append(renderImageCard(task));
   renderPager($("image-pager"), page.page, page.totalPages, (nextPage) => {
-    state.images.page = nextPage;
-    renderImages();
+    navigateImages({ page: nextPage });
   });
 }
 
-/// 图片地址就是生成器给的站点内相对路径（`media/localized/...`），页面不拼对象键。
-function thumbUrl(task) {
-  return imageSrc(task);
+function imageMissingText(task, side) {
+  if (imageSrc(task, side) && !imageDisplayReady(task, side)) return "完整图尚未拼接";
+  if (side === "original") return task.kind === "bundle_inventory" ? "尚未提取原图" : "原图尚未发布";
+  const status = imageStatus(task);
+  if (status === "localized") return "汉化图片暂不可用";
+  if (status === "not_needed") return "无需汉化";
+  if (status === "pending") return "待确认汉化需求或审核结果";
+  return "尚未汉化";
+}
+
+function renderImagePreview(task, side) {
+  const thumb = el("div", { class: "image-thumb" });
+  const label = side === "original" ? "日文原图" : "汉化图片";
+  if (imageDisplayReady(task, side)) {
+    const canvas = el("canvas", { role: "img", "aria-label": `${task.task_id} ${label}完整图`, hidden: true });
+    const loading = el("span", { class: "thumb-missing", text: "正在拼接完整图…" });
+    thumb.append(canvas, loading);
+    loadDisplayImage(canvas, task, side).then(() => {
+      if (!thumb.isConnected) return;
+      canvas.hidden = false;
+      loading.remove();
+    }).catch(() => {
+      canvas.remove();
+      loading.textContent = `${label}完整图加载失败`;
+    });
+  } else {
+    thumb.append(el("span", { class: "thumb-missing", text: imageMissingText(task, side) }));
+  }
+  return el("button", { class: "image-preview", type: "button", "aria-label": `查看 ${task.task_id} ${label}`, onclick: () => openLightbox(task) }, [
+    el("span", { class: "image-preview-label", text: label }), thumb,
+  ]);
 }
 
 function renderImageCard(task) {
-  const thumb = el("div", { class: "image-thumb" });
-  const url = thumbUrl(task);
-  if (url) {
-    const image = el("img", { loading: "lazy", alt: `${task.task_id}（${task.has_localized ? "中文版" : "日文原图"}）` });
-    // 上游对象存储里缺图是常态：失败就换成占位文案，不留破图。
-    image.addEventListener("error", () => {
-      image.remove();
-      if (!thumb.querySelector(".thumb-missing")) thumb.append(el("span", { class: "thumb-missing", text: "图片不可用" }));
-    });
-    image.src = url;
-    thumb.append(image);
-  } else {
-    thumb.append(el("span", { class: "thumb-missing", text: "图片不可用" }));
-  }
-  return el("button", { class: "image-card", type: "button", onclick: () => openLightbox(task) }, [
-    thumb,
+  const status = IMAGE_STATUSES[imageStatus(task)];
+  return el("article", { class: "image-card" }, [
     el("div", { class: "image-body" }, [
-      el("div", { class: "image-id", text: task.task_id }),
+      el("div", { class: "image-id", text: task.kind === "bundle_inventory" ? task.bundle : task.task_id }),
       el("div", { class: "image-sub" }, [
         el("span", {
-          class: `badge ${task.has_localized ? "accepted" : "original-only"}`,
-          text: task.has_localized ? "已有中文版" : "仅日文原图",
+          class: `badge ${status.badge}`,
+          text: status.name,
         }),
-        el("span", { text: `${task.width}×${task.height}` }),
+        el("span", { text: task.kind === "bundle_inventory" ? "资源包 · 图片张数待确认" : task.width && task.height ? `${task.width}×${task.height}` : "尺寸待确认" }),
         el("span", { text: task.category_name || task.category }),
       ]),
+      el("button", { class: "btn btn-ghost", type: "button", text: "放大对照", onclick: () => openLightbox(task) }),
     ]),
+    renderImagePreview(task, "original"),
+    renderImagePreview(task, "localized"),
   ]);
 }
 
 function openLightbox(task) {
-  state.lightbox = { task };
-  renderLightbox();
+  closeLightbox();
+  state.lightbox = { task, downloads: [] };
   $("lightbox").hidden = false;
+  renderLightbox();
+}
+
+function closeLightbox() {
+  for (const url of state.lightbox?.downloads || []) URL.revokeObjectURL(url);
+  state.lightbox = null;
+  hideModal("lightbox");
 }
 
 function renderLightbox() {
   const { task } = state.lightbox;
-  const src = imageSrc(task);
   const reference = originalReference(task);
 
-  $("lightbox-title").textContent = task.task_id;
-  lightboxImage("lightbox-image", "lightbox-image-missing", src, `${task.task_id} 中文版`);
+  $("lightbox-title").textContent = task.kind === "bundle_inventory" ? task.bundle : task.task_id;
+  lightboxImage("lightbox-original", "lightbox-original-missing", task, "original", "lightbox-download-original");
+  lightboxImage("lightbox-image", "lightbox-image-missing", task, "localized", "lightbox-download");
 
   const meta = clear($("lightbox-meta"));
   meta.append(
-    el("span", { text: `${formatNumber(task.width)}×${formatNumber(task.height)}` }),
+    el("span", { text: task.width && task.height ? `${formatNumber(task.width)}×${formatNumber(task.height)}` : "尺寸待确认" }),
     el("span", { text: `资源：${task.bundle}` }),
     el("span", { text: `分类：${task.category_name || task.category}` }),
-    el("span", { text: `上游审核：${String(task.review_status || "").trim() || "（未提供）"}` }),
+    el("span", { text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
   );
   if (reference && !reference.published) {
-    // 日文原图没有发布：只把清单里的定位信息摆出来，绝不给一个会 404 的地址。
-    meta.append(el("span", { class: "warn", text: "上游未发布日文原图，这里只能看中文版" }));
+    meta.append(el("span", { class: "warn", text: "原图尚未发布" }));
     meta.append(el("span", { class: "hint", text: `原图 sha256：${reference.sha || "（未提供）"}` }));
     if (reference.path) meta.append(el("span", { class: "hint", text: `原图路径：${reference.path}` }));
   }
 
-  const download = $("lightbox-download");
-  if (src) {
-    download.href = src;
-    download.setAttribute("download", task.localized_file || `${String(task.task_id).replace(/[^\w.-]+/g, "_")}.png`);
-    download.hidden = false;
-  } else {
-    download.removeAttribute("href");
-    download.hidden = true;
-  }
 }
 
-/// 加载失败就把 img 换成占位文案，不留破图（本地演示数据没有 media/，这是常态）。
-function lightboxImage(imgId, missingId, url, alt) {
-  const image = $(imgId);
+/// 灯箱和下载都使用拼接结果；异步加载旧任务不得覆盖新打开的图片。
+async function lightboxImage(canvasId, missingId, task, side, downloadId) {
+  const canvas = $(canvasId);
   const missing = $(missingId);
-  image.hidden = false;
-  missing.hidden = true;
-  image.onerror = null;
-  if (!url) {
-    image.removeAttribute("src");
-    image.hidden = true;
-    missing.hidden = false;
-    missing.textContent = "图片不可用（清单里没有中文版文件）";
+  const download = $(downloadId);
+  const current = state.lightbox;
+  canvas.hidden = true;
+  missing.hidden = false;
+  download.hidden = true;
+  download.removeAttribute("href");
+  if (!imageDisplayReady(task, side)) {
+    missing.textContent = imageMissingText(task, side);
     return;
   }
-  image.onerror = () => {
-    image.hidden = true;
+  missing.textContent = "正在拼接完整图…";
+  try {
+    const rendered = document.createElement("canvas");
+    await loadDisplayImage(rendered, task, side);
+    if (state.lightbox !== current) return;
+    canvas.width = rendered.width;
+    canvas.height = rendered.height;
+    canvas.getContext("2d").drawImage(rendered, 0, 0);
+    canvas.hidden = false;
+    missing.hidden = true;
+    const blob = await displayImageBlob(rendered);
+    if (state.lightbox !== current) return;
+    const url = URL.createObjectURL(blob);
+    current.downloads.push(url);
+    download.href = url;
+    download.setAttribute("download", `${String(task.task_id).replace(/[^\w.-]+/g, "_")}-${side}-complete.png`);
+    download.hidden = false;
+  } catch (_) {
+    if (state.lightbox !== current) return;
     missing.hidden = false;
-    missing.textContent = "图片不可用（站点里没有这个文件）";
-  };
-  image.alt = alt;
-  image.src = url;
+    missing.textContent = "完整图加载或导出失败，请稍后重试";
+  }
 }
 
 // ------------------------------------------------------------------ 设置
@@ -1101,7 +1158,7 @@ function bindEvents() {
     button.addEventListener("click", () => navigate(button.dataset.nav));
   }
   for (const node of document.querySelectorAll("[data-close]")) {
-    node.addEventListener("click", () => hideModal(node.dataset.close));
+    node.addEventListener("click", () => node.dataset.close === "lightbox" ? closeLightbox() : hideModal(node.dataset.close));
   }
 
   $("hero-random-song").addEventListener("click", async () => {
@@ -1167,11 +1224,12 @@ function bindEvents() {
   $("read-size").addEventListener("change", (event) => { state.read.filters.size = event.target.value; renderRead(); });
   $("read-highlight").addEventListener("change", (event) => { state.read.filters.highlight = event.target.checked; renderRead(); });
 
-  $("image-sort").addEventListener("change", (event) => { state.images.sort = event.target.value; renderImages(); });
+  $("image-sort").addEventListener("change", (event) => navigateImages({ sort: event.target.value }));
+  $("image-status").addEventListener("change", (event) => navigateImages({ status: event.target.value }));
+  $("image-original").addEventListener("change", (event) => navigateImages({ original: event.target.value }));
+  $("image-reset").addEventListener("click", () => navigateImages({ category: "all", status: "all", original: "all", keyword: "", sort: "default" }));
   $("image-search").addEventListener("input", debounce((event) => {
-    state.images.keyword = event.target.value;
-    state.images.page = 1;
-    renderImages();
+    if (state.view === "images") navigateImages({ keyword: event.target.value });
   }, 150));
 
   $("pat-save").addEventListener("click", () => {
@@ -1256,7 +1314,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       hideModal("confirm");
-      hideModal("lightbox");
+      closeLightbox();
     }
   });
   window.addEventListener("hashchange", () => { applyRoute().catch(showError); });
@@ -1334,6 +1392,7 @@ if (typeof window !== "undefined") {
     identityLabel,
     editTargetFor,
     imageSrc,
+    filterImageTasks,
     originalReference,
     goToBundlePage,
   };

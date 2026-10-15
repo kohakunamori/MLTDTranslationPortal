@@ -2,7 +2,7 @@
 //
 // 约定：
 //   * 页面从不自己拼 data 路径 —— 索引文件里给了 `file`，用它。
-//   * 图片字节在公开对象存储上，这里只负责拼 URL，不代理、不伪造。
+//   * 图片地址由生成器提供，不从哈希或对象存储模板猜测地址。
 //   * 缓存按 URL 记忆；`clearCache()` 之后重新拉取（设置页的"重新拉取数据"）。
 
 export const DATA_ROOT = "data/";
@@ -130,18 +130,14 @@ export function resolveBundlePage(entry, requestedPage = 1) {
   return { pages, page, info, file: info?.file || entry?.file || null };
 }
 
-/// 图片地址。
-///
-/// 实测过的事实：上游清单里的 `distribution.*.url_template`（`images/<sha>.png`）在公开
-/// 对象存储上**404**，而仓库里只有中文版图片（`images/localized/**`，937 个文件 333 MB），
-/// 日文原图没有发布。所以生成器给出的是**站点内相对路径**（`media/localized/...`），
-/// 由 CI 随站点一起发布；页面用它，不自己拼对象键。
-export function imageSrc(task) {
+/// 两侧分别读取明确发布的地址；缺原图时不拿汉化图冒充。
+export function imageSrc(task, side = "localized") {
   if (!task) return null;
+  if (side === "original") return task.original_url || null;
   return task.localized_url || null;
 }
 
-/// 日文原图没有可下载的字节，只有清单里的路径与哈希，界面按这个说明展示。
+/// 未发布原图时仍保留来源定位信息。
 export function originalReference(task) {
   const path = task?.original_path || null;
   const sha = task?.original_sha256 || null;

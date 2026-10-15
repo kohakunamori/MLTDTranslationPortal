@@ -25,7 +25,7 @@
       <button class="nav-btn" data-nav="topics">专题</button>
       <button class="nav-btn" data-nav="search">搜索</button>
       <button class="nav-btn" data-nav="personal">我的收藏</button>
-      <button class="nav-btn" data-nav="images">图片</button>
+      <button class="nav-btn" data-nav="images">图片汉化</button>
       <button class="nav-btn" data-nav="settings">设置</button>
       <span class="write-chip" id="write-chip" title="未配置 GitHub Token，只能查看"></span>
     </nav>
@@ -261,27 +261,51 @@
   <section class="view" id="view-images" hidden>
     <div class="view-head card">
       <div class="view-title">
-        <h2>图片本地化</h2>
+        <h2>图片汉化</h2>
         <p class="hero-meta" id="images-meta"></p>
+        <p class="hint" id="images-coverage-note"></p>
       </div>
     </div>
 
+    <div class="stat-row image-summary" id="image-summary"></div>
     <div class="filters card">
       <div class="domain-tabs" id="image-category-tabs"></div>
+      <label class="field">
+        <span>汉化状态</span>
+        <select class="input" id="image-status">
+          <option value="all">全部状态</option>
+          <option value="localized">已汉化</option>
+          <option value="unlocalized">未汉化（含待确认）</option>
+          <option value="original_only">已收录未汉化</option>
+          <option value="pending">待确认</option>
+          <option value="not_needed">无需汉化</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>原图</span>
+        <select class="input" id="image-original">
+          <option value="all">全部</option>
+          <option value="available">可查看原图</option>
+          <option value="missing">原图暂不可查看</option>
+        </select>
+      </label>
       <label class="field grow">
         <span>关键字</span>
-        <input class="input" id="image-search" type="search" placeholder="任务 / 资源名 / 分类" />
+        <input class="input" id="image-search" type="search" placeholder="资源名 / 文件名 / 分类" />
       </label>
       <label class="field">
         <span>排序</span>
         <select class="input" id="image-sort">
-          <option value="default">默认顺序</option>
+          <option value="default">待处理优先</option>
           <option value="name">任务名</option>
           <option value="size">尺寸</option>
         </select>
       </label>
+      <button class="btn btn-ghost" id="image-reset" type="button">重置筛选</button>
     </div>
 
+    <p class="hint" id="image-results" role="status" aria-live="polite"></p>
+    <div class="image-columns" aria-hidden="true"><span>图片信息</span><span>日文原图</span><span>汉化图片</span></div>
     <div class="image-grid" id="image-grid"></div>
     <p class="empty" id="image-empty" hidden>没有匹配的图片任务。</p>
     <div class="pager" id="image-pager"></div>
@@ -397,9 +421,14 @@
     </div>
     <div class="lightbox-body">
       <div class="lightbox-compare">
+        <figure class="lightbox-figure" id="lightbox-figure-original">
+          <figcaption>日文原图</figcaption>
+          <canvas id="lightbox-original" role="img" aria-label="拼接后的日文原图"></canvas>
+          <p class="empty" id="lightbox-original-missing" hidden>原图尚未发布</p>
+        </figure>
         <figure class="lightbox-figure" id="lightbox-figure-localized">
-          <figcaption>中文版（上游只发布了这一版）</figcaption>
-          <img id="lightbox-image" alt="" />
+          <figcaption>汉化图片</figcaption>
+          <canvas id="lightbox-image" role="img" aria-label="拼接后的汉化图片"></canvas>
           <p class="empty" id="lightbox-image-missing" hidden>图片不可用</p>
         </figure>
       </div>
@@ -407,7 +436,8 @@
     <div class="modal-foot">
       <div class="lightbox-meta" id="lightbox-meta"></div>
       <div class="lightbox-actions">
-        <a class="btn" id="lightbox-download" href="#" download>下载</a>
+        <a class="btn btn-ghost" id="lightbox-download-original" href="#" download>下载原图</a>
+        <a class="btn" id="lightbox-download" href="#" download>下载汉化图</a>
       </div>
     </div>
   </div>

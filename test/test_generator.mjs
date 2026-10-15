@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { BuildError, buildOutputs, displayStatus, main, renderDocument, rowStatus, songFor, sourceNeedsTranslation } from "../scripts/build_data.mjs";
-import { CATEGORY_ORDER } from "../public/lib/taxonomy.js";
+import { CATEGORY_ORDER, IMAGE_CATEGORY_ORDER } from "../public/lib/taxonomy.js";
 import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
 
 /// 曲目扩展版本与主曲目的对照。
@@ -346,8 +346,8 @@ ok("--max-rows-per-page 必须是正整数", () => {
 ok("图片任务读真实清单形状，中文版来自站点内的 media 路径", () => {
   const images = parse(result, "images.json");
   assert.equal(images.total, 4);
-  assert.deepEqual(images.categories, { all: 4, event: 2, costume: 1, tutorial: 1 });
-  assert.deepEqual(images.statuses, { all: 4, localized: 3, original_only: 1 });
+  assert.deepEqual(images.categories, { all: 4, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, { event: 2, costume: 1, tutorial: 1 }[id] || 0])) });
+  assert.deepEqual(images.statuses, { all: 4, localized: 3, original_only: 1, pending: 0, not_needed: 0 });
 
   const byId = new Map(images.tasks.map((task) => [task.task_id, task]));
   const banner = byId.get("eventbanner0001.unity3d:1111111111111111111");
@@ -359,10 +359,10 @@ ok("图片任务读真实清单形状，中文版来自站点内的 media 路径
   assert.equal(banner.localized_url, "media/localized/eventbanner0001/1111_info_01.png", "站点内相对路径，不能带前导斜杠");
   assert.equal(banner.localized_file, "1111_info_01.png");
   assert.equal(banner.has_localized, true);
-  // 原图只留路径与哈希作为参考，永远不给 URL
+  // 仅有路径与哈希不代表原图已发布。
   assert.equal(banner.original_sha256, "1".repeat(64));
   assert.equal(banner.original_published, false);
-  assert.equal(banner.original_url, undefined, "清单里的 distribution URL 实测 404，不许出现在数据里");
+  assert.equal(banner.original_url, null, "缺少原图文件时，不得照抄 distribution 模板");
 
   const noLocalized = byId.get("tutorialinfo0003.unity3d:4444444444444444444");
   assert.equal(noLocalized.category, "tutorial");

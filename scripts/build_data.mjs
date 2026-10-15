@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { decorateLibraryBundles, emitLibrary, emitSearch } from "./library_data.mjs";
+import { buildImageIndex } from "./image_data.mjs";
 
 import { findFiles, relativeFileMap, toPosix } from "./fs-utils.mjs";
 import { collectingSink, writingSink, compareSink, swapIntoPlace, clearStaleStaging } from "./output-sink.mjs";
@@ -31,7 +32,6 @@ import {
   IMAGE_CATEGORY_RULES,
   categoryId,
   detectIdol,
-  detectImageCategory,
   statusCounts,
   upstreamPathForBundle,
 } from "../public/lib/taxonomy.js";
@@ -560,90 +560,6 @@ function groupIntoFiles(rowsByBundle, meta) {
   return files;
 }
 
-// ---------------------------------------------------------------- 图片任务
-
-/// 真实的上游图片清单（`manifests/images.manifest.json`）形状：
-///   { counts:{total_images}, images: [{ id, kind, bundle, texture_path_id,
-///                dimensions:{width,height}, original:{relative_path,sha256},
-///                localized:{relative_path,sha256}, distribution:{...}, review_status }] }
-///
-/// 实测过的两件事决定了这里怎么写：
-///   1. 清单里的 `distribution.*.url_template`（`images/<sha>.png`）在公开对象存储上
-///      **404**，所以永远不要拿它当图片地址；
-///   2. 仓库里**只有** `images/localized/<bundle>/*.png`（937 个文件、333 MB），
-///      日文原图没有发布，因此不存在"原图 vs 中文版"的对比。
-/// 所以：中文版图片由 CI 复制到站点的 `media/` 下，这里只记站点内相对路径。
-function normalizeImageTasks(payload, { imageBase, warnings, notes }) {
-  let tasks = [];
-  if (Array.isArray(payload)) tasks = payload;
-  else if (Array.isArray(payload?.images)) tasks = payload.images;
-  else if (Array.isArray(payload?.tasks)) tasks = payload.tasks;
-  else throw new BuildError("图片清单里找不到 images/tasks 数组");
-
-  const unknownCategory = makeCounter(warnings, (n) => `images: ${n} 个任务的 bundle 名判不出分类，按 event 归类`);
-  const missingLocalized = makeCounter(notes, (n) => `images: ${n} 个任务没有中文版文件（上游只发布了中文版，这属于异常）`);
-  const base = String(imageBase || "").replace(/\/+$/, "");
-
-  const seen = new Set();
-  const normalized = [];
-  for (const task of tasks) {
-    const taskId = String(task?.task_id ?? task?.id ?? "").trim();
-    if (!taskId) {
-      warnings.push("图片任务缺少 task_id，已跳过");
-      continue;
-    }
-    if (seen.has(taskId)) {
-      warnings.push(`图片任务 ${taskId} 重复，已跳过后一条`);
-      continue;
-    }
-    seen.add(taskId);
-
-    const bundle = String(task.bundle || "");
-    let category = detectImageCategory(bundle);
-    if (!category) { unknownCategory.add(); category = "event"; }
-
-    const localizedPath = String(task?.localized?.relative_path || "").trim();
-    const localizedSha = String(task?.localized?.sha256 || "").trim().toLowerCase();
-    const originalPath = String(task?.original?.relative_path || "").trim();
-    const originalSha = String(task?.original?.sha256 || "").trim().toLowerCase();
-    // `images/localized/<bundle>/x.png` → `media/localized/<bundle>/x.png`
-    const mediaUrl = localizedPath ? `${base ? `${base}/` : ""}media/${localizedPath.replace(/^images\//, "")}` : null;
-    if (!mediaUrl) missingLocalized.add();
-
-    normalized.push({
-      task_id: taskId,
-      bundle,
-      kind: String(task.kind || ""),
-      category,
-      category_name: `${IMAGE_CATEGORY_RULES[category].icon} ${IMAGE_CATEGORY_RULES[category].name}`,
-      width: Number(task?.dimensions?.width ?? task?.width) || 0,
-      height: Number(task?.dimensions?.height ?? task?.height) || 0,
-      localized_path: localizedPath || null,
-      localized_url: mediaUrl,
-      localized_file: localizedPath ? posix.basename(localizedPath) : null,
-      localized_sha256: localizedSha || null,
-      // 日文原图只在清单里留有路径与哈希，仓库与对象存储都没有可下载的字节。
-      original_path: originalPath || null,
-      original_sha256: originalSha || null,
-      original_published: false,
-      has_localized: Boolean(mediaUrl),
-      review_status: String(task.review_status || ""),
-    });
-  }
-  normalized.sort((a, b) => (a.task_id < b.task_id ? -1 : a.task_id > b.task_id ? 1 : 0));
-  unknownCategory.flush();
-  missingLocalized.flush();
-
-  const categories = { all: normalized.length };
-  for (const id of IMAGE_CATEGORY_ORDER) categories[id] = 0;
-  const statuses = { all: normalized.length, localized: 0, original_only: 0 };
-  for (const task of normalized) {
-    categories[task.category] += 1;
-    statuses[task.has_localized ? "localized" : "original_only"] += 1;
-  }
-  return { total: normalized.length, categories, statuses, tasks: normalized };
-}
-
 // ---------------------------------------------------------------- 主流程
 
 function parseArgs(argv) {
@@ -844,16 +760,12 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     notNeeded += record.not_needed || 0;
   }
 
-  const images = imagePayload ? normalizeImageTasks(imagePayload, {
+  const images = buildImageIndex(imagePayload, {
+    assetsRoot: settings.assetsRoot,
     imageBase: settings.imageBase,
     warnings,
     notes,
-  }) : {
-    total: 0,
-    categories: { all: 0, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, 0])) },
-    statuses: { all: 0, localized: 0, original_only: 0 },
-    tasks: [],
-  };
+  });
 
   // ---- 与上游清单对账：清单自己带每个分类的行数，对不上说明版本轴或分类判定错了。
   // 这正是之前"只留下 1840 行"那类静默丢数据问题唯一能被自动抓住的地方。
@@ -890,8 +802,8 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     }
   }
   if (imagePayload && Number.isFinite(Number(imagePayload?.counts?.total_images))) {
-    if (images.total !== Number(imagePayload.counts.total_images)) {
-      warnings.push(`对账：图片数不一致 —— 生成 ${images.total}，清单 ${imagePayload.counts.total_images}`);
+    if (images.manifest_total !== Number(imagePayload.counts.total_images)) {
+      warnings.push(`对账：图片数不一致 —— 生成 ${images.manifest_total}，清单 ${imagePayload.counts.total_images}`);
     }
   }
 

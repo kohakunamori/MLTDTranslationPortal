@@ -1,0 +1,166 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { buildImageIndex, validImagePath } from "../scripts/image_data.mjs";
+import { copyImageMedia } from "../scripts/copy_image_media.mjs";
+import { buildOutputs } from "../scripts/build_data.mjs";
+import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus } from "../public/lib/images.js";
+import { validateComposition } from "../public/lib/image-composition.js";
+import { imageSrc, originalReference } from "../public/lib/data.js";
+import { detectImageCategory } from "../public/lib/taxonomy.js";
+
+const root = mkdtempSync(join(tmpdir(), "portal-images-"));
+process.on("exit", () => rmSync(root, { recursive: true, force: true }));
+const assetsRoot = join(root, "assets");
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aGNcAAAAASUVORK5CYII=", "base64");
+const sha = createHash("sha256").update(png).digest("hex");
+const put = (path, content) => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, content); };
+const original = "images/original/event_0001_info/-9223372036854775807_info_00.png";
+const tutorial = "images/original/tutorialinfo02/123_info_00.png";
+const localized = "images/localized/event_0001_info/translated.png";
+for (const path of [original, tutorial, localized, "images/original/hitokoma_100/456.png"]) put(join(assetsRoot, path), png);
+const coverage = { asset_version: "1077750", images: { families: {
+  event_banners: { missing_reviewed_bundles: ["event_0001_info.unity3d", "event_0002_info.unity3d", "event_0002_info.unity3d"] },
+  tutorial: { missing_reviewed_bundles: ["tutorialinfo02.unity3d"] },
+  ex4c: { missing_reviewed_bundles: ["ex4c00001.unity3d", "ex4c00001_thumb.unity3d"] },
+  talk_stamps: { missing_reviewed_bundles: ["chat_stamp.unity3d"] },
+  new_family: { missing_reviewed_bundles: ["new_surface.unity3d"] },
+} } };
+put(join(assetsRoot, "manifests/localization-coverage.json"), JSON.stringify(coverage));
+const payload = { images: [
+  { id: "event_0001_info.unity3d:-9223372036854775807", bundle: "event_0001_info.unity3d", image_layout: "complete",
+    original: { relative_path: original.replace("original/", "original/original/"), sha256: sha }, localized: { relative_path: localized } },
+  { id: "tutorialinfo02.unity3d:123", bundle: "tutorialinfo02.unity3d", image_layout: "complete", original: { relative_path: tutorial, sha256: sha } },
+  { id: "plain", bundle: "plain.unity3d", needs_translation: false },
+] };
+const index = buildImageIndex(payload, { assetsRoot });
+const byId = new Map(index.tasks.map((task) => [task.task_id, task]));
+let passed = 0;
+function ok(name, test) {
+  try { test(); passed++; process.stdout.write(`ok   ${name}\n`); }
+  catch (error) { process.exitCode = 1; process.stdout.write(`FAIL ${name}\n${error.stack}\n`); }
+}
+
+ok("已汉化、未汉化、原图与覆盖目录合并且去重，纹理 ID 不丢精度", () => {
+  assert.equal(index.manifest_total, 3);
+  assert.equal(index.texture_count, 4);
+  assert.equal(index.inventory_bundle_count, 5);
+  assert.equal(index.total, 9);
+  assert.deepEqual(index.statuses, { all: 9, localized: 1, original_only: 1, pending: 6, not_needed: 1 });
+  assert.equal(index.categories.comic, 2);
+  assert.equal(index.categories.other, 2);
+  assert.equal(index.tasks.filter((task) => task.bundle === "tutorialinfo02.unity3d").length, 1);
+  assert.equal(byId.get("event_0001_info.unity3d:-9223372036854775807").original_path, original);
+  assert.equal(index.tasks.find((task) => task.bundle === "hitokoma_100.unity3d").width, 1);
+  assert.equal(byId.get("ex4c00001_thumb.unity3d:inventory").status, "pending", "缩略图不能直接算已知需要汉化");
+  assert.equal(index.coverage.asset_version, "1077750");
+});
+
+ok("原图有文件才发布，不能照抄分发模板或用汉化图代替原图", () => {
+  const task = byId.get("event_0001_info.unity3d:-9223372036854775807");
+  assert.equal(imageSrc(task), "media/localized/event_0001_info/translated.png");
+  assert.equal(imageSrc(task, "original"), `media/${original.slice(7)}`);
+  assert.equal(originalReference(task).published, true);
+  const missing = buildImageIndex(payload).tasks.find((row) => row.task_id === task.task_id);
+  assert.equal(imageSrc(missing, "original"), null);
+  assert.ok(imageSrc(missing));
+  assert.equal(originalReference(missing).published, false);
+  assert.equal(buildImageIndex(payload, { assetsRoot, imageBase: "https://cdn.example.com/base/" }).tasks
+    .find((row) => row.task_id === task.task_id).original_url, `https://cdn.example.com/base/media/${original.slice(7)}`);
+});
+
+ok("原图哈希不符拒绝生成，不把另一版原图配给已有译图", () => {
+  const changed = structuredClone(payload);
+  changed.images[0].original.sha256 = "f".repeat(64);
+  assert.throws(() => buildImageIndex(changed, { assetsRoot }), /原图哈希不一致/);
+});
+
+ok("图片路径拒绝穿越和 URL 注入；未知分类不混进活动", () => {
+  for (const path of ["images/original/../secret.png", "images/original//a.png", "images/original/a.png?x", "images/original/%2e%2e/x.png", "images/original/x\\y.png"]) {
+    assert.equal(validImagePath(path, "original"), false, path);
+  }
+  const warnings = [];
+  const result = buildImageIndex([{ id: "unsafe", localized: { relative_path: "images/localized/../../secret.png" },
+    original: { relative_path: "images/original/../secret.png" }, distribution: { url_template: "https://example.com/no-such-image.png" } }], { warnings });
+  assert.equal(warnings.length, 2);
+  assert.equal(result.tasks[0].localized_url, null);
+  assert.equal(result.tasks[0].original_url, null);
+  assert.equal(result.tasks[0].category, "other");
+});
+
+ok("筛选可组合状态、分类、原图可用性和文件名，排序不改输入", () => {
+  const before = index.tasks.map((task) => task.task_id);
+  assert.deepEqual(filterImageTasks(index.tasks, { category: "tutorial", status: "original_only", original: "available", keyword: "TUTORIALINFO02 info_00" })
+    .map((task) => task.task_id), ["tutorialinfo02.unity3d:123"]);
+  assert.equal(filterImageTasks(index.tasks, { status: "localized", original: "missing" }).length, 0);
+  assert.equal(filterImageTasks(index.tasks, { status: "pending", original: "missing" }).length, 6);
+  assert.equal(filterImageTasks(index.tasks, { status: "unlocalized" }).length, 7, "未汉化包含尚待确认的资源，不包含无需汉化");
+  assert.equal(filterImageTasks(index.tasks, { keyword: "不存在" }).length, 0);
+  assert.equal(imageStatus(filterImageTasks(index.tasks)[0]), "original_only");
+  assert.equal(filterImageTasks(index.tasks, { sort: "size" })[0].width, 1);
+  assert.deepEqual(index.tasks.map((task) => task.task_id), before);
+  assert.equal(imageStatus({ has_localized: true }), "localized", "兼容更新前的索引");
+});
+
+ok("新增图片家族能正确筛选，教学图与标题不会误归活动", () => {
+  for (const [bundle, category] of [["ex4c00001.unity3d", "comic"], ["exwb1170001.unity3d", "whiteboard"],
+    ["hitokoma_100.unity3d", "hitokoma"], ["mobile_talk_stamp_common_1.unity3d", "stamp"],
+    ["igp_tutorial_info_100101.unity3d", "tutorial"], ["specialeventinfo01.unity3d", "tutorial"],
+    ["event_0004_title.unity3d", "title"], ["pinkyringstonesalesinfo01.unity3d", "costume"]]) {
+    assert.equal(detectImageCategory(bundle), category, bundle);
+  }
+});
+
+ok("源图哈希匹配拼接配方，展示尺寸为完整图尺寸", () => {
+  const sourceSha = "00182572c98717ac176efadf7597d59fd5b3220fa1832f9b2ca26799902f0558";
+  const result = buildImageIndex([{ id: "event:large-texture-id", width: 512, height: 512,
+    original: { sha256: sourceSha }, localized: { relative_path: "images/localized/event/translated.png" } }]);
+  const task = result.tasks[0];
+  assert.deepEqual([task.width, task.height], [576, 324]);
+  assert.deepEqual([task.texture_width, task.texture_height], [512, 512]);
+  assert.equal(task.composition.regions[1].transform, "rotate_ccw90");
+  assert.equal(imageDisplayReady(task), true);
+  assert.equal(imageDisplayReady(task, "original"), false);
+  assert.equal(imageDisplayReady({ localized_url: "media/texture.png" }), false, "缺少布局时不能直接展示纹理图集");
+});
+
+ok("全部拼接配方的边界、旋转尺寸和目标区域合法", () => {
+  const recipes = JSON.parse(readFileSync("scripts/image-compositions.json", "utf8")).sources;
+  assert.equal(Object.keys(recipes).length, 1108);
+  for (const [sha, recipe] of Object.entries(recipes)) {
+    assert.match(sha, /^[a-f0-9]{64}$/);
+    assert.equal(validateComposition(recipe), recipe);
+  }
+  const recipe = structuredClone(Object.values(recipes)[0]);
+  recipe.regions[0].rect[0] = -1;
+  assert.throws(() => validateComposition(recipe), /越界/);
+  assert.throws(() => validateComposition({ source_size: [512, 512], size: [999999, 999999], regions: [] }), /合法尺寸/);
+});
+
+ok("发布脚本同时复制原图和汉化图，忽略尚未发布的占位资源", () => {
+  const mediaRoot = join(root, "media");
+  assert.equal(copyImageMedia({ assetsRoot, images: index, mediaRoot }), 4);
+  assert.deepEqual(readFileSync(join(mediaRoot, original.slice(7))), png);
+  assert.ok(existsSync(join(mediaRoot, localized.slice(7))));
+  const invalid = { tasks: [{ original_url: "media/original/bad.png", original_path: "images/original/../../bad.png" }] };
+  assert.throws(() => copyImageMedia({ assetsRoot, images: invalid, mediaRoot }), /非法图片路径/);
+  assert.throws(() => copyImageMedia({ assetsRoot, images: { tasks: [{ localized_url: "media/localized/missing.png", localized_path: "images/localized/missing.png" }] }, mediaRoot }), /ENOENT/);
+});
+
+ok("主生成器接入覆盖目录后保持清单对账和 portal 计数一致", () => {
+  const fixtureRoot = join(root, "fixture");
+  cpSync("test_helpers/fixtures/assets-repo", fixtureRoot, { recursive: true });
+  put(join(fixtureRoot, "manifests/localization-coverage.json"), JSON.stringify(coverage));
+  const built = buildOutputs({ assetsRoot: fixtureRoot, generatedAt: "2026-01-01T00:00:00Z" });
+  const images = JSON.parse(built.files.get("images.json"));
+  const portal = JSON.parse(built.files.get("portal.json"));
+  assert.equal(images.manifest_total, 4);
+  assert.ok(images.inventory_bundle_count > 0);
+  assert.equal(built.warnings.some((warning) => warning.includes("图片数不一致")), false);
+  assert.equal(images.total, Object.keys(IMAGE_STATUSES).reduce((sum, key) => sum + images.statuses[key], 0));
+  assert.deepEqual(portal.image_statuses, images.statuses);
+});
+
+process.stdout.write(`\n${passed} 个图片用例通过\n`);

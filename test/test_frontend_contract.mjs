@@ -289,7 +289,7 @@ ok("图片索引结构完整，地址是站点内相对路径", () => {
   const images = JSON.parse(readFileSync(join(siteDir, "data", "images.json"), "utf8"));
   assert.equal(images.categories.all, images.total);
   assert.equal(images.statuses.all, images.total);
-  assert.equal(images.statuses.localized + images.statuses.original_only, images.total);
+  assert.equal(images.statuses.localized + images.statuses.original_only + images.statuses.pending + images.statuses.not_needed, images.total);
   assert.equal(portal.image_statuses.all, images.total, "portal 与 images.json 的图片总数要一致");
   assert.deepEqual(portal.image_statuses, images.statuses);
   for (const task of images.tasks) {
@@ -297,7 +297,7 @@ ok("图片索引结构完整，地址是站点内相对路径", () => {
     assert.ok(images.categories[task.category] >= 1, `${task.task_id} 的分类不在清单里`);
     assert.ok(task.localized_path || !task.has_localized, `${task.task_id} 有中文版却没有上游路径`);
     // 清单里的 distribution URL 实测 404，数据与页面都不许再出现
-    assert.equal(task.original_url, undefined, "不许给会 404 的原图地址");
+    assert.equal(task.original_url, null, "没有原图文件的演示数据不能带原图地址");
     assert.equal(task.original_published, false);
     if (task.has_localized) {
       assert.match(task.localized_url, /^media\/localized\/.+\.png$/, "必须是站点内相对路径");
@@ -352,9 +352,10 @@ ok("页面用 imageSrc()，不自己拼图片地址", () => {
   assert.match(app, /imageSrc\(/);
   assert.equal(/imageUrl\s*\(/.test(app), false, "旧的 imageUrl() 已经删掉");
   assert.equal(/prepared_image|restored_image|imageObjectUrl/.test(app), false);
-  assert.equal(/lightbox-view-(both|original|localized)/.test(app), false, "没有并排对照按钮了");
   const html = readFileSync(join(siteDir, "index.html"), "utf8");
-  assert.equal(/id="image-status"/.test(html), false, "状态筛选已去掉（937 条全有中文版）");
+  assert.match(html, /id="image-status"/);
+  assert.match(html, /id="image-original"/);
+  assert.match(html, /id="lightbox-original"/);
   assert.match(html, /id="lightbox-image"/);
 });
 

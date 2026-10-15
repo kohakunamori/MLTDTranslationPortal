@@ -59,11 +59,17 @@ export const EXPORT_DIRECTORY_BY_CATEGORY = {
   system_ui: "master",
 };
 
-/// 图片任务的三个分类（与图片清单里的 `category` 对应）。
+/// 图片分类同时覆盖已发布图片和官方资源覆盖清单。
 export const IMAGE_CATEGORY_RULES = {
   event: { id: "event", name: "活动宣传与公告横幅", icon: "🎪" },
   costume: { id: "costume", name: "专属服饰与扭蛋海报", icon: "👗" },
   tutorial: { id: "tutorial", name: "玩法引导与教学图解", icon: "📖" },
+  comic: { id: "comic", name: "四格漫画", icon: "🗯️" },
+  whiteboard: { id: "whiteboard", name: "白板插画", icon: "📝" },
+  hitokoma: { id: "hitokoma", name: "一格漫画", icon: "💬" },
+  stamp: { id: "stamp", name: "聊天贴图", icon: "🎨" },
+  title: { id: "title", name: "标题与标志", icon: "🏷️" },
+  other: { id: "other", name: "其他图片", icon: "🖼️" },
 };
 export const IMAGE_CATEGORY_ORDER = Object.keys(IMAGE_CATEGORY_RULES);
 
@@ -72,7 +78,12 @@ export const IMAGE_CATEGORY_ORDER = Object.keys(IMAGE_CATEGORY_RULES);
 /// 所以判定只能落在名字上，且必须以真实数据为准。
 export function detectImageCategory(bundle) {
   const b = String(bundle || "").toLowerCase();
-  if (b.startsWith("tutorial")) return "tutorial";
+  if (b.startsWith("ex4c")) return "comic";
+  if (b.startsWith("exwb")) return "whiteboard";
+  if (b.startsWith("hitokoma")) return "hitokoma";
+  if (b.includes("stamp")) return "stamp";
+  if (b.startsWith("title") || /_(title|logo)\b/.test(b)) return "title";
+  if (b.includes("tutorial") || b.startsWith("specialeventinfo")) return "tutorial";
   if (b.startsWith("costume") || b.includes("salesinfo")) return "costume";
   if (b.startsWith("event")) return "event";
   return null;

@@ -12,6 +12,7 @@
 - 收藏喜欢的内容，继续最近阅读的位置，也可导入、导出收藏备份。
 - 搜索全站日文原文与中文译文，直接打开匹配段落。
 - 按活动、周年和生日专题浏览，有明确章节顺序的故事支持连续阅读。
+- 在「图片汉化」页对照拼接后的完整原图和汉化图片，按汉化状态、分类、原图可用性及文件名筛选；未收录的资源包也会列入待确认目录。
 
 相关项目：[汉化资源](https://github.com/kohakunamori/MLTDTranslationAssets) · [汉化版下载](https://github.com/kohakunamori/MLTDTranslationClient/releases)
 

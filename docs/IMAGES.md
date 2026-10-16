@@ -48,11 +48,12 @@ node scripts/copy_image_media.mjs vendor/MLTDTranslationAssets public/data/image
 
 磁盘较小的自托管服务器可在资源仓稀疏检出中排除 `images/original/complete/`，并给生成命令加 `--hydrate-originals --complete-originals-root /work/complete-originals`。完整原图必须存在 Git 工作区以外；否则后续快进同步也可能按稀疏规则清除已下载的媒体。缓存从资源仓当前固定提交的 GitHub 原始文件地址恢复，流式核验哈希后原子落盘；已有文件异常则拒绝覆盖。已有图片保留本地缓存，日常生成无需重新下载。恢复选项会写媒体，禁止与只读的 `--check` 同用。
 
-现网将完整原图持久保存在 `/srv/mltd-portal/complete-originals/`，在 Nginx 为对应 URL 设置独立目录映射；原有 `public/media` 挂载继续提供审核译图和历史原图。部署配置需包含：
+现网将完整原图持久保存在工作区以外的部署专用目录，在 Nginx 为对应 URL 设置独立目录映射；原有 `public/media` 挂载继续提供审核译图和历史原图。部署配置需包含：
 
 ```nginx
 location ^~ /media/original/complete/ {
-    alias /srv/mltd-portal/complete-originals/;
+    # 替换为部署环境的本地目录；不要将真实部署路径写入公开文档。
+    alias /path/to/complete-originals/;
     add_header Cache-Control "public, max-age=31536000, immutable";
     add_header X-Content-Type-Options nosniff always;
     error_page 404 = @complete_original_missing;

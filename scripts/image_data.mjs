@@ -1,6 +1,6 @@
 // 已审核清单、已发布原图与覆盖报告共同组成图片目录。只读上游，不猜下载地址。
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
 import { extname, join, posix } from "node:path";
 import { relativeFileMap } from "./fs-utils.mjs";
 import { IMAGE_CATEGORY_ORDER, IMAGE_CATEGORY_RULES, detectImageCategory } from "../public/lib/taxonomy.js";
@@ -36,13 +36,21 @@ export function validImagePath(value, side) {
     && /\.(png|jpe?g|webp)$/i.test(path);
 }
 
-export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warnings = [], notes = [] } = {}) {
+export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoot = "", imageBase = "", warnings = [], notes = [] } = {}) {
   const tasks = payload == null ? [] : Array.isArray(payload) ? payload : payload.images ?? payload.tasks;
   if (!Array.isArray(tasks)) throw new Error("图片清单里找不到 images/tasks 数组");
   const base = String(imageBase || "").replace(/\/+$/, "");
   const mediaUrl = (path) => `${base ? `${base}/` : ""}media/${path.slice("images/".length).split("/").map(encodeURIComponent).join("/")}`;
   const files = assetsRoot ? new Map([...relativeFileMap(join(assetsRoot, "images/original"),
     (entry) => /\.(png|jpe?g|webp)$/i.test(entry.name))].map(([path, full]) => [`images/original/${path}`, full])) : new Map();
+  if (completeOriginalsRoot) {
+    for (const path of files.keys()) if (path.startsWith("images/original/complete/")) files.delete(path);
+    for (const entry of readdirSync(completeOriginalsRoot, { withFileTypes: true })) {
+      if (entry.isFile() && /^[a-f0-9]{64}\.webp$/.test(entry.name)) {
+        files.set(`images/original/complete/${entry.name}`, join(completeOriginalsRoot, entry.name));
+      }
+    }
+  }
   const normalized = new Map();
   const byOriginalPath = new Map();
 

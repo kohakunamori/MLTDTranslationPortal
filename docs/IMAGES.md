@@ -46,6 +46,24 @@ node scripts/copy_image_media.mjs vendor/MLTDTranslationAssets public/data/image
 
 媒体发布脚本同时校验并复制原图与汉化图的源文件，仅复制索引有地址的文件。候选图不会因为存在于工作目录就自动成为审核通过的汉化图。缺失被引用的文件会阻止发布。Pages 备用发布流程已使用此脚本。自托管如已将 `public/media` 链接到资源仓 `images`，可沿用这个媒体挂载；否则需在数据生成后调用发布脚本。
 
-磁盘较小的自托管服务器可在资源仓稀疏检出中排除 `images/original/complete/`，并给生成命令加 `--hydrate-originals`。它从资源仓当前固定提交的 GitHub 原始文件地址下载缺少的内容寻址媒体，流式核验哈希后原子落盘；已有文件异常则拒绝覆盖。这样完整原图不同时占用 Git 对象库和工作区两份空间。已有图片保留本地缓存，日常生成无需重新下载。该选项会写媒体，禁止与只读的 `--check` 同用。
+磁盘较小的自托管服务器可在资源仓稀疏检出中排除 `images/original/complete/`，并给生成命令加 `--hydrate-originals --complete-originals-root /work/complete-originals`。完整原图必须存在 Git 工作区以外；否则后续快进同步也可能按稀疏规则清除已下载的媒体。缓存从资源仓当前固定提交的 GitHub 原始文件地址恢复，流式核验哈希后原子落盘；已有文件异常则拒绝覆盖。已有图片保留本地缓存，日常生成无需重新下载。恢复选项会写媒体，禁止与只读的 `--check` 同用。
+
+现网将完整原图持久保存在 `/srv/mltd-portal/complete-originals/`，在 Nginx 为对应 URL 设置独立目录映射；原有 `public/media` 挂载继续提供审核译图和历史原图。部署配置需包含：
+
+```nginx
+location ^~ /media/original/complete/ {
+    alias /srv/mltd-portal/complete-originals/;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header X-Content-Type-Options nosniff always;
+    error_page 404 = @complete_original_missing;
+}
+location @complete_original_missing {
+    add_header Cache-Control "no-store" always;
+    add_header X-Content-Type-Options nosniff always;
+    return 404;
+}
+```
+
+如果需要复制完整静态产物，可将独立缓存目录作为 `copy_image_media.mjs` 的第四个参数。索引输出继续使用相同的相对媒体 URL，不暴露服务器路径。
 
 `npm test` 包含目录合并、去重、状态与组合筛选、原图哈希、发布文件以及索引对账检查。

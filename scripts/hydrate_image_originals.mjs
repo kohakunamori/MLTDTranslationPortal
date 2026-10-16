@@ -10,10 +10,12 @@ async function digest(path) {
   return hash.digest("hex");
 }
 
-export async function hydrateImageOriginals({ assetsRoot, repo, revision, catalog: suppliedCatalog = null, concurrency = 4, fetchImage = fetch, log = () => {} }) {
+export async function hydrateImageOriginals({ assetsRoot, completeOriginalsRoot = "", repo, revision, catalog: suppliedCatalog = null, concurrency = 4, fetchImage = fetch, log = () => {} }) {
   if (!assetsRoot || !/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[a-f0-9]{40}$/.test(revision)) throw new Error("原图恢复需要资源仓和固定提交");
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) throw new Error("原图恢复并发数不合法");
   const root = realpathSync(assetsRoot);
+  if (completeOriginalsRoot) mkdirSync(completeOriginalsRoot, { recursive: true });
+  const storageRoot = completeOriginalsRoot ? realpathSync(completeOriginalsRoot) : root;
   const file = join(root, "manifests/image-originals.manifest.json");
   if (!suppliedCatalog && !existsSync(file)) return { total: 0, fetched: 0 };
   const catalog = suppliedCatalog || JSON.parse(readFileSync(file, "utf8"));
@@ -32,11 +34,12 @@ export async function hydrateImageOriginals({ assetsRoot, repo, revision, catalo
   async function worker() {
     while (next < queue.length) {
       const [path, sha] = queue[next++];
-      const destination = join(root, path);
+      const destination = completeOriginalsRoot ? join(storageRoot, `${sha}.webp`) : join(root, path);
       mkdirSync(dirname(destination), { recursive: true });
-      if (!realpathSync(dirname(destination)).startsWith(root + sep)) throw new Error("完整原图目录越界");
+      const parent = realpathSync(dirname(destination));
+      if (parent !== storageRoot && !parent.startsWith(storageRoot + sep)) throw new Error("完整原图目录越界");
       if (existsSync(destination)) {
-        if (!realpathSync(destination).startsWith(root + sep) || await digest(destination) !== sha) throw new Error(`完整原图哈希不一致：${path}`);
+        if (!realpathSync(destination).startsWith(storageRoot + sep) || await digest(destination) !== sha) throw new Error(`完整原图哈希不一致：${path}`);
       } else {
         const temporary = `${destination}.${randomUUID()}.part`;
         for (let attempt = 0; attempt < 3; attempt++) {

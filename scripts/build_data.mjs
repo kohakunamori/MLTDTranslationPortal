@@ -574,6 +574,7 @@ function parseArgs(argv) {
     "--ref": "ref",
     "--image-base": "imageBase",
     "--image-tasks": "imageTasks",
+    "--complete-originals-root": "completeOriginalsRoot",
     "--generated-at": "generatedAt",
     "--max-rows-per-page": "maxRowsPerPage",
     "--portal-commit": "portalCommit",
@@ -764,6 +765,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
 
   const images = buildImageIndex(imagePayload, {
     assetsRoot: settings.assetsRoot,
+    completeOriginalsRoot: settings.completeOriginalsRoot,
     imageBase: settings.imageBase,
     warnings,
     notes,
@@ -1006,6 +1008,7 @@ const HELP = `门户静态数据生成器
   --portal-commit <sha>   本仓提交，写进 sources.portal.commit（CI 的跳过判断靠它）
   --check                 只比对磁盘现状，不写入；有漂移时退出码 2
   --hydrate-originals     从资源仓固定提交恢复稀疏检出缺少的完整原图（不可与 --check 同用）
+  --complete-originals-root <dir>  独立完整原图缓存目录，避免 Git 同步移除媒体
   --strict                把警告升级为失败
 `;
 
@@ -1025,6 +1028,7 @@ export async function main(argv = process.argv.slice(2)) {
     try {
       if (options.check) throw new BuildError("--check 只读校验不能恢复原图");
       await hydrateImageOriginals({ assetsRoot: options.assetsRoot, repo: options.assetsRepo,
+        completeOriginalsRoot: options.completeOriginalsRoot,
         revision: gitHeadOf(options.assetsRoot), log: (message) => process.stderr.write(`${message}\n`) });
     } catch (error) {
       process.stderr.write(`error: ${error.message}\n`);

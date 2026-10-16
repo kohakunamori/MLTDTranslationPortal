@@ -269,4 +269,29 @@ await asyncOk("并行恢复相同媒体不覆盖已有文件，也不共享临�
   assert.deepEqual(readdirSync(dirname(join(hydrateRoot, path))), [`${sha}.webp`]);
 });
 
+await asyncOk("独立完整原图缓存不受源仓图片更新或移除影响，索引与发布仍可用", async () => {
+  const externalAssets = join(root, "external-assets");
+  const cache = join(root, "persistent-complete-originals");
+  const path = `images/original/complete/${sha}.webp`;
+  const catalog = { schema_version: 1, kind: "source-complete-originals", images: [{
+    task_id: "ex4c00001.unity3d:complete-comic", bundle: "ex4c00001.unity3d", status: "original_only",
+    image_layout: "complete", dimensions: { width: 1, height: 1 }, original: { relative_path: path, sha256: sha },
+  }] };
+  put(join(externalAssets, "manifests/image-originals.manifest.json"), JSON.stringify(catalog));
+  const settings = { assetsRoot: externalAssets, completeOriginalsRoot: cache, repo: "example/assets", revision: "a".repeat(40),
+    fetchImage: async () => new Response(png) };
+  assert.deepEqual(await hydrateImageOriginals(settings), { total: 1, fetched: 1 });
+  assert.equal(existsSync(join(externalAssets, path)), false);
+  put(join(externalAssets, path), "working copy changed");
+  assert.equal(imageDisplayReady(buildImageIndex([], settings).tasks[0], "original"), true);
+  rmSync(join(externalAssets, "images"), { recursive: true });
+  assert.deepEqual(await hydrateImageOriginals(settings), { total: 1, fetched: 0 });
+  const images = buildImageIndex([], settings);
+  assert.equal(imageDisplayReady(images.tasks[0], "original"), true);
+  assert.equal(JSON.stringify(images).includes(cache), false, "服务器缓存绝对路径不写入页面数据");
+  const mediaRoot = join(root, "external-media");
+  assert.equal(copyImageMedia({ assetsRoot: externalAssets, completeOriginalsRoot: cache, images, mediaRoot }), 1);
+  assert.deepEqual(readFileSync(join(mediaRoot, path.slice(7))), png);
+});
+
 process.stdout.write(`\n${passed} 个图片用例通过\n`);

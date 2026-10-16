@@ -40,7 +40,7 @@
         },
         "cloudflare_r2": {
           "key": "images/2222222222222222222222222222222222222222222222222222222222222222.png",
-          "url_template": "https://pub-mltd-assets.nyaneko.cn/images/2222222222222222222222222222222222222222222222222222222222222222.png"
+          "url_template": "https://assets.example.invalid/images/2222222222222222222222222222222222222222222222222222222222222222.png"
         }
       },
       "review_status": "user_approved_for_isolated_install_staging"
@@ -111,7 +111,7 @@
         "storage_policy": "external_binary_hosting",
         "cloudflare_r2": {
           "key": "images/7777777777777777777777777777777777777777777777777777777777777777.png",
-          "url_template": "https://pub-mltd-assets.nyaneko.cn/images/7777777777777777777777777777777777777777777777777777777777777777.png"
+          "url_template": "https://assets.example.invalid/images/7777777777777777777777777777777777777777777777777777777777777777.png"
         }
       },
       "review_status": "user_approved_for_isolated_install_staging"

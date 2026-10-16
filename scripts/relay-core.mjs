@@ -7,7 +7,7 @@ import { WriteError, applyJsonlEdit, applyManifestEdit, normalizeWriteStatus } f
 
 const DEFAULT_BRANCH = "main";
 const DEFAULT_AUTHOR_NAME = "MLTD portal relay";
-const DEFAULT_AUTHOR_EMAIL = "mltd-portal@nyaneko.cn";
+const DEFAULT_AUTHOR_EMAIL = "noreply@users.noreply.github.com";
 const DEFAULT_PATH_PREFIXES = ["locales/", "lyrics/", "manifests/"];
 
 export function parseRepos(raw) {

@@ -1,13 +1,10 @@
 # Portal build and verification jobs use standard GitHub-hosted runners.
 name: 生成数据并部署 Pages（已停用自动触发）
 
-# 2026-10-10 起生产站部署在 vps_racknerd 上（https://mltd-portal.nyaneko.cn/）：数据生成、
-# 对外服务、单行写入都在那台机器上完成，运维记录见 Control 仓的
-# `deploy/vps-racknerd-mltd-portal/` 与 `docs/server/vps_racknerd/mltd-portal.md`。
-#
-# GitHub Actions 仍使用标准 GitHub-hosted runner。生产站改由 VPS 服务后，这里的 **自动触发已删除**：
+# 生产站的调度和托管配置保存在本仓之外。GitHub Actions 仍使用标准 GitHub-hosted runner。
+# 这里的 **自动触发已删除**：
 # `push` 路径过滤与每天 03:17 UTC 的定时都不再存在，
-# 只剩手动 `workflow_dispatch`。需要时（例如自托管那边长期不可用，或想留一份只读快照）
+# 只剩手动 `workflow_dispatch`。需要时（例如生产部署暂不可用，或想留一份只读快照）
 # 仍然可以手动跑一次：先判断"这次要不要重新生成"，再生成、校验、发布到 Pages。
 #
 # 流水线本身没变：

@@ -16,7 +16,7 @@
 //   RELAY_REPOS           仓库 → 本地检出目录，JSON，例如 {"owner/repo":"/srv/..."}
 //   RELAY_PATH_PREFIXES   允许写入的路径前缀，默认 "locales/,lyrics/,manifests/"
 //   RELAY_AUTHOR_NAME     提交署名（拿不到 Token 主人时用），默认 "MLTD portal relay"
-//   RELAY_AUTHOR_EMAIL    提交邮箱（同上），默认 "mltd-portal@nyaneko.cn"
+//   RELAY_AUTHOR_EMAIL    提交邮箱（同上），默认 GitHub 通用 noreply 地址
 //   RELAY_MAX_BODY        请求体上限（字节），默认 1MiB
 
 import { createServer } from "node:http";
@@ -29,7 +29,7 @@ const PORT = Number(process.env.RELAY_PORT || 21330);
 const HOST = process.env.RELAY_HOST || "127.0.0.1";
 const BRANCH = process.env.RELAY_BRANCH || "main";
 const AUTHOR_NAME = process.env.RELAY_AUTHOR_NAME || "MLTD portal relay";
-const AUTHOR_EMAIL = process.env.RELAY_AUTHOR_EMAIL || "mltd-portal@nyaneko.cn";
+const AUTHOR_EMAIL = process.env.RELAY_AUTHOR_EMAIL || "noreply@users.noreply.github.com";
 const MAX_BODY = Number(process.env.RELAY_MAX_BODY || 1024 * 1024);
 const PATH_PREFIXES = String(process.env.RELAY_PATH_PREFIXES || "locales/,lyrics/,manifests/")
   .split(",")

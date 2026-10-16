@@ -4,8 +4,8 @@
 Synchronizes accepted (and optionally pending) translations from the GitHub SSOT
 repository (locales/**/*.jsonl) into Cloudflare D1 'contributions' table.
 
-This allows the serverless translation portal (https://mltd-translate.nyaneko.cn)
-to immediately reflect the 50,000+ accepted translations without manual re-entry.
+This allows the legacy serverless translation portal to immediately reflect
+accepted translations without manual re-entry.
 
 Safety:
 - Strict source_sha256 verification against Japanese source text.

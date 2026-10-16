@@ -253,4 +253,17 @@ await asyncOk("媒体恢复遇到损坏响应不发布半张图片，也不保�
   assert.deepEqual(readdirSync(dirname(join(hydrateRoot, path))), []);
 });
 
+await asyncOk("并行恢复相同媒体不覆盖已有文件，也不共享临时文件", async () => {
+  const hydrateRoot = join(root, "hydrate-concurrent");
+  mkdirSync(hydrateRoot);
+  const path = `images/original/complete/${sha}.webp`;
+  const settings = { assetsRoot: hydrateRoot, repo: "example/assets", revision: "a".repeat(40),
+    catalog: { schema_version: 1, kind: "source-complete-originals",
+      images: [{ image_layout: "complete", original: { relative_path: path, sha256: sha } }] },
+    fetchImage: async () => new Response(png) };
+  await Promise.all([hydrateImageOriginals(settings), hydrateImageOriginals(settings)]);
+  assert.deepEqual(readFileSync(join(hydrateRoot, path)), png);
+  assert.deepEqual(readdirSync(dirname(join(hydrateRoot, path))), [`${sha}.webp`]);
+});
+
 process.stdout.write(`\n${passed} 个图片用例通过\n`);

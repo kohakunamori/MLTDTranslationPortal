@@ -1,7 +1,7 @@
 // 稀疏检出可从固定提交恢复完整原图，避免 Git 对象和媒体重复占用服务器磁盘。
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
-import { open, rename, unlink } from "node:fs/promises";
+import { link, open, unlink } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
 
 async function digest(path) {
@@ -38,7 +38,7 @@ export async function hydrateImageOriginals({ assetsRoot, repo, revision, catalo
       if (existsSync(destination)) {
         if (!realpathSync(destination).startsWith(root + sep) || await digest(destination) !== sha) throw new Error(`完整原图哈希不一致：${path}`);
       } else {
-        const temporary = `${destination}.${process.pid}.part`;
+        const temporary = `${destination}.${randomUUID()}.part`;
         for (let attempt = 0; attempt < 3; attempt++) {
           let handle;
           try {
@@ -55,7 +55,11 @@ export async function hydrateImageOriginals({ assetsRoot, repo, revision, catalo
             }
             await handle.close(); handle = null;
             if (hash.digest("hex") !== sha) throw new Error(`下载原图哈希不一致：${path}`);
-            await rename(temporary, destination);
+            try { await link(temporary, destination); }
+            catch (error) {
+              if (error.code !== "EEXIST" || await digest(destination) !== sha) throw error;
+            }
+            await unlink(temporary);
             fetched++;
             break;
           } catch (error) {

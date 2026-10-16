@@ -6,6 +6,7 @@ import { relativeFileMap } from "./fs-utils.mjs";
 import { IMAGE_CATEGORY_ORDER, IMAGE_CATEGORY_RULES, detectImageCategory } from "../public/lib/taxonomy.js";
 import { IMAGE_STATUSES, imageStatus, thumbnailParent } from "../public/lib/images.js";
 import { validateComposition } from "../public/lib/image-composition.js";
+import { IMAGE_REVIEW_PATH, applyImageReviews, emptyImageReviews } from "../public/lib/image-review.js";
 
 const COMPOSITIONS = JSON.parse(readFileSync(new URL("./image-compositions.json", import.meta.url), "utf8")).sources;
 for (const recipe of Object.values(COMPOSITIONS)) validateComposition(recipe);
@@ -194,6 +195,8 @@ export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoo
     task.texture_height = task.height;
     [task.width, task.height] = recipe.size;
   }
+  const reviewPath = assetsRoot && join(assetsRoot, IMAGE_REVIEW_PATH);
+  applyImageReviews(rows, reviewPath && existsSync(reviewPath) ? JSON.parse(readFileSync(reviewPath, "utf8")) : emptyImageReviews());
   const categories = { all: rows.length, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, 0])) };
   const statuses = { all: rows.length, ...Object.fromEntries(Object.keys(IMAGE_STATUSES).map((id) => [id, 0])) };
   for (const task of rows) { categories[task.category] += 1; statuses[imageStatus(task)] += 1; }

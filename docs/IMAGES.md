@@ -67,3 +67,13 @@ location @complete_original_missing {
 如果需要复制完整静态产物，可将独立缓存目录作为 `copy_image_media.mjs` 的第四个参数。索引输出继续使用相同的相对媒体 URL，不暴露服务器路径。
 
 `npm test` 包含目录合并、去重、状态与组合筛选、原图哈希、发布文件以及索引对账检查。
+
+## 无需汉化的人工标记
+
+未汉化且已具备完整原图的卡片和放大对照中提供“无需汉化”按钮。配置有资源仓库 Contents 写入权限的 GitHub Token 后，按钮直接通过 GitHub Contents API 保存到 `manifests/image-review-decisions.json`，不改写生成的原图目录或已审核汉化清单。保存成功后立刻更新列表、筛选和计数，并显示提交凭据与“撤销上次操作”；在“无需汉化”筛选中也可长期撤销标记。写入失败保留原状态。
+
+文档格式为 `{ "schema_version": 1, "decisions": { "<task_id>": { "status": "not_needed", "source_sha256": "<原图 SHA-256>", "revision": "<UUID>" } } }`。生成器与前端共同应用标记；图片源哈希变更时旧决定失效。撤销前检查记录版本，写入时检查文件 blob SHA，避免覆盖其他人的修改。已汉化图和派生缩略图不提供此按钮。
+
+进入页面时读取最新标记，已配置 Token 的浏览器从 GitHub API 读取；公共浏览器读取原始文件，可能受 GitHub 公共缓存影响。数据重新生成后标记也随静态目录发布。Token 仅随 API 请求头发送，不能写入标记文件、URL 或日志。大于 1 MB 的标记文档按不可变 blob 读取。
+
+资源仓已有 `scripts/incremental_images.py` 使用日文 OCR；其 `ocr_no_text` 只表示没有检测到文字。细小字、装饰字、竖排和低对比文字可能漏识别，因此这些结果适合筛选人工复核候选，不能直接转换为“无需汉化”的最终结论。当前人工标记功能不调用翻译模型，也不把 OCR 空结果自动落为最终决定。

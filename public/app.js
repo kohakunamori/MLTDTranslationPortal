@@ -1,7 +1,6 @@
 // MLTD 翻译查阅站 —— 纯静态前端。
 //
-// 只读 public/data/** 的生成文件与明确发布的图片；唯一的写操作是用户在阅读页
-// 用自己存在本机的 GitHub Token 改一行译文（见 lib/github-write.js）。
+// 读取生成数据与完整图片；用户可用本机 GitHub Token 修改译文或保存图片汉化需求。
 //
 // 路由用 hash：`#overview` / `#catalogue?category=` / `#read?file=&p=` / `#images` / `#settings`。
 // `#read` 的 `file` 是 bundle 文件（多页 bundle 就是它的第一页文件），`p` 是 1 起算的
@@ -33,6 +32,7 @@ import { checkTranslationFormat, draftTranslation, getAiConfig, setAiConfig, tes
 import { paginate } from "./lib/pagination.js";
 import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus } from "./lib/images.js";
 import { displayImageBlob, loadDisplayImage } from "./lib/image-renderer.js";
+import { applyImageReviews, commitImageReview, loadImageReviews } from "./lib/image-review.js";
 import { countLines, readTotals } from "./lib/read-stats.js";
 import { $, clear, el, formatNumber, hideModal, renderRichText, toast } from "./lib/ui.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
@@ -71,7 +71,7 @@ const state = {
     filters: { keyword: "", status: "", display: "both", size: "normal", highlight: true },
   },
   editing: null,
-  images: { data: null, category: "all", status: "all", original: "all", keyword: "", sort: "default", page: 1 },
+  images: { data: null, category: "all", status: "all", original: "all", keyword: "", sort: "default", page: 1, reviewBusy: false, reviewUndo: null, reviewMessage: "" },
   lightbox: null,
 };
 
@@ -902,7 +902,14 @@ function navigateImages(changes = {}) {
 
 async function renderImages(params = {}) {
   state.portal = state.portal || await loadPortal();
-  if (!state.images.data) state.images.data = await loadImages();
+  if (!state.images.data) {
+    state.images.data = await loadImages();
+    try {
+      applyImageReviews(state.images.data.tasks || [], await loadImageReviews({ ...state.portal.sources.assets, token: getToken() }));
+    } catch {
+      state.images.reviewMessage = "未能读取最新图片标记，当前显示已生成的数据；保存时会检查冲突。";
+    }
+  }
   if (state.view !== "images") return;
   const filters = state.images;
   filters.category = Object.hasOwn(IMAGE_CATEGORY_RULES, params.category) ? params.category : "all";
@@ -913,6 +920,7 @@ async function renderImages(params = {}) {
   filters.page = Math.max(1, Number(params.p) || 1);
   const data = state.images.data;
   const tasks = data.tasks || [];
+  renderImageReviewFeedback();
   const inventoryCount = data.inventory_bundle_count || 0;
   const thumbnailCount = data.thumbnail_bundle_count || 0;
   $("images-meta").textContent = `已收录 ${formatNumber(data.texture_count ?? tasks.length)} 张图片 · 另有 ${formatNumber(inventoryCount)} 个待确认资源包`
@@ -1022,10 +1030,69 @@ function renderImageCard(task) {
       ]),
       task.thumbnail_parent ? el("div", { class: "image-sub" }, [el("span", { text: `对应原图：${task.thumbnail_parent}` })]) : null,
       el("button", { class: "btn btn-ghost", type: "button", text: "放大对照", onclick: () => openLightbox(task) }),
+      imageReviewButton(task),
     ]),
     renderImagePreview(task, "original"),
     renderImagePreview(task, "localized"),
   ]);
+}
+
+function imageReviewButton(task) {
+  if (task.has_localized || task.kind.startsWith("bundle_") || !imageDisplayReady(task, "original")) return null;
+  if (imageStatus(task) === "not_needed" && !task.review_decision) return null;
+  const marked = imageStatus(task) === "not_needed";
+  return el("button", {
+    class: "btn btn-ghost image-review-button", type: "button", disabled: state.images.reviewBusy,
+    text: marked ? "撤销无需汉化" : "无需汉化",
+    onclick: () => saveImageReview(task, marked ? null : {
+      status: "not_needed", source_sha256: task.original_sha256, revision: crypto.randomUUID(),
+    }),
+  });
+}
+
+function renderImageReviewFeedback() {
+  const feedback = clear($("image-review-feedback"));
+  feedback.hidden = !state.images.reviewMessage;
+  if (feedback.hidden) return;
+  feedback.append(el("span", { text: state.images.reviewMessage }));
+  const undo = state.images.reviewUndo;
+  if (undo) feedback.append(" ", el("button", {
+    class: "btn btn-ghost", type: "button", text: "撤销上次操作", disabled: state.images.reviewBusy,
+    onclick: () => saveImageReview(undo.task, undo.previous, undo.decision, true),
+  }));
+}
+
+async function saveImageReview(task, decision, expected = task.review_decision || null, undoing = false) {
+  if (state.images.reviewBusy) return;
+  if (!getToken()) {
+    toast("先在「设置」里配置有资源仓库写入权限的 GitHub Token 才能标记", "err");
+    return;
+  }
+  state.images.reviewBusy = true;
+  document.querySelectorAll(".image-review-button").forEach((button) => { button.disabled = true; });
+  state.images.reviewMessage = "正在保存图片标记…";
+  renderImageReviewFeedback();
+  try {
+    const result = await commitImageReview({ ...state.portal.sources.assets, token: getToken(), task, expected, decision });
+    applyImageReviews(state.images.data.tasks, result.document);
+    state.images.reviewUndo = undoing ? null : { task,
+      previous: result.previous?.source_sha256 === task.original_sha256 ? result.previous : null, decision };
+    state.images.reviewMessage = `${decision ? "已标记为无需汉化" : "已撤销无需汉化标记"}：${task.task_id}（已保存 ${result.commit.sha.slice(0, 8)}）`;
+    toast(decision ? "标记成功，可撤销；已从未汉化列表移出" : "已撤销，图片恢复原来的状态", "ok");
+  } catch (error) {
+    state.images.reviewMessage = `保存失败：${error.code === "conflict" ? "图片标记已变化，请在设置中重新拉取数据后重试" : writeErrorText(error) || error.message}`;
+    toast(state.images.reviewMessage, "err");
+  } finally {
+    state.images.reviewBusy = false;
+    if (state.view === "images") await renderImages(parseRoute().params);
+    else renderImageReviewFeedback();
+    const activeTask = state.lightbox?.task;
+    if (activeTask) {
+      clear($("lightbox-review-actions")).append(...[imageReviewButton(activeTask)].filter(Boolean));
+      $("lightbox-image-missing").textContent = imageMissingText(activeTask, "localized");
+      $("lightbox-meta").querySelector("[data-image-status]").textContent = `状态：${IMAGE_STATUSES[imageStatus(activeTask)].name}`;
+    }
+  }
 }
 
 function openLightbox(task) {
@@ -1056,9 +1123,10 @@ function renderLightbox() {
     el("span", { text: task.width && task.height ? `${formatNumber(task.width)}×${formatNumber(task.height)}` : "尺寸待确认" }),
     el("span", { text: `资源：${task.bundle}` }),
     el("span", { text: `分类：${task.category_name || task.category}` }),
-    el("span", { text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
+    el("span", { "data-image-status": true, text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
   );
   if (task.thumbnail_parent) meta.append(el("span", { text: `对应原图：${task.thumbnail_parent}` }));
+  clear($("lightbox-review-actions")).append(...[imageReviewButton(task)].filter(Boolean));
   if (reference && !reference.published) {
     meta.append(el("span", { class: "warn", text: "原图尚未发布" }));
     meta.append(el("span", { class: "hint", text: `原图 sha256：${reference.sha || "（未提供）"}` }));
@@ -1355,8 +1423,14 @@ function showError(error) {
 }
 
 async function reloadData() {
+  if (state.images.reviewBusy) {
+    toast("图片标记正在保存，请完成后再重新拉取数据", "err");
+    return;
+  }
   clearCache();
   state.images.data = null;
+  state.images.reviewUndo = null;
+  state.images.reviewMessage = "";
   state.read.bundle = null;
   state.read.loadedFile = "";
   state.read.pages = [];

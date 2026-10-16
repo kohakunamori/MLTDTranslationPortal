@@ -305,6 +305,8 @@
       <button class="btn btn-ghost" id="image-reset" type="button">重置筛选</button>
     </div>
 
+    <p class="hint">确认原图无需汉化后可点击标记，支持撤销。标记保存到资源仓库，需要在设置中配置 GitHub Token。</p>
+    <p class="hint" id="image-review-feedback" role="status" aria-live="polite" hidden></p>
     <p class="hint" id="image-results" role="status" aria-live="polite"></p>
     <div class="image-columns" aria-hidden="true"><span>图片信息</span><span>日文原图</span><span>汉化图片</span></div>
     <div class="image-grid" id="image-grid"></div>
@@ -437,6 +439,7 @@
     <div class="modal-foot">
       <div class="lightbox-meta" id="lightbox-meta"></div>
       <div class="lightbox-actions">
+        <span id="lightbox-review-actions"></span>
         <a class="btn btn-ghost" id="lightbox-download-original" href="#" download>下载原图</a>
         <a class="btn" id="lightbox-download" href="#" download>下载汉化图</a>
       </div>

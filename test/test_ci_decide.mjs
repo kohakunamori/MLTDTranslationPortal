@@ -1,4 +1,4 @@
-// CI 的"要不要重新生成"判断契约。自托管（2026-10-10）之后这条流水线只剩手动触发，
+// CI 的"要不要重新生成"判断契约。生产站迁至 VPS（2026-10-10）后这条流水线只剩手动触发，
 // 但跳过判断本身还在用，所以这里同时守着两件事：
 //   1. 自动触发不许被加回来（加回来就会重新开始拉上游、传产物）；
 //   2. 判断逻辑一旦退化（比如读不到标记却当成"没变"）必须红。
@@ -106,13 +106,13 @@ ok("比的是克隆到的 HEAD，不是清单里的内容 commit", () => {
   assert.equal(decision.build, false);
 });
 
-ok("workflow：build 与 deploy 都受 check 门控", () => {
+ok("workflow：verify、build 与 deploy 都受 check 门控", () => {
   assert.match(workflow, /^ {2}check:/m, "要有 check 任务");
   assert.match(workflow, /^ {4}outputs:\n {6}build: \$\{\{ steps\.decide\.outputs\.build \}\}/m, "check 要输出 build");
-  assert.equal((workflow.match(/if: needs\.check\.outputs\.build == 'true'/g) || []).length, 2, "build 和 deploy 各要一处门控");
+  assert.equal((workflow.match(/if: needs\.check\.outputs\.build == 'true'/g) || []).length, 3, "verify、build 和 deploy 都应跳过 no-op");
+  assert.match(workflow, /^ {2}verify:\n {4}needs: check\n {4}if: needs\.check\.outputs\.build == 'true'/m, "verify 也应在 no-op 时跳过");
   assert.match(workflow, /^ {2}build:\n {4}needs: \[check, verify\]/m, "build 要等 check 与 verify");
   assert.match(workflow, /^ {2}deploy:\n {4}needs: \[check, build\]/m, "deploy 要等 check 与 build");
-  assert.match(workflow, /^ {2}verify:\n/m, "verify 始终跑，不能也被门控");
 });
 
 ok("workflow：自动触发已停用，只剩手动（自托管后不再自动构建与发布）", () => {

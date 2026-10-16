@@ -151,7 +151,9 @@ ok("完整原图目录补齐未汉化图片，共享文件保留各资源身份�
   const path = "images/original/complete/shared.png";
   put(join(isolatedRoot, path), png);
   put(join(isolatedRoot, "images/original/complete/orphan.png"), png);
-  const catalog = { schema_version: 1, kind: "source-complete-originals", images: ["ex4c00001", "ex4c00002"].map((bundle) => ({
+  const catalog = { schema_version: 1, kind: "source-complete-originals", unresolved: [
+    { bundle: "ex4c00003.unity3d", reason: "ValueError: Multiple Sprite atlas needs explicit complete-image grouping" },
+  ], images: ["ex4c00001", "ex4c00002"].map((bundle) => ({
     task_id: `${bundle}.unity3d:complete-comic`, bundle: `${bundle}.unity3d`,
     status: "original_only", image_layout: "complete", dimensions: { width: 1, height: 1 },
     original: { relative_path: path, sha256: sha },
@@ -166,6 +168,7 @@ ok("完整原图目录补齐未汉化图片，共享文件保留各资源身份�
   assert.equal(result.texture_count, 2);
   assert.equal(result.inventory_bundle_count, 1);
   assert.equal(result.statuses.original_only, 2);
+  assert.match(result.tasks.find((t) => t.bundle === "ex4c00003.unity3d").original_issue, /额外图层/);
   assert.equal(filterImageTasks(result.tasks, { status: "unlocalized", original: "available" }).length, 2);
   for (const task of result.tasks.filter((t) => t.original_url)) {
     assert.equal(imageDisplayReady(task, "original"), true);

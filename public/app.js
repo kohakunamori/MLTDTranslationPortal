@@ -965,6 +965,7 @@ async function renderImages(params = {}) {
 function imageMissingText(task, side) {
   if (imageSrc(task, side) && !imageDisplayReady(task, side)) return "完整图尚未拼接";
   if (side === "original") {
+    if (task.original_issue) return task.original_issue;
     if (task.kind === "bundle_thumbnail") return "缩略图由原图生成，尚未提取";
     return task.kind === "bundle_inventory" ? "尚未提取原图" : "原图尚未发布";
   }

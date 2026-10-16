@@ -82,6 +82,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
       image_layout: task.image_layout === "complete" ? "complete" : "unprepared",
       review_status: String(task.review_status || ""),
       thumbnail_parent: String(task.thumbnail_parent || "") || null,
+      ...(task.original_issue ? { original_issue: String(task.original_issue) } : {}),
     };
     normalized.set(taskId, row);
     if (originalPath) {
@@ -93,6 +94,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
   };
   for (const task of tasks) normalize(task);
   const manifestTotal = normalized.size;
+  const originalIssues = new Map();
 
   // 完整原图目录独立于已审核译图清单；源图入库不代表汉化已经通过审核。
   const originalsManifest = assetsRoot && join(assetsRoot, "manifests/image-originals.manifest.json");
@@ -114,6 +116,10 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
       if (!files.has(path)) throw new Error(`完整原图文件尚未发布：${path}`);
       if (normalized.has(task.task_id)) throw new Error(`完整原图任务重复：${task.task_id}`);
       normalize(task);
+    }
+    for (const entry of catalog.unresolved || []) {
+      originalIssues.set(entry.bundle, String(entry.reason || "").includes("complete-image grouping")
+        ? "该资源包含额外图层，尚待确认完整图布局" : "原图提取失败，等待处理");
     }
     notes.push(`images: 已发布 ${catalog.images.length} 张未汉化完整原图`);
   }
@@ -165,7 +171,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
       const parent = thumbnailParent(bundle);
       normalize({ task_id: `${bundle}:inventory`, bundle, kind: parent ? "bundle_thumbnail" : "bundle_inventory",
         category: FAMILY_CATEGORY[family] || "other", status: parent ? "derived" : "pending",
-        review_status: "not_reviewed", thumbnail_parent: parent });
+        review_status: "not_reviewed", thumbnail_parent: parent, original_issue: originalIssues.get(bundle) });
     }
   }
 

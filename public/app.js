@@ -994,7 +994,7 @@ function renderImagePreview(task, side) {
   } else {
     thumb.append(el("span", { class: "thumb-missing", text: imageMissingText(task, side) }));
   }
-  return el("button", { class: "image-preview", type: "button", "aria-label": `查看 ${task.task_id} ${label}`, onclick: () => openLightbox(task) }, [
+  return el("button", { class: `image-preview${task.height > task.width * 1.5 ? " image-preview-portrait" : ""}`, type: "button", "aria-label": `查看 ${task.task_id} ${label}`, onclick: () => openLightbox(task) }, [
     el("span", { class: "image-preview-label", text: label }), thumb,
   ]);
 }
@@ -1042,6 +1042,8 @@ function closeLightbox() {
 
 function renderLightbox() {
   const { task } = state.lightbox;
+  $("lightbox").classList.toggle("lightbox-portrait", task.height > task.width * 1.5);
+  $("lightbox").querySelector(".lightbox-body").scrollTop = 0;
   const reference = originalReference(task);
 
   $("lightbox-title").textContent = task.kind.startsWith("bundle_") ? task.bundle : task.task_id;

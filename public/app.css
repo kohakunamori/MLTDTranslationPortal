@@ -487,6 +487,7 @@ select.input { cursor: pointer; }
 }
 .image-thumb canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
 .image-thumb canvas[hidden] { display: none; }
+.image-preview-portrait .image-thumb { aspect-ratio: 1 / 1; }
 .image-thumb .thumb-missing { font-size: 0.75rem; color: var(--text-muted); padding: 0.75rem; text-align: center; }
 .image-body { padding: 0.35rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.6rem; min-width: 0; }
 .image-body .image-id { font-size: 0.78rem; font-weight: 800; word-break: break-all; }
@@ -594,6 +595,13 @@ select.input { cursor: pointer; }
   border-radius: var(--radius-sm);
 }
 .lightbox-figure .empty { color: #94a3b8; font-size: 0.78rem; padding: 1.5rem 0.5rem; }
+/* 长漫画按栏宽阅读，滚动查看全图，避免被压缩成无法读字的窄条。 */
+.lightbox-portrait .lightbox-body { align-items: flex-start; }
+.lightbox-portrait .lightbox-figure canvas { width: 100%; height: auto; max-height: none; }
+@media (max-width: 600px) {
+  .lightbox-portrait .lightbox-compare { flex-direction: column; align-items: stretch; }
+  .lightbox-portrait .lightbox-figure { flex: 0 0 auto; width: 100%; }
+}
 .lightbox-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .lightbox-meta .warn { color: #b45309; font-weight: 700; }
 .lightbox-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }

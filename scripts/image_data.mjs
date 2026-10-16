@@ -84,38 +84,71 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
       thumbnail_parent: String(task.thumbnail_parent || "") || null,
     };
     normalized.set(taskId, row);
-    if (originalPath) byOriginalPath.set(originalPath.replace(/^images\/original\/original\//, "images/original/"), row);
+    if (originalPath) {
+      const canonical = originalPath.replace(/^images\/original\/original\//, "images/original/");
+      if (!byOriginalPath.has(canonical)) byOriginalPath.set(canonical, []);
+      byOriginalPath.get(canonical).push(row);
+    }
     return row;
   };
   for (const task of tasks) normalize(task);
   const manifestTotal = normalized.size;
+
+  // 完整原图目录独立于已审核译图清单；源图入库不代表汉化已经通过审核。
+  const originalsManifest = assetsRoot && join(assetsRoot, "manifests/image-originals.manifest.json");
+  if (originalsManifest && existsSync(originalsManifest)) {
+    const catalog = JSON.parse(readFileSync(originalsManifest, "utf8"));
+    if (catalog.schema_version !== 1 || catalog.kind !== "source-complete-originals" || !Array.isArray(catalog.images)) {
+      throw new Error("完整原图目录格式不正确");
+    }
+    for (const task of catalog.images) {
+      const path = task?.original?.relative_path;
+      if (task.image_layout !== "complete" || task.status !== "original_only" || task.localized
+          || !validImagePath(path, "original") || !/^[a-f0-9]{64}$/.test(task?.original?.sha256 || "")
+          || !task.bundle?.endsWith(".unity3d") || !task.task_id?.startsWith(`${task.bundle}:`)
+          || !Number.isInteger(task?.dimensions?.width) || !Number.isInteger(task?.dimensions?.height)
+          || task.dimensions.width <= 0 || task.dimensions.height <= 0
+          || task.dimensions.width * task.dimensions.height > 16_777_216) {
+        throw new Error(`完整原图记录不合法：${task.task_id || path}`);
+      }
+      if (!files.has(path)) throw new Error(`完整原图文件尚未发布：${path}`);
+      if (normalized.has(task.task_id)) throw new Error(`完整原图任务重复：${task.task_id}`);
+      normalize(task);
+    }
+    notes.push(`images: 已发布 ${catalog.images.length} 张未汉化完整原图`);
+  }
 
   // 旧清单的 original/original/ 是历史目录形状。以真实文件定位，并校验像素文件哈希。
   const imageBuffer = Buffer.allocUnsafe(64 * 1024);
   for (const [path, full] of files) {
     if (!validImagePath(path, "original")) continue;
     const canonicalPath = path.replace(/^images\/original\/original\//, "images/original/");
+    // 内容寻址的完整原图必须在来源目录中有记录，不能把中断导出的孤立文件当任务发布。
+    if (path.startsWith("images/original/complete/") && !byOriginalPath.has(canonicalPath)) continue;
     const filename = posix.basename(path);
     const textureId = filename.match(/^(-?\d+)(?:_|\.)/)?.[1];
     const bundleBase = posix.basename(posix.dirname(path)).replace(/\.unity3d$/i, "");
-    let row = byOriginalPath.get(canonicalPath) || (textureId && normalized.get(`${bundleBase}.unity3d:${textureId}`));
+    let matching = byOriginalPath.get(canonicalPath) || [];
+    if (!matching.length && textureId && normalized.has(`${bundleBase}.unity3d:${textureId}`)) {
+      matching = [normalized.get(`${bundleBase}.unity3d:${textureId}`)];
+    }
     const { sha, header } = hashImageFile(full, imageBuffer);
-    if (row?.original_sha256 && row.original_sha256 !== sha) {
-      throw new Error(`图片原图哈希不一致：${path}`);
-    }
-    if (!row) {
+    if (!matching.length) {
       // 保留完整文件路径作身份，避免无法识别纹理 ID 的文件互相覆盖。
-      row = normalize({ task_id: textureId ? `${bundleBase}.unity3d:${textureId}` : `original:${canonicalPath}`,
+      const row = normalize({ task_id: textureId ? `${bundleBase}.unity3d:${textureId}` : `original:${canonicalPath}`,
         bundle: `${bundleBase}.unity3d`, original: { relative_path: path, sha256: sha }, status: "pending" });
+      if (row) matching = [row];
     }
-    if (!row) continue;
-    row.original_path = path;
-    row.original_url = mediaUrl(path);
-    row.original_published = true;
-    row.original_sha256 = sha;
-    if (!row.width && extname(path).toLowerCase() === ".png" && header.length >= 24 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
-      row.width = header.readUInt32BE(16);
-      row.height = header.readUInt32BE(20);
+    for (const row of matching) {
+      if (row.original_sha256 && row.original_sha256 !== sha) throw new Error(`图片原图哈希不一致：${path}`);
+      row.original_path = path;
+      row.original_url = mediaUrl(path);
+      row.original_published = true;
+      row.original_sha256 = sha;
+      if (!row.width && extname(path).toLowerCase() === ".png" && header.length >= 24 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+        row.width = header.readUInt32BE(16);
+        row.height = header.readUInt32BE(20);
+      }
     }
   }
 
@@ -138,6 +171,7 @@ export function buildImageIndex(payload, { assetsRoot = "", imageBase = "", warn
 
   const rows = [...normalized.values()].sort((a, b) => a.task_id < b.task_id ? -1 : a.task_id > b.task_id ? 1 : 0);
   for (const task of rows) {
+    if (task.image_layout === "complete") continue;
     const recipe = COMPOSITIONS[task.original_sha256];
     if (!recipe) continue;
     task.composition = recipe;

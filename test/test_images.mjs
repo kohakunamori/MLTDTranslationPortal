@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { buildImageIndex, validImagePath } from "../scripts/image_data.mjs";
 import { copyImageMedia } from "../scripts/copy_image_media.mjs";
+import { hydrateImageOriginals } from "../scripts/hydrate_image_originals.mjs";
 import { buildOutputs } from "../scripts/build_data.mjs";
 import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus, thumbnailParent } from "../public/lib/images.js";
 import { validateComposition } from "../public/lib/image-composition.js";
@@ -145,6 +146,40 @@ ok("源图哈希匹配拼接配方，展示尺寸为完整图尺寸", () => {
   assert.equal(imageDisplayReady({ localized_url: "media/texture.png" }), false, "缺少布局时不能直接展示纹理图集");
 });
 
+ok("完整原图目录补齐未汉化图片，共享文件保留各资源身份，译图清单独立对账", () => {
+  const isolatedRoot = join(root, "complete-originals");
+  const path = "images/original/complete/shared.png";
+  put(join(isolatedRoot, path), png);
+  put(join(isolatedRoot, "images/original/complete/orphan.png"), png);
+  const catalog = { schema_version: 1, kind: "source-complete-originals", images: ["ex4c00001", "ex4c00002"].map((bundle) => ({
+    task_id: `${bundle}.unity3d:complete-comic`, bundle: `${bundle}.unity3d`,
+    status: "original_only", image_layout: "complete", dimensions: { width: 1, height: 1 },
+    original: { relative_path: path, sha256: sha },
+  })) };
+  const manifestPath = join(isolatedRoot, "manifests/image-originals.manifest.json");
+  put(manifestPath, JSON.stringify(catalog));
+  put(join(isolatedRoot, "manifests/localization-coverage.json"), JSON.stringify({ images: { families: {
+    comic: { missing_reviewed_bundles: ["ex4c00001.unity3d", "ex4c00002.unity3d", "ex4c00003.unity3d"] },
+  } } }));
+  const result = buildImageIndex([], { assetsRoot: isolatedRoot });
+  assert.equal(result.manifest_total, 0);
+  assert.equal(result.texture_count, 2);
+  assert.equal(result.inventory_bundle_count, 1);
+  assert.equal(result.statuses.original_only, 2);
+  assert.equal(filterImageTasks(result.tasks, { status: "unlocalized", original: "available" }).length, 2);
+  for (const task of result.tasks.filter((t) => t.original_url)) {
+    assert.equal(imageDisplayReady(task, "original"), true);
+    assert.equal(task.has_localized, false);
+    assert.equal(task.localized_url, null);
+  }
+  catalog.images[0].original.sha256 = "f".repeat(64);
+  put(manifestPath, JSON.stringify(catalog));
+  assert.throws(() => buildImageIndex([], { assetsRoot: isolatedRoot }), /哈希不一致/);
+  catalog.images[0].original.relative_path = "images/original/missing.png";
+  put(manifestPath, JSON.stringify(catalog));
+  assert.throws(() => buildImageIndex([], { assetsRoot: isolatedRoot }), /尚未发布/);
+});
+
 ok("全部拼接配方的边界、旋转尺寸和目标区域合法", () => {
   const recipes = JSON.parse(readFileSync("scripts/image-compositions.json", "utf8")).sources;
   assert.equal(Object.keys(recipes).length, 1108);
@@ -180,6 +215,42 @@ ok("主生成器接入覆盖目录后保持清单对账和 portal 计数一致",
   assert.equal(built.warnings.some((warning) => warning.includes("图片数不一致")), false);
   assert.equal(images.total, Object.keys(IMAGE_STATUSES).reduce((sum, key) => sum + images.statuses[key], 0));
   assert.deepEqual(portal.image_statuses, images.statuses);
+});
+
+async function asyncOk(name, test) {
+  try { await test(); passed++; process.stdout.write(`ok   ${name}\n`); }
+  catch (error) { process.exitCode = 1; process.stdout.write(`FAIL ${name}\n${error.stack}\n`); }
+}
+
+await asyncOk("稀疏媒体恢复固定仓库提交、去重、验证哈希，并复用本地文件", async () => {
+  const hydrateRoot = join(root, "hydrate");
+  const path = `images/original/complete/${sha}.webp`;
+  const task = { image_layout: "complete", original: { relative_path: path, sha256: sha } };
+  put(join(hydrateRoot, "manifests/image-originals.manifest.json"), JSON.stringify({ schema_version: 1,
+    kind: "source-complete-originals", images: [task, structuredClone(task)] }));
+  const requests = [];
+  const settings = { assetsRoot: hydrateRoot, repo: "example/assets", revision: "a".repeat(40),
+    fetchImage: async (url) => { requests.push(url); return new Response(png); } };
+  assert.deepEqual(await hydrateImageOriginals(settings), { total: 1, fetched: 1 });
+  assert.equal(requests[0], `https://raw.githubusercontent.com/example/assets/${"a".repeat(40)}/${path}`);
+  assert.deepEqual(readFileSync(join(hydrateRoot, path)), png);
+  assert.deepEqual(await hydrateImageOriginals(settings), { total: 1, fetched: 0 });
+  assert.equal(requests.length, 1);
+  put(join(hydrateRoot, path), "modified");
+  await assert.rejects(hydrateImageOriginals(settings), /哈希不一致/);
+  assert.equal(requests.length, 1, "已有文件哈希异常时不覆盖它");
+  await assert.rejects(hydrateImageOriginals({ ...settings, revision: "main" }), /固定提交/);
+});
+
+await asyncOk("媒体恢复遇到损坏响应不发布半张图片，也不保留失败临时文件", async () => {
+  const hydrateRoot = join(root, "hydrate-failure");
+  const path = `images/original/complete/${sha}.webp`;
+  put(join(hydrateRoot, "manifests/image-originals.manifest.json"), JSON.stringify({ schema_version: 1,
+    kind: "source-complete-originals", images: [{ image_layout: "complete", original: { relative_path: path, sha256: sha } }] }));
+  await assert.rejects(hydrateImageOriginals({ assetsRoot: hydrateRoot, repo: "example/assets", revision: "a".repeat(40),
+    fetchImage: async () => new Response("damaged") }), /哈希不一致/);
+  assert.equal(existsSync(join(hydrateRoot, path)), false);
+  assert.deepEqual(readdirSync(dirname(join(hydrateRoot, path))), []);
 });
 
 process.stdout.write(`\n${passed} 个图片用例通过\n`);

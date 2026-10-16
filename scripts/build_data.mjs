@@ -20,6 +20,7 @@ import { join, posix, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { decorateLibraryBundles, emitLibrary, emitSearch } from "./library_data.mjs";
 import { buildImageIndex } from "./image_data.mjs";
+import { hydrateImageOriginals } from "./hydrate_image_originals.mjs";
 
 import { findFiles, relativeFileMap, toPosix } from "./fs-utils.mjs";
 import { collectingSink, writingSink, compareSink, swapIntoPlace, clearStaleStaging } from "./output-sink.mjs";
@@ -580,6 +581,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--check") { options.check = true; continue; }
+    if (arg === "--hydrate-originals") { options.hydrateOriginals = true; continue; }
     if (arg === "--strict") { options.strict = true; continue; }
     if (arg === "--help" || arg === "-h") { options.help = true; continue; }
     const key = flags[arg];
@@ -1003,6 +1005,7 @@ const HELP = `门户静态数据生成器
   --generated-at <iso>    固定 generated_at（测试与可复现构建用）
   --portal-commit <sha>   本仓提交，写进 sources.portal.commit（CI 的跳过判断靠它）
   --check                 只比对磁盘现状，不写入；有漂移时退出码 2
+  --hydrate-originals     从资源仓固定提交恢复稀疏检出缺少的完整原图（不可与 --check 同用）
   --strict                把警告升级为失败
 `;
 
@@ -1017,6 +1020,16 @@ export async function main(argv = process.argv.slice(2)) {
   if (options.help) {
     process.stdout.write(HELP);
     return 0;
+  }
+  if (options.hydrateOriginals) {
+    try {
+      if (options.check) throw new BuildError("--check 只读校验不能恢复原图");
+      await hydrateImageOriginals({ assetsRoot: options.assetsRoot, repo: options.assetsRepo,
+        revision: gitHeadOf(options.assetsRoot), log: (message) => process.stderr.write(`${message}\n`) });
+    } catch (error) {
+      process.stderr.write(`error: ${error.message}\n`);
+      return 1;
+    }
   }
 
   /// 写模式下产出先落在暂存目录；比对模式不碰磁盘。

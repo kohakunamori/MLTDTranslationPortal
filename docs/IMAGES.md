@@ -10,6 +10,7 @@
 
 - `manifests/images.manifest.json`（或 `--image-tasks` 指定的清单）：纹理级记录，可包含尚无汉化图的任务。
 - `images/original/**`：纳入已发布原图，按来源路径或包名与纹理 ID 匹配已有记录；新的未审核原图列为待确认。纹理 ID 始终按字符串处理，避免 64 位 ID 丢失精度。
+- `manifests/image-originals.manifest.json`：从未审核资源包实际导出的完整原图，含源版本、包哈希、Sprite 布局及输出哈希；以「已收录未汉化」纳入，独立于已审核译图清单对账。完整图文件必须真实存在并通过哈希校验，多个资源可以共享同一个内容寻址文件。
 - `manifests/localization-coverage.json` 的 `images.families.*.missing_reviewed_bundles`：补充没有图片记录的待确认资源包，按包名去重。缺少这份清单时页面明确提示目录不完整。
 
 图片张数与待确认资源包数分别统计；一个包可能包含多张图片，也可能只是缩略图或无需汉化的插画。覆盖报告不能证明某包一定含有待翻译日文，因此包级占位记录不会直接列为已确认需要汉化的图片。
@@ -18,7 +19,7 @@
 
 状态分别为 `localized`（已汉化）、`original_only`（已收录但无汉化图）、`pending`（待确认汉化需求或审核）、`derived`（缩略图，随原图派生）、`not_needed`（明确无需汉化）。「未汉化（含待确认）」筛选合并 `original_only` 与 `pending`，不含缩略图与无需汉化项。
 
-缩略图资源包按上游 `configs/image-resources.json` 的 `thumbnail_rules` 识别（漫画、白板、单格漫画、博客、称号背景、活动横幅的 `*_thumb.unity3d`）。上游 `manifests/image-family-audit.json` 对这几类的结论是 `derive_from_approved_parent`：缩略图从已审核原图派生，不单独翻译，也不单独送审。因此它们单独计数，不计入待翻译资源包；原图未汉化时，缩略图同样是日文。当前 8 个图片家族的未审核资源包共 6,394 个，其中 2,301 个是缩略图，扣掉后待确认资源包为 4,093 个。
+缩略图资源包按上游 `configs/image-resources.json` 的 `thumbnail_rules` 识别（漫画、白板、单格漫画、博客、称号背景、活动横幅的 `*_thumb.unity3d`）。上游 `manifests/image-family-audit.json` 对这几类的结论是 `derive_from_approved_parent`：缩略图从已审核原图派生，不单独翻译，也不单独送审。因此它们单独计数，不计入待翻译资源包；原图未汉化时，缩略图同样是日文。原有 8 个图片家族的覆盖快照共列出 6,394 个未审核资源包，其中 2,301 个是缩略图，4,093 个是完整图资源包。完成原图导出后，对应包级占位由实际图片取代，不能把旧快照的 4,093 当作剩余缺图数。
 
 ## 原图与发布
 
@@ -34,6 +35,8 @@ node scripts/import_image_compositions.mjs <reconstructed-preprocess/catalog.jso
 
 与本页面配套，资源仓已补齐现有清单的 937 张日文原图，并逐一通过原始哈希校验。937 份拼接布局也逐一与上游保存的完整原图比较像素，结果一致。
 
+资源仓 `scripts/export_portal_originals.py` 继续提取覆盖快照中的未审核完整图资源：漫画按六个 Sprite 的编号纵向拼接，切片宽度相差最多两像素且居中 pivot 时保留原像素居中补透明边；横幅、教学和白板按明确的双 Sprite 布局拼接；贴图按独立 Sprite 提取。输出为逐像素校验的无损 WebP，浏览器仍将完整图下载为 PNG。源包仅下载、读取，不调用翻译模型，也不发布汉化替换包。不能确定布局的包保留占位，原因保存在原图目录的 `unresolved` 中。目录只表示原图可查看，日文内容和汉化需求仍需筛选审核。
+
 将原图和汉化图按清单路径放到资源仓后，先生成数据，再发布索引引用的媒体：
 
 ```sh
@@ -42,5 +45,7 @@ node scripts/copy_image_media.mjs vendor/MLTDTranslationAssets public/data/image
 ```
 
 媒体发布脚本同时校验并复制原图与汉化图的源文件，仅复制索引有地址的文件。候选图不会因为存在于工作目录就自动成为审核通过的汉化图。缺失被引用的文件会阻止发布。Pages 备用发布流程已使用此脚本。自托管如已将 `public/media` 链接到资源仓 `images`，可沿用这个媒体挂载；否则需在数据生成后调用发布脚本。
+
+磁盘较小的自托管服务器可在资源仓稀疏检出中排除 `images/original/complete/`，并给生成命令加 `--hydrate-originals`。它从资源仓当前固定提交的 GitHub 原始文件地址下载缺少的内容寻址媒体，流式核验哈希后原子落盘；已有文件异常则拒绝覆盖。这样完整原图不同时占用 Git 对象库和工作区两份空间。已有图片保留本地缓存，日常生成无需重新下载。该选项会写媒体，禁止与只读的 `--check` 同用。
 
 `npm test` 包含目录合并、去重、状态与组合筛选、原图哈希、发布文件以及索引对账检查。

@@ -134,7 +134,8 @@ export function resolveBundlePage(entry, requestedPage = 1) {
 export function imageSrc(task, side = "localized") {
   if (!task) return null;
   if (side === "original") return task.original_url || null;
-  return task.localized_url || null;
+  if (side === "submission") return task.submission_url || null;
+  return task.localized_url || task.submission_url || null;
 }
 
 /// 未发布原图时仍保留来源定位信息。

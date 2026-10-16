@@ -1,6 +1,6 @@
 // MLTD 翻译查阅站 —— 纯静态前端。
 //
-// 读取生成数据与完整图片；用户可用本机 GitHub Token 修改译文或保存图片汉化需求。
+// 读取生成数据与完整图片；用户可用本机 GitHub Token 修改译文、标记需求或投稿汉化图。
 //
 // 路由用 hash：`#overview` / `#catalogue?category=` / `#read?file=&p=` / `#images` / `#settings`。
 // `#read` 的 `file` 是 bundle 文件（多页 bundle 就是它的第一页文件），`p` 是 1 起算的
@@ -33,6 +33,8 @@ import { paginate } from "./lib/pagination.js";
 import { IMAGE_STATUSES, filterImageTasks, imageDisplayReady, imageStatus } from "./lib/images.js";
 import { displayImageBlob, loadDisplayImage } from "./lib/image-renderer.js";
 import { applyImageReviews, commitImageReview, loadImageReviews } from "./lib/image-review.js";
+import { applyImageSubmissions, loadImageSubmissions } from "./lib/image-submission.js";
+import { createImageSubmissionUi } from "./lib/image-submission-ui.js";
 import { countLines, readTotals } from "./lib/read-stats.js";
 import { $, clear, el, formatNumber, hideModal, renderRichText, toast } from "./lib/ui.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
@@ -78,6 +80,8 @@ const state = {
 // ------------------------------------------------------------------ 路由
 
 const libraryUi = createLibraryUi({ $, el, clear, navigate, renderPager, toast, renderSongCard, state });
+const imageSubmissionUi = createImageSubmissionUi({ $, el, state, getToken, toast, loadDisplayImage,
+  onOpen: closeLightbox, refresh: async () => { if (state.view === "images") await renderImages(parseRoute().params); else renderImageReviewFeedback(); } });
 
 function navigate(view, params = {}) {
   // 路径直接写在 hash 里更好读（`file=bundles/system_ui/x.json`），URLSearchParams 会把 `/`
@@ -903,17 +907,26 @@ function navigateImages(changes = {}) {
 async function renderImages(params = {}) {
   state.portal = state.portal || await loadPortal();
   if (!state.images.data) {
-    state.images.data = await loadImages();
-    try {
-      applyImageReviews(state.images.data.tasks || [], await loadImageReviews({ ...state.portal.sources.assets, token: getToken() }));
-    } catch {
-      state.images.reviewMessage = "未能读取最新图片标记，当前显示已生成的数据；保存时会检查冲突。";
-    }
+    state.images.loading ||= (async () => {
+      const data = await loadImages();
+      const source = { ...state.portal.sources.assets, token: getToken() };
+      const [reviews, submissions] = await Promise.allSettled([loadImageReviews(source), loadImageSubmissions(source)]);
+      for (const [result, apply, name] of [[reviews, applyImageReviews, "图片标记"], [submissions, applyImageSubmissions, "投稿"]]) {
+        try {
+          if (result.status === "rejected") throw result.reason;
+          apply(data.tasks || [], result.value, source);
+        } catch { state.images.reviewMessage += ` 未能读取最新${name}，当前显示已生成的数据；保存时会检查冲突。`; }
+      }
+      return data;
+    })();
+    try { state.images.data = await state.images.loading; }
+    finally { state.images.loading = null; }
   }
   if (state.view !== "images") return;
+  params = parseRoute().params;
   const filters = state.images;
   filters.category = Object.hasOwn(IMAGE_CATEGORY_RULES, params.category) ? params.category : "all";
-  filters.status = params.status === "unlocalized" || Object.hasOwn(IMAGE_STATUSES, params.status) ? params.status : "all";
+  filters.status = ["unlocalized", "submitted"].includes(params.status) || Object.hasOwn(IMAGE_STATUSES, params.status) ? params.status : "all";
   filters.original = ["available", "missing"].includes(params.original) ? params.original : "all";
   filters.keyword = params.q || "";
   filters.sort = ["name", "size"].includes(params.sort) ? params.sort : "default";
@@ -937,6 +950,7 @@ async function renderImages(params = {}) {
     $("image-status").querySelector(`option[value="${id}"]`).textContent = `${id === "original_only" ? "已收录未汉化" : meta.name}（${formatNumber(count)}）`;
   }
   $("image-status").querySelector('option[value="unlocalized"]').textContent = `未汉化（含待确认） · ${formatNumber(unlocalized)}`;
+  $("image-status").querySelector('option[value="submitted"]').textContent = `已提交汉化（待审核） · ${formatNumber(tasks.filter((task) => task.submission).length)}`;
   $("image-status").value = filters.status;
   $("image-original").value = filters.original;
   $("image-search").value = filters.keyword;
@@ -987,7 +1001,7 @@ function imageMissingText(task, side) {
 
 function renderImagePreview(task, side) {
   const thumb = el("div", { class: "image-thumb" });
-  const label = side === "original" ? "日文原图" : "汉化图片";
+  const label = side === "original" ? "日文原图" : !task.localized_url && task.submission ? "汉化投稿（待审核）" : "汉化图片";
   if (imageDisplayReady(task, side)) {
     const canvas = el("canvas", { role: "img", "aria-label": `${task.task_id} ${label}完整图`, hidden: true });
     const loading = el("span", { class: "thumb-missing", text: "正在拼接完整图…" });
@@ -1027,10 +1041,12 @@ function renderImageCard(task) {
         }),
         el("span", { text: imageRowLabel(task) }),
         el("span", { text: task.category_name || task.category }),
+        task.submission ? el("span", { class: "badge pending", text: "汉化投稿待审核" }) : null,
       ]),
       task.thumbnail_parent ? el("div", { class: "image-sub" }, [el("span", { text: `对应原图：${task.thumbnail_parent}` })]) : null,
       el("button", { class: "btn btn-ghost", type: "button", text: "放大对照", onclick: () => openLightbox(task) }),
       imageReviewButton(task),
+      imageSubmissionUi.button(task),
     ]),
     renderImagePreview(task, "original"),
     renderImagePreview(task, "localized"),
@@ -1038,6 +1054,7 @@ function renderImageCard(task) {
 }
 
 function imageReviewButton(task) {
+  if (task.submission) return null;
   if (task.has_localized || task.kind.startsWith("bundle_") || !imageDisplayReady(task, "original")) return null;
   if (imageStatus(task) === "not_needed" && !task.review_decision) return null;
   const marked = imageStatus(task) === "not_needed";
@@ -1088,7 +1105,7 @@ async function saveImageReview(task, decision, expected = task.review_decision |
     else renderImageReviewFeedback();
     const activeTask = state.lightbox?.task;
     if (activeTask) {
-      clear($("lightbox-review-actions")).append(...[imageReviewButton(activeTask)].filter(Boolean));
+      clear($("lightbox-review-actions")).append(...[imageReviewButton(activeTask), imageSubmissionUi.button(activeTask)].filter(Boolean));
       $("lightbox-image-missing").textContent = imageMissingText(activeTask, "localized");
       $("lightbox-meta").querySelector("[data-image-status]").textContent = `状态：${IMAGE_STATUSES[imageStatus(activeTask)].name}`;
     }
@@ -1115,6 +1132,8 @@ function renderLightbox() {
   const reference = originalReference(task);
 
   $("lightbox-title").textContent = task.kind.startsWith("bundle_") ? task.bundle : task.task_id;
+  $("lightbox-figure-localized").querySelector("figcaption").textContent = !task.localized_url && task.submission ? "汉化投稿（待审核）" : "汉化图片";
+  $("lightbox-download").textContent = !task.localized_url && task.submission ? "下载投稿图" : "下载汉化图";
   lightboxImage("lightbox-original", "lightbox-original-missing", task, "original", "lightbox-download-original");
   lightboxImage("lightbox-image", "lightbox-image-missing", task, "localized", "lightbox-download");
 
@@ -1126,7 +1145,7 @@ function renderLightbox() {
     el("span", { "data-image-status": true, text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
   );
   if (task.thumbnail_parent) meta.append(el("span", { text: `对应原图：${task.thumbnail_parent}` }));
-  clear($("lightbox-review-actions")).append(...[imageReviewButton(task)].filter(Boolean));
+  clear($("lightbox-review-actions")).append(...[imageReviewButton(task), imageSubmissionUi.button(task)].filter(Boolean));
   if (reference && !reference.published) {
     meta.append(el("span", { class: "warn", text: "原图尚未发布" }));
     meta.append(el("span", { class: "hint", text: `原图 sha256：${reference.sha || "（未提供）"}` }));
@@ -1234,6 +1253,7 @@ function debounce(fn, wait) {
 }
 
 function bindEvents() {
+  imageSubmissionUi.bind();
   libraryUi.bindEvents();
   $("logo-home").addEventListener("click", (event) => { event.preventDefault(); navigate("overview"); });
   // 密码输入框放在 <form> 里 Chrome 才不报 "Password field is not contained in a form"；
@@ -1245,7 +1265,8 @@ function bindEvents() {
     button.addEventListener("click", () => navigate(button.dataset.nav));
   }
   for (const node of document.querySelectorAll("[data-close]")) {
-    node.addEventListener("click", () => node.dataset.close === "lightbox" ? closeLightbox() : hideModal(node.dataset.close));
+    node.addEventListener("click", () => node.dataset.close === "image-submit" ? imageSubmissionUi.close()
+      : node.dataset.close === "lightbox" ? closeLightbox() : hideModal(node.dataset.close));
   }
 
   $("hero-random-song").addEventListener("click", async () => {
@@ -1400,6 +1421,7 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      if (!$("image-submit-modal").hidden) { imageSubmissionUi.close(); return; }
       hideModal("confirm");
       closeLightbox();
     }
@@ -1428,6 +1450,7 @@ async function reloadData() {
     return;
   }
   clearCache();
+  imageSubmissionUi.close();
   state.images.data = null;
   state.images.reviewUndo = null;
   state.images.reviewMessage = "";

@@ -35,7 +35,9 @@ export function drawImageComposition(canvas, source, recipe) {
 
 export async function loadDisplayImage(canvas, task, side) {
   const src = imageSrc(task, side);
-  if (!src || (!task.composition && task.image_layout !== "complete")) throw new Error("完整图尚未拼接");
+  const candidate = side === "submission" || (side === "localized" && !task.localized_url && task.submission_url);
+  const recipe = candidate ? null : task.composition;
+  if (!src || (!candidate && !recipe && task.image_layout !== "complete")) throw new Error("完整图尚未拼接");
   const source = new Image();
   source.crossOrigin = "anonymous";
   source.decoding = "async";
@@ -44,7 +46,8 @@ export async function loadDisplayImage(canvas, task, side) {
     source.onerror = () => reject(new Error("图片源文件加载失败"));
     source.src = src;
   });
-  if (task.composition) return drawImageComposition(canvas, source, task.composition);
+  if (recipe) return drawImageComposition(canvas, source, recipe);
+  if (candidate && (source.naturalWidth !== task.width || source.naturalHeight !== task.height)) throw new Error("投稿尺寸与完整原图不一致");
   canvas.width = source.naturalWidth;
   canvas.height = source.naturalHeight;
   canvas.getContext("2d").drawImage(source, 0, 0);

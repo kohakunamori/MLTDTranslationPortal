@@ -28,11 +28,13 @@ export function thumbnailParent(bundle) {
 }
 
 export function imageStatus(task) {
+  if (task?.submission && !task.has_localized) return "pending";
   if (Object.hasOwn(IMAGE_STATUSES, task?.status)) return task.status;
   return task?.has_localized ? "localized" : "original_only";
 }
 
 export function imageDisplayReady(task, side = "localized") {
+  if (side === "submission" || (side === "localized" && !task?.localized_url && task?.submission_url)) return Boolean(task?.submission && task.submission_url);
   return Boolean(task?.[`${side}_url`] && (task.composition || task.image_layout === "complete"));
 }
 
@@ -40,13 +42,15 @@ export function filterImageTasks(tasks, { category = "all", status = "all", keyw
   const words = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const rows = tasks.filter((task) => {
     if (category !== "all" && task.category !== category) return false;
-    if (status === "unlocalized") {
+    if (status === "submitted") {
+      if (!task.submission) return false;
+    } else if (status === "unlocalized") {
       if (!["original_only", "pending"].includes(imageStatus(task))) return false;
     } else if (status !== "all" && imageStatus(task) !== status) return false;
     if (original === "available" && !imageDisplayReady(task, "original")) return false;
     if (original === "missing" && imageDisplayReady(task, "original")) return false;
     const text = [task.task_id, task.bundle, task.kind, task.category_name, task.original_path, task.localized_path,
-      task.thumbnail_parent, IMAGE_STATUSES[imageStatus(task)].name].filter(Boolean).join("\n").toLowerCase();
+      task.thumbnail_parent, task.submission ? "汉化投稿 待审核" : "", IMAGE_STATUSES[imageStatus(task)].name].filter(Boolean).join("\n").toLowerCase();
     return words.every((word) => text.includes(word));
   });
   const byName = (a, b) => a.task_id.localeCompare(b.task_id, "en", { numeric: true });

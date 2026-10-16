@@ -129,7 +129,7 @@ ok("每个导航按钮都有对应的 view 区块", () => {
 ok("data-close 指向存在的弹窗", () => {
   const targets = [...indexHtml.matchAll(/data-close="([^"]+)"/g)].map((match) => match[1]);
   assert.ok(targets.length >= 2);
-  const modalOf = { confirm: "confirm-modal", lightbox: "lightbox" };
+  const modalOf = { confirm: "confirm-modal", lightbox: "lightbox", "image-submit": "image-submit-modal" };
   for (const target of targets) {
     assert.ok(modalOf[target], `未知的 data-close=${target}`);
     assert.ok(htmlIds.has(modalOf[target]), `缺少 #${modalOf[target]}`);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 仅发布索引中有地址的原图/汉化图，不把候选图或工作目录一起拷到站点。
+// 发布索引引用的原图、审核译图和明确登记的待审投稿。
 import { copyFileSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,10 +9,10 @@ export function copyImageMedia({ assetsRoot, images, mediaRoot, completeOriginal
   const sourceRoot = realpathSync(assetsRoot);
   const targets = new Map();
   for (const task of images.tasks || []) {
-    for (const side of ["original", "localized"]) {
+    for (const side of ["original", "localized", "submission"]) {
       if (!task[`${side}_url`]) continue;
-      const path = task[`${side}_path`];
-      if (!validImagePath(path, side)) throw new Error(`非法图片路径：${path}`);
+      const path = side === "submission" ? task.submission?.path : task[`${side}_path`];
+      if (!validImagePath(path, side === "submission" ? "submissions" : side)) throw new Error(`非法图片路径：${path}`);
       const external = completeOriginalsRoot && path.startsWith("images/original/complete/");
       const allowedRoot = external ? realpathSync(completeOriginalsRoot) : sourceRoot;
       if (external && path !== `images/original/complete/${basename(path)}`) throw new Error(`完整原图路径不合法：${path}`);

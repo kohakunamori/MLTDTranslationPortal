@@ -277,6 +277,7 @@
           <option value="localized">已汉化</option>
           <option value="unlocalized">未汉化（含待确认）</option>
           <option value="original_only">已收录未汉化</option>
+          <option value="submitted">已提交汉化（待审核）</option>
           <option value="pending">待确认</option>
           <option value="derived">缩略图（随原图）</option>
           <option value="not_needed">无需汉化</option>
@@ -445,6 +446,31 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- ============================ 图片汉化投稿 ============================ -->
+<div class="modal" id="image-submit-modal" role="dialog" aria-modal="true" aria-labelledby="image-submit-title" hidden>
+  <div class="modal-backdrop" data-close="image-submit"></div>
+  <form class="modal-panel lightbox-panel image-submit-panel" id="image-submit-form">
+    <div class="modal-head">
+      <h3 id="image-submit-title">提交汉化图</h3>
+      <button class="btn btn-ghost" type="button" data-close="image-submit">关闭</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" id="image-submit-size"></p>
+      <label class="field"><span>选择汉化后的完整图片</span><input class="input" id="image-submit-file" type="file" accept="image/png,.png" /></label>
+      <label class="field"><span>投稿备注（可选）</span><textarea class="input" id="image-submit-note" maxlength="1000" rows="2" placeholder="说明修改内容、译名或需要审核的地方"></textarea></label>
+      <p class="hint">请保持完整原图的尺寸和布局。投稿会进入待审核列表，审核后按图片发布流程处理。</p>
+      <div class="lightbox-compare image-submit-preview">
+        <figure class="lightbox-figure"><figcaption>完整原图</figcaption><canvas id="image-submit-original" role="img" aria-label="投稿对照原图" hidden></canvas></figure>
+        <figure class="lightbox-figure"><figcaption>汉化投稿（待审核）</figcaption><canvas id="image-submit-candidate" role="img" aria-label="汉化投稿完整图预览" hidden></canvas></figure>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <p class="hint" id="image-submit-message" role="status" aria-live="polite"></p>
+      <button class="btn btn-primary" id="image-submit-save" type="submit" disabled>提交汉化图</button>
+    </div>
+  </form>
 </div>
 
 <!-- ============================ 写入确认 ============================ -->

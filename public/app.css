@@ -606,6 +606,12 @@ select.input { cursor: pointer; }
 .lightbox-meta .warn { color: #b45309; font-weight: 700; }
 .lightbox-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .lightbox-actions .btn.active { background: var(--primary-gradient); border-color: transparent; color: #fff; }
+.image-submit-panel .modal-head h3 { overflow-wrap: anywhere; }
+.image-submit-panel .modal-head, .image-submit-panel .modal-foot { flex-shrink: 0; }
+.image-submit-panel .modal-body { min-height: 0; }
+.image-submit-panel .modal-foot .hint { flex: 1 1 16rem; overflow-wrap: anywhere; }
+.image-submit-preview { background: #0f172a; padding: 0.5rem; border-radius: var(--radius-sm); }
+.image-submit-preview .lightbox-figure canvas { width: 100%; height: auto; max-height: none; }
 .lightbox-actions .btn:disabled { opacity: 0.45; cursor: default; }
 
 .toast {

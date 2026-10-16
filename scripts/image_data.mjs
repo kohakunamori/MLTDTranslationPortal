@@ -7,6 +7,7 @@ import { IMAGE_CATEGORY_ORDER, IMAGE_CATEGORY_RULES, detectImageCategory } from 
 import { IMAGE_STATUSES, imageStatus, thumbnailParent } from "../public/lib/images.js";
 import { validateComposition } from "../public/lib/image-composition.js";
 import { IMAGE_REVIEW_PATH, applyImageReviews, emptyImageReviews } from "../public/lib/image-review.js";
+import { IMAGE_SUBMISSION_PATH, applyImageSubmissions, emptyImageSubmissions, validateImageSubmissions, validateSubmissionPng } from "../public/lib/image-submission.js";
 
 const COMPOSITIONS = JSON.parse(readFileSync(new URL("./image-compositions.json", import.meta.url), "utf8")).sources;
 for (const recipe of Object.values(COMPOSITIONS)) validateComposition(recipe);
@@ -197,6 +198,16 @@ export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoo
   }
   const reviewPath = assetsRoot && join(assetsRoot, IMAGE_REVIEW_PATH);
   applyImageReviews(rows, reviewPath && existsSync(reviewPath) ? JSON.parse(readFileSync(reviewPath, "utf8")) : emptyImageReviews());
+  const submissionPath = assetsRoot && join(assetsRoot, IMAGE_SUBMISSION_PATH);
+  const submissions = validateImageSubmissions(submissionPath && existsSync(submissionPath)
+    ? JSON.parse(readFileSync(submissionPath, "utf8")) : emptyImageSubmissions());
+  applyImageSubmissions(rows, submissions, { urlFor: (item) => mediaUrl(item.path) });
+  for (const task of rows) {
+    if (!task.submission) continue;
+    const bytes = readFileSync(join(assetsRoot, task.submission.path));
+    validateSubmissionPng(bytes, task);
+    if (createHash("sha256").update(bytes).digest("hex") !== task.submission.candidate_sha256) throw new Error(`汉化投稿哈希不一致：${task.task_id}`);
+  }
   const categories = { all: rows.length, ...Object.fromEntries(IMAGE_CATEGORY_ORDER.map((id) => [id, 0])) };
   const statuses = { all: rows.length, ...Object.fromEntries(Object.keys(IMAGE_STATUSES).map((id) => [id, 0])) };
   for (const task of rows) { categories[task.category] += 1; statuses[imageStatus(task)] += 1; }

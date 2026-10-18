@@ -1141,6 +1141,12 @@ export const SONG_MASTER = {"aftspt": {"bundle": "scrobj_aftspt.unity3d","mst_so
 /// 曲名表的补充条目。
 /// 抓包更新后这些可以并回上面的 SONG_MASTER，留在这里也不会冲突（同上时以 SONG_MASTER 为准）。
 export const SONG_MASTER_EXTRA = {
+  // Captured catalogue lags these lyric bundles; public title/cast references:
+  // https://idolmaster-official.jp/news/01_20148.html
+  // https://homepage3gore.game.coocan.jp/imas/millithete_data1.html
+  hapipi: { bundle: "scrobj_hapipi.unity3d", mst_song_id: 0, name_ja: "ハピピス♡", name_zh: "", type: "All", default_singer_ids: [19, 18, 45, 44] },
+  // https://www.lantis.jp/imas/release_LACA-15672.html (matched against the lyric bundle)
+  s04mat: { bundle: "scrobj_s04mat.unity3d", mst_song_id: 0, name_ja: "プリンセス・アラモード", name_zh: "", type: "Princess", default_singer_ids: [21] },
   // 2026-09-17 官方放出 MV 的新曲；中文名是暂定译名，可随时改
   ittana: { bundle: "scrobj_ittana.unity3d", mst_song_id: 0, name_ja: "一旦愛して♡", name_zh: "先爱我一次♡", type: "All" },
   // TIntMe! 的曲目；中文名同样是暂定译名

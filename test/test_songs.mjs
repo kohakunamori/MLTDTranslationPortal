@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createSongResolver } from "../public/lib/song-metadata.js";
 import { filterBundles, progressPercent } from "../public/lib/data.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary } from "../public/lib/songs.js";
-import { songFor, buildOutputs } from "../scripts/build_data.mjs";
+import { songFor, buildOutputs, main } from "../scripts/build_data.mjs";
 
 const mirai = { id: 14, code: "014mir", name_ja: "春日未来", name_zh: "春日未来" };
 const shizuka = { id: 15, code: "015siz", name_ja: "最上静香", name_zh: "最上静香" };
@@ -57,3 +61,53 @@ for (const entry of index.bundles) {
   assert.deepEqual(detail.song.default_singers, entry.song.default_singers);
 }
 console.log("Song grouping, singer filtering, version selection and generated metadata checks PASS");
+
+// Newly captured songs do not require an edit to the static song master.
+const captured = { songs: { future: { name_ja: "New song", mst_song_id: 9998, type: "Fairy" },
+  stknkk: { name_ja: "Updated Japanese title", mst_song_id: 9 } },
+  variants: { "future+": "future" }, default_singers: { future: [14], "future+": [15] } };
+const resolveCaptured = createSongResolver(captured);
+assert.equal(resolveCaptured("scrobj_future.unity3d").name_ja, "New song");
+assert.equal(resolveCaptured("scrobj_future+.unity3d").canonical_key, "future");
+assert.deepEqual(resolveCaptured("scrobj_future+.unity3d").default_singer_ids, [15]);
+assert.equal(resolveCaptured("scrobj_stknkk.unity3d").name_zh, knownSong.name_zh);
+assert.equal(resolveCaptured("scrobj_stknkk.unity3d").name_ja, "Updated Japanese title");
+assert.throws(() => createSongResolver({ variants: { broken: "missing" } }), /版本关系无效/);
+assert.throws(() => createSongResolver({ songs: { future: {} } }), /缺少正式曲名/);
+assert.equal(songFor("scrobj_hapipi.unity3d").name_ja, "ハピピス♡");
+assert.deepEqual(songFor("scrobj_hapipi.unity3d").default_singer_ids, [19, 18, 45, 44]);
+assert.equal(songFor("scrobj_s04mat.unity3d").name_ja, "プリンセス・アラモード");
+assert.deepEqual(songFor("scrobj_s04mat.unity3d").default_singer_ids, [21]);
+assert.deepEqual(createSongResolver({ default_singers: { hapipi: [18] } })("scrobj_hapipi.unity3d").default_singer_ids, [18],
+  "Captured cast supersedes the temporary curated fallback");
+
+const work = mkdtempSync(join(tmpdir(), "portal-song-metadata-"));
+try {
+  const assetsRoot = join(work, "assets");
+  cpSync("test_helpers/fixtures/assets-repo", assetsRoot, { recursive: true });
+  const lyric = readFileSync(join(assetsRoot, "lyrics/songs/scrobj_smile1.unity3d.jsonl"), "utf8");
+  writeFileSync(join(assetsRoot, "lyrics/songs/scrobj_future.unity3d.jsonl"), lyric.replaceAll("scrobj_smile1", "scrobj_future"));
+  const settings = { assetsRoot, clientRoot: "test_helpers/fixtures/client-repo", generatedAt: "2026-01-01T00:00:00Z", maxRowsPerPage: 1 };
+  assert.throws(() => buildOutputs(settings), /歌词缺少曲名资料：scrobj_future.unity3d/);
+  const out = join(work, "published");
+  mkdirSync(out);
+  writeFileSync(join(out, "sentinel.json"), '{"previous":"published"}');
+  assert.equal(await main(["--assets-root", assetsRoot, "--out", out]), 1);
+  assert.equal(readFileSync(join(out, "sentinel.json"), "utf8"), '{"previous":"published"}', "Failed coverage keeps the previously published output");
+  assert.equal(existsSync(`${out}.staging`), false);
+  assert.equal(await main(["--assets-root", assetsRoot, "--out", out, "--allow-incomplete-songs"]), 0);
+  const preview = buildOutputs({ ...settings, allowIncompleteSongs: true });
+  assert.deepEqual(preview.portal.song_metadata.missing_titles, ["scrobj_future.unity3d"], "Coverage counts resources once across pages");
+  assert.ok(preview.portal.song_metadata.missing_default_singers.includes("scrobj_future.unity3d"));
+  const generated = buildOutputs({ ...settings, songDetails: captured });
+  const catalogue = JSON.parse(generated.files.get("catalogue/lyrics.json"));
+  const fresh = catalogue.bundles.find((entry) => entry.bundle === "scrobj_future.unity3d");
+  assert.equal(fresh.song.mst_song_id, 9998);
+  assert.equal(fresh.song.type, "Fairy");
+  assert.deepEqual(fresh.song.default_singer_ids, [14]);
+  assert.deepEqual(generated.portal.song_metadata.missing_titles, []);
+  for (const page of fresh.pages) assert.deepEqual(JSON.parse(generated.files.get(page.file)).song, fresh.song);
+} finally {
+  rmSync(work, { recursive: true, force: true });
+}
+console.log("Captured song metadata, current missing songs and publication coverage checks PASS");

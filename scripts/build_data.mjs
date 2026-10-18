@@ -36,13 +36,8 @@ import {
   statusCounts,
   upstreamPathForBundle,
 } from "../public/lib/taxonomy.js";
-import { IDOLS, SPEAKERS, SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
+import { createSongResolver } from "../public/lib/song-metadata.js";
 
-/// 曲名表：基础表 + 抓包之后新增的补充条目。重复时以基础表为准。
-const SONGS = { ...SONG_MASTER_EXTRA, ...SONG_MASTER };
-
-/// 扩展版本资源名 -> 主曲目代号。
-/// 作为底表，手工核对过的几条覆盖在上面。
 const SONG_DETAILS = (() => {
   const file = new URL("../public/lib/song-variants.json", import.meta.url);
   let imported = {};
@@ -55,29 +50,7 @@ const SONG_DETAILS = (() => {
   }
   return imported;
 })();
-const SONG_VARIANTS = { ...(SONG_DETAILS.variants ?? {}), ...SONG_VARIANT_OVERRIDES };
-const IDOLS_BY_ID = new Map(IDOLS.map((idol) => [idol.id, idol]));
-for (const [code, speaker] of Object.entries(SPEAKERS)) {
-  if (!/^20\d/.test(code)) continue;
-  const id = Number(code.slice(0, 3));
-  IDOLS_BY_ID.set(id, { id, code, ...speaker, type: "Guest", color: "#7c3aed" });
-}
-
-/// 资源名 -> 曲名记录。先按资源名精确查表；查不到再看它是不是某个扩展版本
-/// （游戏里同一首歌会挂多个包，扩展版本自己不带曲名，但抓包里有父子关系）。
-/// 返回记录里带 `variant_of` 就表示这是同一首歌的另一个版本。
-export function songFor(bundle) {
-  const code = String(bundle).replace(/^scrobj_/, "").replace(/\.unity3d$/i, "").toLowerCase();
-  const direct = SONGS[code];
-  const parentCode = SONG_VARIANTS[code];
-  const song = direct || (parentCode ? SONGS[parentCode] : null);
-  if (!song) return null;
-  const singerIds = SONG_DETAILS.default_singers?.[code] ?? [];
-  return { ...song, variant_of: direct ? null : parentCode, canonical_key: direct ? code : parentCode,
-    default_singer_ids: singerIds,
-    default_singers: singerIds.map((id) => IDOLS_BY_ID.get(id)).filter(Boolean),
-  };
-}
+export const songFor = createSongResolver(SONG_DETAILS);
 
 export const SCHEMA_VERSION = 1;
 
@@ -461,7 +434,7 @@ function dominantIdol(rows) {
 /// 同一 bundle 的行可以落在不同分类（`event_*` 里对话行是 event_chat、其余是
 /// event_story），所以分组键是分类 + bundle，而不是只有 bundle。这样"索引里的行数"
 /// 和"文件里的行数"永远是同一个数，阅读页看到的也就是该分类的那一部分。
-function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVersion, clientVersion, page = null, pageCount = 1, pageOffset = 0, slotBased: givenSlotBased }) {
+function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVersion, clientVersion, page = null, pageCount = 1, pageOffset = 0, slotBased: givenSlotBased, resolveSong = songFor }) {
   const slotBased = givenSlotBased === undefined ? orderRows(rows) : givenSlotBased;
   // 权威写路径：文件名就是 bundle 的那个文件。非权威的（增量文件、汇总文件）只做数据源，
   // 绝不当作写目标 —— 写到 official-<version>-*.jsonl 会把增量文件顶掉。
@@ -501,7 +474,7 @@ function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVe
   // 否则"全英文歌词"会让进度永远差一截（真实数据里就是这 1,066 行）。
   record.not_needed = counts.not_needed;
   record.idol = dominantIdol(rows);
-  const song = channel === "assets" ? songFor(bundle) : null;
+  const song = channel === "assets" ? resolveSong(bundle) : null;
   if (song) {
     record.song = {
       name_ja: song.name_ja || record.base,
@@ -583,6 +556,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--check") { options.check = true; continue; }
     if (arg === "--hydrate-originals") { options.hydrateOriginals = true; continue; }
+    if (arg === "--allow-incomplete-songs") { options.allowIncompleteSongs = true; continue; }
     if (arg === "--strict") { options.strict = true; continue; }
     if (arg === "--help" || arg === "-h") { options.help = true; continue; }
     const key = flags[arg];
@@ -668,6 +642,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     assetsDedupe = assetsRead.dedupe;
     bundles.push(...groupIntoFiles(assetsRead.rowsByBundle, {
       channel: "assets",
+      resolveSong: settings.songDetails ? createSongResolver(settings.songDetails) : songFor,
       repo: settings.assetsRepo,
       ref: settings.ref,
       assetVersion,
@@ -815,17 +790,26 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     || process.env.SOURCE_DATE_EPOCH && new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")
     || new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
-  // 曲名覆盖自检：歌词分类里凡是没有解析出曲名的曲目束都报出来。上游每次批量发现
-  // 新资源都可能带进新的扩展版本，抓包没跟上时就靠这条提醒。
-  const unnamedSongs = bundles
-    .filter(({ record }) => record.category === "lyrics" && record.channel === "assets" && !record.song)
-    .map(({ record }) => record.base.replace(/\.unity3d$/i, ""));
-  if (unnamedSongs.length > 0) {
-    warnings.push(`有 ${unnamedSongs.length} 个曲目束没有曲名（曲名表与抓包对照里都查不到）：${unnamedSongs.slice(0, 8).join("、")}${unnamedSongs.length > 8 ? " 等" : ""}`);
+  // Check every lyric resource (once across pages), rather than only songs present in a capture.
+  const lyrics = [...new Map(bundles.filter(({ record }) => record.category === "lyrics" && record.channel === "assets")
+    .map(({ record }) => [record.bundle, record])).values()];
+  const songMetadata = {
+    total: lyrics.length,
+    missing_titles: lyrics.filter((record) => !record.song).map((record) => record.bundle),
+    missing_default_singers: lyrics.filter((record) => !record.song?.default_singers?.length).map((record) => record.bundle),
+  };
+  if (songMetadata.missing_titles.length) {
+    const message = `歌词缺少曲名资料：${songMetadata.missing_titles.join("、")}；请刷新曲目资料或补充已核实的条目`;
+    if (!settings.allowIncompleteSongs) throw new BuildError(message);
+    warnings.push(message);
+  }
+  if (songMetadata.missing_default_singers.length) {
+    warnings.push(`歌词缺少默认演唱资料：${songMetadata.missing_default_singers.join("、")}`);
   }
 
   const portal = {
     schema_version: SCHEMA_VERSION,
+    song_metadata: songMetadata,
     discovery: { library: "library/index.json", search: "search/index.json" },
     generated_at: generatedAt,
     image_base: String(settings.imageBase || "").replace(/\/+$/, ""),
@@ -1009,6 +993,7 @@ const HELP = `门户静态数据生成器
   --check                 只比对磁盘现状，不写入；有漂移时退出码 2
   --hydrate-originals     从资源仓固定提交恢复稀疏检出缺少的完整原图（不可与 --check 同用）
   --complete-originals-root <dir>  独立完整原图缓存目录，避免 Git 同步移除媒体
+  --allow-incomplete-songs 预览用：允许歌词缺少曲名（默认拒绝发布）
   --strict                把警告升级为失败
 `;
 

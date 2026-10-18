@@ -22,7 +22,8 @@ import { CATEGORY_ORDER, IMAGE_CATEGORY_ORDER } from "../public/lib/taxonomy.js"
 import { SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES } from "../public/lib/terms.js";
 
 /// 曲目扩展版本与主曲目的对照。
-const IMPORTED_VARIANTS = JSON.parse(readFileSync("public/lib/song-variants.json", "utf8")).variants;
+const IMPORTED_DETAILS = JSON.parse(readFileSync("public/lib/song-variants.json", "utf8"));
+const IMPORTED_VARIANTS = IMPORTED_DETAILS.variants;
 
 const FIXTURE_ASSETS = "test_helpers/fixtures/assets-repo";
 const FIXTURE_CLIENT = "test_helpers/fixtures/client-repo";
@@ -593,7 +594,8 @@ ok("曲名对照表不指向不存在的曲目，也不自我指向", () => {
   assert.ok(keys.length > 0, "对照表不该是空的（抓包导出或手工补充至少有一边）");
   for (const [variant, parent] of Object.entries(variants)) {
     assert.notEqual(variant, parent, `${variant} 指向了自己`);
-    assert.ok(SONG_MASTER[parent] || SONG_MASTER_EXTRA[parent], `${variant} 指向了表里没有的曲目 ${parent}`);
+    assert.ok(SONG_MASTER[parent] || SONG_MASTER_EXTRA[parent] || IMPORTED_DETAILS.songs?.[parent]?.name_ja,
+      `${variant} 指向了静态表和同步资料里都没有的曲目 ${parent}`);
   }
 });
 

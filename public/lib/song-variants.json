@@ -4,6 +4,2168 @@
  "source": {
   "asset_version": "1077750"
  },
+ "songs": {
+  "aftspt": {
+   "name_ja": "アフタースクールパーリータイム",
+   "mst_song_id": 14,
+   "type": "Fairy"
+  },
+  "ahhan0": {
+   "name_ja": "おとなのはじまり",
+   "mst_song_id": 297,
+   "type": "All"
+  },
+  "aikost": {
+   "name_ja": "合言葉はスタートアップ！",
+   "mst_song_id": 47,
+   "type": "Princess"
+  },
+  "aisleh": {
+   "name_ja": "アイル (Harmonized ver.)",
+   "mst_song_id": 357,
+   "type": "All"
+  },
+  "akakie": {
+   "name_ja": "赤い世界が消える頃",
+   "mst_song_id": 114,
+   "type": "Fairy"
+  },
+  "alivef": {
+   "name_ja": "アライブファクター",
+   "mst_song_id": 154,
+   "type": "Fairy"
+  },
+  "allalo": {
+   "name_ja": "All Alone",
+   "mst_song_id": 372,
+   "type": "Princess"
+  },
+  "alstar": {
+   "name_ja": "アライアンス・スターダスト",
+   "mst_song_id": 143,
+   "type": "All"
+  },
+  "amater": {
+   "name_ja": "アマテラス",
+   "mst_song_id": 310,
+   "type": "All"
+  },
+  "angelp": {
+   "name_ja": "Angelic Parade♪",
+   "mst_song_id": 41,
+   "type": "Angel"
+  },
+  "anista": {
+   "name_ja": "アニマル☆ステイション！",
+   "mst_song_id": 79,
+   "type": "Princess"
+  },
+  "anonek": {
+   "name_ja": "あのね、聞いてほしいことがあるんだ",
+   "mst_song_id": 24,
+   "type": "Angel"
+  },
+  "arryou": {
+   "name_ja": "Arrive You ～それが運命でも～",
+   "mst_song_id": 169,
+   "type": "Angel"
+  },
+  "asayac": {
+   "name_ja": "朝焼けのクレッシェンド",
+   "mst_song_id": 85,
+   "type": "Princess"
+  },
+  "batont": {
+   "name_ja": "バトンタッチ",
+   "mst_song_id": 337,
+   "type": "Princess"
+  },
+  "bbvacs": {
+   "name_ja": "Bonnes! Bonnes!! Vacances!!!",
+   "mst_song_id": 88,
+   "type": "Princess"
+  },
+  "bbvolb": {
+   "name_ja": "ビッグバンズバリボー!!!!!",
+   "mst_song_id": 66,
+   "type": "Princess"
+  },
+  "bcolor": {
+   "name_ja": "Birth of Color",
+   "mst_song_id": 55,
+   "type": "Princess"
+  },
+  "beattw": {
+   "name_ja": "Beat the World!!!",
+   "mst_song_id": 140,
+   "type": "Princess"
+  },
+  "bestes": {
+   "name_ja": "Bestest!!",
+   "mst_song_id": 385,
+   "type": "All"
+  },
+  "bigbal": {
+   "name_ja": "Bigバルーン◎",
+   "mst_song_id": 150,
+   "type": "Angel"
+  },
+  "blackp": {
+   "name_ja": "Black★Party",
+   "mst_song_id": 174,
+   "type": "Angel"
+  },
+  "blade0": {
+   "name_ja": "IGNITE",
+   "mst_song_id": 242,
+   "type": "All"
+  },
+  "blalip": {
+   "name_ja": "BLACK LIPS",
+   "mst_song_id": 440,
+   "type": "Fairy"
+  },
+  "blsymp": {
+   "name_ja": "Blue Symphony",
+   "mst_song_id": 3,
+   "type": "Fairy"
+  },
+  "bnthtr": {
+   "name_ja": "Brand New Theater!",
+   "mst_song_id": 34,
+   "type": "All"
+  },
+  "bornod": {
+   "name_ja": "BORN ON DREAM! ～HANABI☆NIGHT～",
+   "mst_song_id": 163,
+   "type": "Princess"
+  },
+  "bot030": {
+   "name_ja": "SHIMMER",
+   "mst_song_id": 404,
+   "type": "All"
+  },
+  "botop1": {
+   "name_ja": "頂上決戦ヴィクトリー!!!!!!",
+   "mst_song_id": 390,
+   "type": "All"
+  },
+  "brakes": {
+   "name_ja": "アクセルレーション",
+   "mst_song_id": 127,
+   "type": "All"
+  },
+  "braveh": {
+   "name_ja": "brave HARMONY",
+   "mst_song_id": 68,
+   "type": "Fairy"
+  },
+  "bsmile": {
+   "name_ja": "BOUNCING♪ SMILE!",
+   "mst_song_id": 82,
+   "type": "Angel"
+  },
+  "bstrik": {
+   "name_ja": "ビギナーズ☆ストライク",
+   "mst_song_id": 94,
+   "type": "Fairy"
+  },
+  "campar": {
+   "name_ja": "カンパリーナ♡",
+   "mst_song_id": 313,
+   "type": "All"
+  },
+  "cclove": {
+   "name_ja": "Cherry Colored Love",
+   "mst_song_id": 126,
+   "type": "Angel"
+  },
+  "chafes": {
+   "name_ja": "CHANGE!!!!",
+   "mst_song_id": 322,
+   "type": "All"
+  },
+  "chocho": {
+   "name_ja": "蝶々むすび",
+   "mst_song_id": 399,
+   "type": "All"
+  },
+  "chocoe": {
+   "name_ja": "ショコラブル＊イブ",
+   "mst_song_id": 240,
+   "type": "All"
+  },
+  "chojog": {
+   "name_ja": "チョー↑元気Show☆アイドルch@ng!",
+   "mst_song_id": 23,
+   "type": "Princess"
+  },
+  "chulov": {
+   "name_ja": "成長Chu→LOVER!!",
+   "mst_song_id": 84,
+   "type": "Angel"
+  },
+  "chupac": {
+   "name_ja": "Do the IDOL!! ～断崖絶壁チュパカブラ～",
+   "mst_song_id": 153,
+   "type": "All"
+  },
+  "ciders": {
+   "name_ja": "ラムネ色 青春",
+   "mst_song_id": 158,
+   "type": "All"
+  },
+  "clacol": {
+   "name_ja": "Clash of Colors",
+   "mst_song_id": 393,
+   "type": "All"
+  },
+  "clocry": {
+   "name_ja": "Clover's Cry ～神と神降ろしの少女～",
+   "mst_song_id": 236,
+   "type": "Fairy"
+  },
+  "cloday": {
+   "name_ja": "Clover Days",
+   "mst_song_id": 350,
+   "type": "All"
+  },
+  "cmfeel": {
+   "name_ja": "catch my feeling",
+   "mst_song_id": 334,
+   "type": "Angel"
+  },
+  "cracin": {
+   "name_ja": "クレイジークレイジー",
+   "mst_song_id": 178,
+   "type": "All"
+  },
+  "cridin": {
+   "name_ja": "Criminally Dinner ～正餐とイーヴルナイフ～",
+   "mst_song_id": 263,
+   "type": "Angel"
+  },
+  "crilov": {
+   "name_ja": "CRIMSON LOVERS",
+   "mst_song_id": 285,
+   "type": "All"
+  },
+  "crossi": {
+   "name_ja": "Crossing!",
+   "mst_song_id": 293,
+   "type": "All"
+  },
+  "cucucu": {
+   "name_ja": "Cut. Cut. Cut.",
+   "mst_song_id": 298,
+   "type": "Fairy"
+  },
+  "cuphup": {
+   "name_ja": "CHEER UP! HEARTS UP!",
+   "mst_song_id": 252,
+   "type": "Angel"
+  },
+  "curtsy": {
+   "name_ja": "カーテシーフラワー",
+   "mst_song_id": 181,
+   "type": "Princess"
+  },
+  "datpri": {
+   "name_ja": "だってあなたはプリンセス",
+   "mst_song_id": 81,
+   "type": "Princess"
+  },
+  "dclari": {
+   "name_ja": "ダイヤモンド・クラリティ",
+   "mst_song_id": 219,
+   "type": "All"
+  },
+  "ddblue": {
+   "name_ja": "Deep, Deep Blue",
+   "mst_song_id": 165,
+   "type": "Angel"
+  },
+  "dear00": {
+   "name_ja": "dear...",
+   "mst_song_id": 21,
+   "type": "Angel"
+  },
+  "decide": {
+   "name_ja": "Decided",
+   "mst_song_id": 287,
+   "type": "Angel"
+  },
+  "denden": {
+   "name_ja": "edeN",
+   "mst_song_id": 208,
+   "type": "All"
+  },
+  "denpak": {
+   "name_ja": "電波感傷",
+   "mst_song_id": 304,
+   "type": "Angel"
+  },
+  "destin": {
+   "name_ja": "Destiny",
+   "mst_song_id": 442,
+   "type": "All"
+  },
+  "djoker": {
+   "name_ja": "DIAMOND JOKER",
+   "mst_song_id": 211,
+   "type": "Fairy"
+  },
+  "dlight": {
+   "name_ja": "Dance in the Light",
+   "mst_song_id": 319,
+   "type": "Fairy"
+  },
+  "dmdays": {
+   "name_ja": "DIAMOND DAYS",
+   "mst_song_id": 330,
+   "type": "All"
+  },
+  "donslo": {
+   "name_ja": "dans l'obscurité",
+   "mst_song_id": 108,
+   "type": "Fairy"
+  },
+  "drming": {
+   "name_ja": "Dreaming!",
+   "mst_song_id": 61,
+   "type": "All"
+  },
+  "drmtrv": {
+   "name_ja": "ドリームトラベラー",
+   "mst_song_id": 42,
+   "type": "Angel"
+  },
+  "eangel": {
+   "name_ja": "Especially Angel♡",
+   "mst_song_id": 421,
+   "type": "Angel"
+  },
+  "eien87": {
+   "name_ja": "永遠の花",
+   "mst_song_id": 243,
+   "type": "Angel"
+  },
+  "emvibe": {
+   "name_ja": "Emergence Vibe",
+   "mst_song_id": 226,
+   "type": "Angel"
+  },
+  "endend": {
+   "name_ja": "エンダーエンダー",
+   "mst_song_id": 328,
+   "type": "Angel"
+  },
+  "epitia": {
+   "name_ja": "Episode. Tiara",
+   "mst_song_id": 95,
+   "type": "Princess"
+  },
+  "escape": {
+   "name_ja": "エスケープ",
+   "mst_song_id": 302,
+   "type": "Fairy"
+  },
+  "espada": {
+   "name_ja": "ESPADA",
+   "mst_song_id": 271,
+   "type": "All"
+  },
+  "etersp": {
+   "name_ja": "Eternal Spiral",
+   "mst_song_id": 388,
+   "type": "Angel"
+  },
+  "ethamo": {
+   "name_ja": "Eternal Harmony",
+   "mst_song_id": 59,
+   "type": "Fairy"
+  },
+  "everla": {
+   "name_ja": "Everlasting",
+   "mst_song_id": 265,
+   "type": "Fairy"
+  },
+  "faceto": {
+   "name_ja": "FAITH/TO/FAITH",
+   "mst_song_id": 416,
+   "type": "All"
+  },
+  "fantac": {
+   "name_ja": "ファンタジスタ・カーニバル",
+   "mst_song_id": 63,
+   "type": "Angel"
+  },
+  "fateow": {
+   "name_ja": "Fate of the World",
+   "mst_song_id": 398,
+   "type": "All"
+  },
+  "fdhata": {
+   "name_ja": "Fairy Daysは絶え間ない",
+   "mst_song_id": 425,
+   "type": "Fairy"
+  },
+  "ferrap": {
+   "name_ja": "Fermata in Rapsodia",
+   "mst_song_id": 130,
+   "type": "Fairy"
+  },
+  "flyers": {
+   "name_ja": "Flyers!!!",
+   "mst_song_id": 106,
+   "type": "All"
+  },
+  "freest": {
+   "name_ja": "フリースタイル・トップアイドル！",
+   "mst_song_id": 195,
+   "type": "Angel"
+  },
+  "frlove": {
+   "name_ja": "fruity love",
+   "mst_song_id": 101,
+   "type": "Angel"
+  },
+  "fstilm": {
+   "name_ja": "フェスタ・イルミネーション",
+   "mst_song_id": 22,
+   "type": "Princess"
+  },
+  "ftjair": {
+   "name_ja": "FairyTaleじゃいられない",
+   "mst_song_id": 39,
+   "type": "Fairy"
+  },
+  "fulabo": {
+   "name_ja": "不思議発見ラボ！",
+   "mst_song_id": 411,
+   "type": "All"
+  },
+  "fuwadu": {
+   "name_ja": "Fu-Wa-Du-Wa",
+   "mst_song_id": 391,
+   "type": "Angel"
+  },
+  "fywind": {
+   "name_ja": "FIND YOUR WIND!",
+   "mst_song_id": 72,
+   "type": "Angel"
+  },
+  "gdsign": {
+   "name_ja": "グッドサイン",
+   "mst_song_id": 311,
+   "type": "All"
+  },
+  "gegeka": {
+   "name_ja": "解夏傀儡",
+   "mst_song_id": 325,
+   "type": "Fairy"
+  },
+  "geloso": {
+   "name_ja": "Get lol! Get lol! SONG",
+   "mst_song_id": 282,
+   "type": "Angel"
+  },
+  "gemuko": {
+   "name_ja": "ゲキテキ！ムテキ！恋したい！",
+   "mst_song_id": 274,
+   "type": "Fairy"
+  },
+  "getcre": {
+   "name_ja": "月曜日のクリームソーダ",
+   "mst_song_id": 86,
+   "type": "Fairy"
+  },
+  "gf0000": {
+   "name_ja": "G♡F",
+   "mst_song_id": 119,
+   "type": "Angel"
+  },
+  "gimeta": {
+   "name_ja": "ギブミーメタファー",
+   "mst_song_id": 370,
+   "type": "Princess"
+  },
+  "ginnot": {
+   "name_ja": "銀のテーブル木苺ジャム",
+   "mst_song_id": 339,
+   "type": "Fairy"
+  },
+  "girlmw": {
+   "name_ja": "Girl meets Wonder",
+   "mst_song_id": 116,
+   "type": "Angel"
+  },
+  "glowmp": {
+   "name_ja": "Glow Map",
+   "mst_song_id": 159,
+   "type": "All"
+  },
+  "glowto": {
+   "name_ja": "Glow Together",
+   "mst_song_id": 444,
+   "type": "All"
+  },
+  "grwstm": {
+   "name_ja": "Growing Storm!",
+   "mst_song_id": 28,
+   "type": "Princess"
+  },
+  "gsbaby": {
+   "name_ja": "Good-Sleep, Baby♡",
+   "mst_song_id": 37,
+   "type": "Angel"
+  },
+  "halfto": {
+   "name_ja": "Halftone",
+   "mst_song_id": 412,
+   "type": "Princess"
+  },
+  "hamajo": {
+   "name_ja": "ハルマチ女子",
+   "mst_song_id": 77,
+   "type": "Angel"
+  },
+  "haname": {
+   "name_ja": "花びらメモリーズ",
+   "mst_song_id": 206,
+   "type": "Fairy"
+  },
+  "hanamk": {
+   "name_ja": "餞の鳥",
+   "mst_song_id": 176,
+   "type": "Fairy"
+  },
+  "hanasb": {
+   "name_ja": "はなしらべ",
+   "mst_song_id": 98,
+   "type": "Princess"
+  },
+  "hapiya": {
+   "name_ja": "はぴ！やば！まいまいんど！",
+   "mst_song_id": 331,
+   "type": "Angel"
+  },
+  "harm4u": {
+   "name_ja": "Harmony 4 You",
+   "mst_song_id": 209,
+   "type": "All"
+  },
+  "harmir": {
+   "name_ja": "ハルカナミライ",
+   "mst_song_id": 278,
+   "type": "Princess"
+  },
+  "harmon": {
+   "name_ja": "ハーモニクス",
+   "mst_song_id": 75,
+   "type": "Fairy"
+  },
+  "helloc": {
+   "name_ja": "Helloコンチェルト",
+   "mst_song_id": 146,
+   "type": "Fairy"
+  },
+  "himime": {
+   "name_ja": "秘密のメモリーズ",
+   "mst_song_id": 445,
+   "type": "Fairy"
+  },
+  "hitosi": {
+   "name_ja": "瞳の中のシリウス",
+   "mst_song_id": 129,
+   "type": "Fairy"
+  },
+  "hljetm": {
+   "name_ja": "ハッピー☆ラッキー☆ジェットマシーン",
+   "mst_song_id": 6,
+   "type": "Princess"
+  },
+  "hmbird": {
+   "name_ja": "ハミングバード",
+   "mst_song_id": 36,
+   "type": "Angel"
+  },
+  "hmt001": {
+   "name_ja": "Blooming Star",
+   "mst_song_id": 64,
+   "type": "All"
+  },
+  "hmt020": {
+   "name_ja": "メリー",
+   "mst_song_id": 76,
+   "type": "All"
+  },
+  "hmt030": {
+   "name_ja": "オーバーマスター",
+   "mst_song_id": 91,
+   "type": "All"
+  },
+  "hmt040": {
+   "name_ja": "インヴィンシブル・ジャスティス",
+   "mst_song_id": 92,
+   "type": "All"
+  },
+  "hmt050": {
+   "name_ja": "MUSIC♪",
+   "mst_song_id": 105,
+   "type": "All"
+  },
+  "hmt060": {
+   "name_ja": "VOY@GER",
+   "mst_song_id": 254,
+   "type": "All"
+  },
+  "homesf": {
+   "name_ja": "HOME, SWEET FRIENDSHIP",
+   "mst_song_id": 2,
+   "type": "Princess"
+  },
+  "hpydrl": {
+   "name_ja": "Happy Darling",
+   "mst_song_id": 13,
+   "type": "Angel"
+  },
+  "hpyeft": {
+   "name_ja": "ハッピ～ エフェクト！",
+   "mst_song_id": 30,
+   "type": "Angel"
+  },
+  "hrtdnt": {
+   "name_ja": "Heart♡・デイズ・Night☆",
+   "mst_song_id": 31,
+   "type": "Angel"
+  },
+  "hsymph": {
+   "name_ja": "星屑のシンフォニア",
+   "mst_song_id": 50,
+   "type": "Angel"
+  },
+  "hugday": {
+   "name_ja": "Hug a nice day!",
+   "mst_song_id": 401,
+   "type": "All"
+  },
+  "hyagek": {
+   "name_ja": "百花は月下に散りぬるを",
+   "mst_song_id": 135,
+   "type": "Princess"
+  },
+  "hyakut": {
+   "name_ja": "100てん☆ナンバーワン！",
+   "mst_song_id": 435,
+   "type": "Princess"
+  },
+  "hynova": {
+   "name_ja": "Hypernova",
+   "mst_song_id": 356,
+   "type": "Fairy"
+  },
+  "hzwend": {
+   "name_ja": "花ざかりWeekend✿",
+   "mst_song_id": 56,
+   "type": "Angel"
+  },
+  "idesfu": {
+   "name_ja": "I.D ～EScape from Utopia～",
+   "mst_song_id": 316,
+   "type": "Fairy"
+  },
+  "idolsw": {
+   "name_ja": "アイドルステアウェイ",
+   "mst_song_id": 346,
+   "type": "Fairy"
+  },
+  "idwill": {
+   "name_ja": "I did+I will",
+   "mst_song_id": 200,
+   "type": "Fairy"
+  },
+  "ilight": {
+   "name_ja": "INVISIBLE LIGHT",
+   "mst_song_id": 437,
+   "type": "Angel"
+  },
+  "illumi": {
+   "name_ja": "ilLUmiNAte!",
+   "mst_song_id": 352,
+   "type": "Princess"
+  },
+  "imploc": {
+   "name_ja": "IMPRESSION→LOCOMOTION!",
+   "mst_song_id": 16,
+   "type": "Fairy"
+  },
+  "ineedy": {
+   "name_ja": "アイ NEED YOU（FOR WONDERFUL STORY）",
+   "mst_song_id": 371,
+   "type": "All"
+  },
+  "itnolv": {
+   "name_ja": "...In The Name Of。 ...LOVE?",
+   "mst_song_id": 29,
+   "type": "Fairy"
+  },
+  "iv0000": {
+   "name_ja": "I.V.",
+   "mst_song_id": 381,
+   "type": "Fairy"
+  },
+  "jiburi": {
+   "name_ja": "自分REST@RT",
+   "mst_song_id": 38,
+   "type": "All"
+  },
+  "jireru": {
+   "name_ja": "ジレるハートに火をつけて",
+   "mst_song_id": 18,
+   "type": "Princess"
+  },
+  "jparty": {
+   "name_ja": "ジャングル☆パーティー",
+   "mst_song_id": 74,
+   "type": "Angel"
+  },
+  "jusvoi": {
+   "name_ja": "Justice OR Voice",
+   "mst_song_id": 93,
+   "type": "All"
+  },
+  "karena": {
+   "name_ja": "彼氏になってよ。",
+   "mst_song_id": 383,
+   "type": "Angel"
+  },
+  "kawara": {
+   "name_ja": "カワラナイモノ",
+   "mst_song_id": 426,
+   "type": "Princess"
+  },
+  "kawars": {
+   "name_ja": "KAWAII ウォーズ",
+   "mst_song_id": 423,
+   "type": "Princess"
+  },
+  "kingos": {
+   "name_ja": "KING of SPADE",
+   "mst_song_id": 269,
+   "type": "Fairy"
+  },
+  "kkrexc": {
+   "name_ja": "ココロ☆エクササイズ",
+   "mst_song_id": 25,
+   "type": "Princess"
+  },
+  "kkrgkb": {
+   "name_ja": "ココロがかえる場所",
+   "mst_song_id": 4,
+   "type": "Princess"
+  },
+  "kohaov": {
+   "name_ja": "紅白応援V",
+   "mst_song_id": 418,
+   "type": "All"
+  },
+  "koiles": {
+   "name_ja": "恋のLesson初級編",
+   "mst_song_id": 17,
+   "type": "Angel"
+  },
+  "koimas": {
+   "name_ja": "恋心マスカレード",
+   "mst_song_id": 73,
+   "type": "Fairy"
+  },
+  "kranbu": {
+   "name_ja": "俠気乱舞",
+   "mst_song_id": 133,
+   "type": "Fairy"
+  },
+  "kuraki": {
+   "name_ja": "昏き星、遠い月",
+   "mst_song_id": 46,
+   "type": "Fairy"
+  },
+  "kururi": {
+   "name_ja": "クルリウタ",
+   "mst_song_id": 148,
+   "type": "Fairy"
+  },
+  "kyushu": {
+   "name_ja": "ドレスコード：最上級",
+   "mst_song_id": 439,
+   "type": "All"
+  },
+  "lastac": {
+   "name_ja": "ラスト・アクトレス",
+   "mst_song_id": 71,
+   "type": "Fairy"
+  },
+  "leader": {
+   "name_ja": "LEADER!!",
+   "mst_song_id": 99,
+   "type": "All"
+  },
+  "lgirls": {
+   "name_ja": "Legend Girls!!",
+   "mst_song_id": 306,
+   "type": "Fairy"
+  },
+  "liarrg": {
+   "name_ja": "ライアー・ルージュ",
+   "mst_song_id": 19,
+   "type": "Fairy"
+  },
+  "libalo": {
+   "name_ja": "リベレイシング／アロン -LiberaSing Along-",
+   "mst_song_id": 300,
+   "type": "All"
+  },
+  "likets": {
+   "name_ja": "Like twinkling STARS",
+   "mst_song_id": 291,
+   "type": "All"
+  },
+  "liveka": {
+   "name_ja": "ザ・ライブ革命でＳＨＯＷ！",
+   "mst_song_id": 402,
+   "type": "All"
+  },
+  "lmlady": {
+   "name_ja": "Little Match Girl",
+   "mst_song_id": 182,
+   "type": "All"
+  },
+  "loveig": {
+   "name_ja": "LOVE is GAME",
+   "mst_song_id": 245,
+   "type": "Fairy"
+  },
+  "lsfest": {
+   "name_ja": "Large Size Party",
+   "mst_song_id": 131,
+   "type": "All"
+  },
+  "lttrip": {
+   "name_ja": "little trip around the world",
+   "mst_song_id": 167,
+   "type": "Fairy"
+  },
+  "lularm": {
+   "name_ja": "Lullaby for Armors",
+   "mst_song_id": 375,
+   "type": "All"
+  },
+  "luvlim": {
+   "name_ja": "Luvliminal image",
+   "mst_song_id": 397,
+   "type": "All"
+  },
+  "maclac": {
+   "name_ja": "待ちぼうけのLacrima",
+   "mst_song_id": 124,
+   "type": "Angel"
+  },
+  "macpri": {
+   "name_ja": "待ち受けプリンス",
+   "mst_song_id": 52,
+   "type": "All"
+  },
+  "manada": {
+   "name_ja": "真夏のダイヤ☆",
+   "mst_song_id": 215,
+   "type": "Princess"
+  },
+  "mariat": {
+   "name_ja": "Maria Trap",
+   "mst_song_id": 87,
+   "type": "Fairy"
+  },
+  "masupi": {
+   "name_ja": "M@STERPIECE",
+   "mst_song_id": 318,
+   "type": "All"
+  },
+  "meltyf": {
+   "name_ja": "Melty Fantasia",
+   "mst_song_id": 54,
+   "type": "Fairy"
+  },
+  "mement": {
+   "name_ja": "メメント？モメント♪ルルルルル☆",
+   "mst_song_id": 136,
+   "type": "Angel"
+  },
+  "mikapo": {
+   "name_ja": "未完成のポラリス",
+   "mst_song_id": 362,
+   "type": "Angel"
+  },
+  "mirmir": {
+   "name_ja": "ミラージュ・ミラー",
+   "mst_song_id": 231,
+   "type": "Princess"
+  },
+  "mismur": {
+   "name_ja": "ミステイク・マーダー！",
+   "mst_song_id": 336,
+   "type": "Princess"
+  },
+  "mosqui": {
+   "name_ja": "きゅんっ!ヴァンパイアガール",
+   "mst_song_id": 117,
+   "type": "All"
+  },
+  "mrionn": {
+   "name_ja": "Marionetteは眠らない",
+   "mst_song_id": 11,
+   "type": "Angel"
+  },
+  "myevol": {
+   "name_ja": "My Evolution",
+   "mst_song_id": 409,
+   "type": "Fairy"
+  },
+  "myscer": {
+   "name_ja": "ミスティック・セレモニーへの招待状",
+   "mst_song_id": 276,
+   "type": "All"
+  },
+  "mysous": {
+   "name_ja": "MY STYLE! OUR STYLE!!!!",
+   "mst_song_id": 413,
+   "type": "Fairy"
+  },
+  "nandwr": {
+   "name_ja": "なんどでも笑おう",
+   "mst_song_id": 185,
+   "type": "All"
+  },
+  "nasiko": {
+   "name_ja": "涙を知ること",
+   "mst_song_id": 377,
+   "type": "Angel"
+  },
+  "newbnt": {
+   "name_ja": "Brand New Theater! ～Brand New Year Ver.～",
+   "mst_song_id": 235,
+   "type": "All"
+  },
+  "newchu": {
+   "name_ja": "Do the IDOL!! ～謹賀新年リミックス～",
+   "mst_song_id": 184,
+   "type": "All"
+  },
+  "newdea": {
+   "name_ja": "dear... (Asterism ver.)",
+   "mst_song_id": 332,
+   "type": "All"
+  },
+  "newden": {
+   "name_ja": "電波感傷 (サイキックヒーローズM/Y ver.)",
+   "mst_song_id": 438,
+   "type": "All"
+  },
+  "newdjo": {
+   "name_ja": "DIAMOND JOKER (世駆志威＆聖殉覇ver.)",
+   "mst_song_id": 417,
+   "type": "All"
+  },
+  "newhya": {
+   "name_ja": "百花は月下に散りぬるを SHINOBI Night ver.",
+   "mst_song_id": 354,
+   "type": "All"
+  },
+  "newhzw": {
+   "name_ja": "花ざかりWeekend✿ 2 Luxury ver.",
+   "mst_song_id": 386,
+   "type": "All"
+  },
+  "newims": {
+   "name_ja": "THE IDOLM@STER 初星-mix",
+   "mst_song_id": 78,
+   "type": "All"
+  },
+  "newlib": {
+   "name_ja": "リベレイシング／アロン -LiberaSing Along- (13 edit)",
+   "mst_song_id": 333,
+   "type": "All"
+  },
+  "newpam": {
+   "name_ja": "Parade d'amour (les amis d'enfance ver.)",
+   "mst_song_id": 408,
+   "type": "All"
+  },
+  "newpkp": {
+   "name_ja": "ピコピコIIKO! インベーダー (MOTTO! 幼年期-mix)",
+   "mst_song_id": 374,
+   "type": "All"
+  },
+  "newsim": {
+   "name_ja": "SHIMMER (sector zero ver.)",
+   "mst_song_id": 429,
+   "type": "All"
+  },
+  "newsje": {
+   "name_ja": "シークレットジュエル ～魅惑の金剛石～ Rabbit Girls ver.",
+   "mst_song_id": 343,
+   "type": "All"
+  },
+  "newspq": {
+   "name_ja": "スペードのQ ぴえぴえver.",
+   "mst_song_id": 363,
+   "type": "All"
+  },
+  "nijile": {
+   "name_ja": "虹色letters",
+   "mst_song_id": 48,
+   "type": "Angel"
+  },
+  "ninnin": {
+   "name_ja": "99 Nights",
+   "mst_song_id": 171,
+   "type": "All"
+  },
+  "nocnol": {
+   "name_ja": "NO CURRY NO LIFE",
+   "mst_song_id": 180,
+   "type": "Angel"
+  },
+  "oclove": {
+   "name_ja": "オーディナリィ・クローバー",
+   "mst_song_id": 69,
+   "type": "Angel"
+  },
+  "olnote": {
+   "name_ja": "教えてlast note…",
+   "mst_song_id": 96,
+   "type": "Angel"
+  },
+  "omocle": {
+   "name_ja": "想い出はクリアスカイ",
+   "mst_song_id": 248,
+   "type": "Angel"
+  },
+  "onlymn": {
+   "name_ja": "ONLY MY NOTE",
+   "mst_song_id": 443,
+   "type": "All"
+  },
+  "oraepi": {
+   "name_ja": "オレンジ・エピソード",
+   "mst_song_id": 289,
+   "type": "All"
+  },
+  "orakio": {
+   "name_ja": "オレンジノキオク",
+   "mst_song_id": 329,
+   "type": "Princess"
+  },
+  "orgkoe": {
+   "name_ja": "オリジナル声になって",
+   "mst_song_id": 20,
+   "type": "Princess"
+  },
+  "orsora": {
+   "name_ja": "オレンジの空の下",
+   "mst_song_id": 102,
+   "type": "Angel"
+  },
+  "oshiho": {
+   "name_ja": "推しってほんと",
+   "mst_song_id": 359,
+   "type": "Fairy"
+  },
+  "outsid": {
+   "name_ja": "World Changer",
+   "mst_song_id": 121,
+   "type": "Princess"
+  },
+  "pamour": {
+   "name_ja": "Parade d'amour",
+   "mst_song_id": 161,
+   "type": "Fairy"
+  },
+  "panfil": {
+   "name_ja": "パンとフィルム",
+   "mst_song_id": 430,
+   "type": "Fairy"
+  },
+  "pervoi": {
+   "name_ja": "Persona Voice",
+   "mst_song_id": 172,
+   "type": "Fairy"
+  },
+  "pkpkik": {
+   "name_ja": "ピコピコIIKO! インベーダー",
+   "mst_song_id": 89,
+   "type": "Angel"
+  },
+  "pocake": {
+   "name_ja": "piece of cake",
+   "mst_song_id": 405,
+   "type": "Angel"
+  },
+  "pomegr": {
+   "name_ja": "Pomegranate",
+   "mst_song_id": 367,
+   "type": "All"
+  },
+  "prcsgr": {
+   "name_ja": "Precious Grain",
+   "mst_song_id": 7,
+   "type": "Fairy"
+  },
+  "predre": {
+   "name_ja": "PRETTY DREAMER",
+   "mst_song_id": 27,
+   "type": "Princess"
+  },
+  "priamb": {
+   "name_ja": "Princess Be Ambitious!!",
+   "mst_song_id": 43,
+   "type": "Princess"
+  },
+  "prmula": {
+   "name_ja": "プリムラ",
+   "mst_song_id": 97,
+   "type": "Fairy"
+  },
+  "psilov": {
+   "name_ja": "P.S I Love You",
+   "mst_song_id": 193,
+   "type": "Fairy"
+  },
+  "rabfur": {
+   "name_ja": "ラビットファー",
+   "mst_song_id": 112,
+   "type": "Princess"
+  },
+  "raisef": {
+   "name_ja": "Raise the FLAG",
+   "mst_song_id": 80,
+   "type": "Fairy"
+  },
+  "ratata": {
+   "name_ja": "Rat A Tat!!!",
+   "mst_song_id": 321,
+   "type": "All"
+  },
+  "ready0": {
+   "name_ja": "READY!!",
+   "mst_song_id": 45,
+   "type": "All"
+  },
+  "realiz": {
+   "name_ja": "REALIZE！！！",
+   "mst_song_id": 415,
+   "type": "All"
+  },
+  "rebell": {
+   "name_ja": "Rebellion",
+   "mst_song_id": 104,
+   "type": "Princess"
+  },
+  "redzon": {
+   "name_ja": "RED ZONE",
+   "mst_song_id": 189,
+   "type": "Angel"
+  },
+  "refkis": {
+   "name_ja": "リフレインキス",
+   "mst_song_id": 204,
+   "type": "Princess"
+  },
+  "refrel": {
+   "name_ja": "REFRAIN REL@TION",
+   "mst_song_id": 347,
+   "type": "All"
+  },
+  "retale": {
+   "name_ja": "ReTale",
+   "mst_song_id": 191,
+   "type": "Fairy"
+  },
+  "rollsk": {
+   "name_ja": "ローリング△さんかく",
+   "mst_song_id": 83,
+   "type": "Fairy"
+  },
+  "runnhi": {
+   "name_ja": "ランニング・ハイッ",
+   "mst_song_id": 110,
+   "type": "Princess"
+  },
+  "ruriir": {
+   "name_ja": "瑠璃色金魚と花菖蒲",
+   "mst_song_id": 35,
+   "type": "Fairy"
+  },
+  "rururu": {
+   "name_ja": "ABSOLUTE RUN!!!",
+   "mst_song_id": 199,
+   "type": "All"
+  },
+  "ryuseg": {
+   "name_ja": "流星群",
+   "mst_song_id": 100,
+   "type": "Fairy"
+  },
+  "s01amw": {
+   "name_ja": "スタ→トスタ→",
+   "mst_song_id": 128,
+   "type": "Angel"
+  },
+  "s01azu": {
+   "name_ja": "ラ♥ブ♥リ♥",
+   "mst_song_id": 125,
+   "type": "Angel"
+  },
+  "s01chi": {
+   "name_ja": "Just be myself!!",
+   "mst_song_id": 113,
+   "type": "Fairy"
+  },
+  "s01har": {
+   "name_ja": "キラメキ進行形",
+   "mst_song_id": 162,
+   "type": "Princess"
+  },
+  "s01ior": {
+   "name_ja": "プライヴェイト・ロードショウ (playback, Weekday)",
+   "mst_song_id": 139,
+   "type": "Fairy"
+  },
+  "s01mak": {
+   "name_ja": "自転車",
+   "mst_song_id": 145,
+   "type": "Princess"
+  },
+  "s01mik": {
+   "name_ja": "マリオネットの心",
+   "mst_song_id": 109,
+   "type": "Angel"
+  },
+  "s01rit": {
+   "name_ja": "いっぱいいっぱい",
+   "mst_song_id": 157,
+   "type": "Fairy"
+  },
+  "s01tak": {
+   "name_ja": "addicted",
+   "mst_song_id": 122,
+   "type": "Fairy"
+  },
+  "s01yay": {
+   "name_ja": "キラメキラリ",
+   "mst_song_id": 118,
+   "type": "Angel"
+  },
+  "s01yuk": {
+   "name_ja": "ALRIGHT*",
+   "mst_song_id": 132,
+   "type": "Princess"
+  },
+  "s02aka": {
+   "name_ja": "AIKANE？",
+   "mst_song_id": 203,
+   "type": "Angel"
+  },
+  "s02ami": {
+   "name_ja": "タイムマシンに飛び乗って！",
+   "mst_song_id": 256,
+   "type": "Angel"
+  },
+  "s02amw": {
+   "name_ja": "黎明スターライン",
+   "mst_song_id": 149,
+   "type": "Angel"
+  },
+  "s02ann": {
+   "name_ja": "VIVID イマジネーション",
+   "mst_song_id": 147,
+   "type": "Angel"
+  },
+  "s02ari": {
+   "name_ja": "Up!10sion♪Pleeeeeeeeease!",
+   "mst_song_id": 123,
+   "type": "Princess"
+  },
+  "s02ayu": {
+   "name_ja": "Get My Shinin'",
+   "mst_song_id": 218,
+   "type": "Fairy"
+  },
+  "s02azu": {
+   "name_ja": "嘆きのFRACTION",
+   "mst_song_id": 177,
+   "type": "Angel"
+  },
+  "s02chi": {
+   "name_ja": "蒼い鳥",
+   "mst_song_id": 239,
+   "type": "Fairy"
+  },
+  "s02chz": {
+   "name_ja": "恋の音色ライン",
+   "mst_song_id": 247,
+   "type": "Fairy"
+  },
+  "s02ele": {
+   "name_ja": "想いはCarnaval",
+   "mst_song_id": 220,
+   "type": "Angel"
+  },
+  "s02emi": {
+   "name_ja": "君だけの欠片",
+   "mst_song_id": 237,
+   "type": "Princess"
+  },
+  "s02fuk": {
+   "name_ja": "bitter sweet",
+   "mst_song_id": 216,
+   "type": "Angel"
+  },
+  "s02har": {
+   "name_ja": "I Want",
+   "mst_song_id": 234,
+   "type": "Princess"
+  },
+  "s02hib": {
+   "name_ja": "Pon De Beach",
+   "mst_song_id": 214,
+   "type": "Princess"
+  },
+  "s02hin": {
+   "name_ja": "スノウレター",
+   "mst_song_id": 192,
+   "type": "Angel"
+  },
+  "s02iku": {
+   "name_ja": "ときどきシーソー",
+   "mst_song_id": 151,
+   "type": "Princess"
+  },
+  "s02ior": {
+   "name_ja": "DIAMOND",
+   "mst_song_id": 227,
+   "type": "Fairy"
+  },
+  "s02jul": {
+   "name_ja": "プラリネ",
+   "mst_song_id": 251,
+   "type": "Fairy"
+  },
+  "s02kan": {
+   "name_ja": "おまじない",
+   "mst_song_id": 137,
+   "type": "Princess"
+  },
+  "s02kao": {
+   "name_ja": "MUSIC JOURNEY",
+   "mst_song_id": 107,
+   "type": "Angel"
+  },
+  "s02kar": {
+   "name_ja": "ちいさな恋の足音",
+   "mst_song_id": 205,
+   "type": "Angel"
+  },
+  "s02kon": {
+   "name_ja": "水中キャンディ",
+   "mst_song_id": 170,
+   "type": "Angel"
+  },
+  "s02kth": {
+   "name_ja": "ホントウノワタシ",
+   "mst_song_id": 223,
+   "type": "Princess"
+  },
+  "s02mak": {
+   "name_ja": "WORLD WIDE DANCE!!!",
+   "mst_song_id": 188,
+   "type": "Princess"
+  },
+  "s02mam": {
+   "name_ja": "WOW! I NEED!! ～シンギングモンキー 歌唱拳～",
+   "mst_song_id": 253,
+   "type": "Angel"
+  },
+  "s02mat": {
+   "name_ja": "カーニヴァル・ジャパネスク",
+   "mst_song_id": 207,
+   "type": "Princess"
+  },
+  "s02meg": {
+   "name_ja": "フローズン・ワード",
+   "mst_song_id": 166,
+   "type": "Fairy"
+  },
+  "s02mik": {
+   "name_ja": "追憶のサンドグラス",
+   "mst_song_id": 168,
+   "type": "Angel"
+  },
+  "s02min": {
+   "name_ja": "SUPER SIZE LOVE!!",
+   "mst_song_id": 249,
+   "type": "Princess"
+  },
+  "s02mir": {
+   "name_ja": "未来飛行",
+   "mst_song_id": 115,
+   "type": "Princess"
+  },
+  "s02miy": {
+   "name_ja": "初恋バタフライ",
+   "mst_song_id": 201,
+   "type": "Angel"
+  },
+  "s02miz": {
+   "name_ja": "Silent Joker",
+   "mst_song_id": 120,
+   "type": "Fairy"
+  },
+  "s02mom": {
+   "name_ja": "デコレーション・ドリ～ミンッ♪",
+   "mst_song_id": 194,
+   "type": "Fairy"
+  },
+  "s02nao": {
+   "name_ja": "Super Lover",
+   "mst_song_id": 179,
+   "type": "Princess"
+  },
+  "s02nor": {
+   "name_ja": "マイペース☆マイウェイ",
+   "mst_song_id": 173,
+   "type": "Princess"
+  },
+  "s02rei": {
+   "name_ja": "空に手が触れる場所",
+   "mst_song_id": 244,
+   "type": "Angel"
+  },
+  "s02rio": {
+   "name_ja": "Be My Boy",
+   "mst_song_id": 141,
+   "type": "Fairy"
+  },
+  "s02rit": {
+   "name_ja": "Liar's good bye",
+   "mst_song_id": 228,
+   "type": "Fairy"
+  },
+  "s02roc": {
+   "name_ja": "STEREOPHONIC ISOTONIC",
+   "mst_song_id": 175,
+   "type": "Fairy"
+  },
+  "s02say": {
+   "name_ja": "Only One Second",
+   "mst_song_id": 190,
+   "type": "Princess"
+  },
+  "s02ser": {
+   "name_ja": "夢色トレイン",
+   "mst_song_id": 164,
+   "type": "Angel"
+  },
+  "s02sih": {
+   "name_ja": "絵本",
+   "mst_song_id": 186,
+   "type": "Fairy"
+  },
+  "s02siz": {
+   "name_ja": "Catch my dream",
+   "mst_song_id": 160,
+   "type": "Fairy"
+  },
+  "s02sub": {
+   "name_ja": "Day After \"Yesterday\"",
+   "mst_song_id": 183,
+   "type": "Fairy"
+  },
+  "s02tak": {
+   "name_ja": "フラワーガール",
+   "mst_song_id": 198,
+   "type": "Fairy"
+  },
+  "s02tam": {
+   "name_ja": "ホップ♪ステップ♪レインボウ♪",
+   "mst_song_id": 230,
+   "type": "Angel"
+  },
+  "s02tmg": {
+   "name_ja": "さかしまの言葉",
+   "mst_song_id": 111,
+   "type": "Fairy"
+  },
+  "s02tom": {
+   "name_ja": "鳥籠スクリプチュア",
+   "mst_song_id": 212,
+   "type": "Fairy"
+  },
+  "s02tsu": {
+   "name_ja": "Believe my change!",
+   "mst_song_id": 134,
+   "type": "Angel"
+  },
+  "s02umi": {
+   "name_ja": "スポーツ！スポーツ！スポーツ！",
+   "mst_song_id": 210,
+   "type": "Princess"
+  },
+  "s02yay": {
+   "name_ja": "ストロベリー・キューピッド",
+   "mst_song_id": 225,
+   "type": "Angel"
+  },
+  "s02yuk": {
+   "name_ja": "Impervious Resolution",
+   "mst_song_id": 241,
+   "type": "Princess"
+  },
+  "s02yur": {
+   "name_ja": "空想文学少女",
+   "mst_song_id": 155,
+   "type": "Princess"
+  },
+  "s03aka": {
+   "name_ja": "プリティ～～～ッ→ニャンニャンッ！",
+   "mst_song_id": 279,
+   "type": "Angel"
+  },
+  "s03ami": {
+   "name_ja": "微笑んだから、気づいたんだ。",
+   "mst_song_id": 320,
+   "type": "Angel"
+  },
+  "s03ann": {
+   "name_ja": "ENTER→PLEASURE",
+   "mst_song_id": 290,
+   "type": "Angel"
+  },
+  "s03ari": {
+   "name_ja": "Take!3.2.1.→S･P･A･C･E↑↑",
+   "mst_song_id": 266,
+   "type": "Princess"
+  },
+  "s03ayu": {
+   "name_ja": "Oli Oli DISCO",
+   "mst_song_id": 410,
+   "type": "Fairy"
+  },
+  "s03azu": {
+   "name_ja": "Mythmaker",
+   "mst_song_id": 396,
+   "type": "Angel"
+  },
+  "s03chi": {
+   "name_ja": "Coming Smile",
+   "mst_song_id": 317,
+   "type": "Fairy"
+  },
+  "s03chz": {
+   "name_ja": "ムーンゴールド",
+   "mst_song_id": 348,
+   "type": "Fairy"
+  },
+  "s03ele": {
+   "name_ja": "シャクネツのパレード",
+   "mst_song_id": 299,
+   "type": "Angel"
+  },
+  "s03emi": {
+   "name_ja": "絵羽模様",
+   "mst_song_id": 361,
+   "type": "Princess"
+  },
+  "s03fuk": {
+   "name_ja": "祈りの羽根",
+   "mst_song_id": 303,
+   "type": "Angel"
+  },
+  "s03har": {
+   "name_ja": "I'm yours",
+   "mst_song_id": 288,
+   "type": "Princess"
+  },
+  "s03hib": {
+   "name_ja": "Next Life",
+   "mst_song_id": 365,
+   "type": "Princess"
+  },
+  "s03hin": {
+   "name_ja": "りんごのマーチ",
+   "mst_song_id": 338,
+   "type": "Angel"
+  },
+  "s03ior": {
+   "name_ja": "ソナー",
+   "mst_song_id": 305,
+   "type": "Fairy"
+  },
+  "s03jul": {
+   "name_ja": "アロー彗星",
+   "mst_song_id": 389,
+   "type": "Fairy"
+  },
+  "s03kan": {
+   "name_ja": "あめにうたおう♪",
+   "mst_song_id": 259,
+   "type": "Princess"
+  },
+  "s03kao": {
+   "name_ja": "Contrastet",
+   "mst_song_id": 292,
+   "type": "Angel"
+  },
+  "s03kar": {
+   "name_ja": "勇気のfragrance",
+   "mst_song_id": 392,
+   "type": "Angel"
+  },
+  "s03kon": {
+   "name_ja": "it's me",
+   "mst_song_id": 345,
+   "type": "Angel"
+  },
+  "s03kth": {
+   "name_ja": "シルエット",
+   "mst_song_id": 400,
+   "type": "Princess"
+  },
+  "s03mak": {
+   "name_ja": "セピアカラフル",
+   "mst_song_id": 341,
+   "type": "Princess"
+  },
+  "s03mam": {
+   "name_ja": "ジェミー",
+   "mst_song_id": 431,
+   "type": "Angel"
+  },
+  "s03mat": {
+   "name_ja": "シャル・ウィー・ダンス？",
+   "mst_song_id": 327,
+   "type": "Princess"
+  },
+  "s03meg": {
+   "name_ja": "Beautiful Believer",
+   "mst_song_id": 351,
+   "type": "Fairy"
+  },
+  "s03mik": {
+   "name_ja": "DATE PARADE!",
+   "mst_song_id": 315,
+   "type": "Angel"
+  },
+  "s03min": {
+   "name_ja": "あたためますか？",
+   "mst_song_id": 358,
+   "type": "Princess"
+  },
+  "s03mir": {
+   "name_ja": "未来系ドリーマー",
+   "mst_song_id": 270,
+   "type": "Princess"
+  },
+  "s03miy": {
+   "name_ja": "Walking on the Square",
+   "mst_song_id": 353,
+   "type": "Angel"
+  },
+  "s03miz": {
+   "name_ja": "POKER POKER",
+   "mst_song_id": 262,
+   "type": "Fairy"
+  },
+  "s03nao": {
+   "name_ja": "Home is a coming now!",
+   "mst_song_id": 295,
+   "type": "Princess"
+  },
+  "s03nor": {
+   "name_ja": "きみがくれた言葉があるから",
+   "mst_song_id": 384,
+   "type": "Princess"
+  },
+  "s03rei": {
+   "name_ja": "サマ☆トリ ～Summer trip～",
+   "mst_song_id": 380,
+   "type": "Angel"
+  },
+  "s03rio": {
+   "name_ja": "Border LINE→→→♡",
+   "mst_song_id": 286,
+   "type": "Fairy"
+  },
+  "s03rit": {
+   "name_ja": "Discord Area",
+   "mst_song_id": 403,
+   "type": "Fairy"
+  },
+  "s03roc": {
+   "name_ja": "ART NEEDS HEART BEATS",
+   "mst_song_id": 283,
+   "type": "Fairy"
+  },
+  "s03say": {
+   "name_ja": "君想いBirthday",
+   "mst_song_id": 301,
+   "type": "Princess"
+  },
+  "s03ser": {
+   "name_ja": "Come on a Tea Party!",
+   "mst_song_id": 268,
+   "type": "Angel"
+  },
+  "s03sih": {
+   "name_ja": "CAT CROSSING",
+   "mst_song_id": 309,
+   "type": "Fairy"
+  },
+  "s03siz": {
+   "name_ja": "SING MY SONG",
+   "mst_song_id": 281,
+   "type": "Fairy"
+  },
+  "s03sub": {
+   "name_ja": "パーフェクトゲーム",
+   "mst_song_id": 312,
+   "type": "Fairy"
+  },
+  "s03tak": {
+   "name_ja": "風花",
+   "mst_song_id": 272,
+   "type": "Fairy"
+  },
+  "s03tam": {
+   "name_ja": "たんけんぼうけん☆ハイホー隊",
+   "mst_song_id": 307,
+   "type": "Angel"
+  },
+  "s03tmg": {
+   "name_ja": "折紙物語",
+   "mst_song_id": 324,
+   "type": "Fairy"
+  },
+  "s03tom": {
+   "name_ja": "Sister",
+   "mst_song_id": 335,
+   "type": "Fairy"
+  },
+  "s03tsu": {
+   "name_ja": "ロケットスター☆",
+   "mst_song_id": 264,
+   "type": "Angel"
+  },
+  "s03yay": {
+   "name_ja": "ピピカ・リリカ",
+   "mst_song_id": 275,
+   "type": "Angel"
+  },
+  "s03yuk": {
+   "name_ja": "Kosmos, Cosmos",
+   "mst_song_id": 376,
+   "type": "Princess"
+  },
+  "s03yur": {
+   "name_ja": "地球儀にない国",
+   "mst_song_id": 277,
+   "type": "Princess"
+  },
+  "s04iku": {
+   "name_ja": "グッデイ・サンシャイン！",
+   "mst_song_id": 427,
+   "type": "Princess"
+  },
+  "s04miy": {
+   "name_ja": "ふわりずむ",
+   "mst_song_id": 424,
+   "type": "Angel"
+  },
+  "s04sih": {
+   "name_ja": "Purple Sky",
+   "mst_song_id": 420,
+   "type": "Fairy"
+  },
+  "s04umi": {
+   "name_ja": "美！美！美！ビルドUP!!",
+   "mst_song_id": 406,
+   "type": "Princess"
+  },
+  "sacbou": {
+   "name_ja": "セイクリッド・ブーケ",
+   "mst_song_id": 419,
+   "type": "Fairy"
+  },
+  "sakuha": {
+   "name_ja": "咲くは浮世の君花火",
+   "mst_song_id": 60,
+   "type": "Princess"
+  },
+  "sduper": {
+   "name_ja": "Super Duper",
+   "mst_song_id": 138,
+   "type": "Princess"
+  },
+  "sdweek": {
+   "name_ja": "7Days A Week!!",
+   "mst_song_id": 355,
+   "type": "All"
+  },
+  "seigod": {
+   "name_ja": "聖炎の女神",
+   "mst_song_id": 221,
+   "type": "All"
+  },
+  "shamvi": {
+   "name_ja": "Shamrock Vivace",
+   "mst_song_id": 238,
+   "type": "All"
+  },
+  "shinma": {
+   "name_ja": "深層マーメイド",
+   "mst_song_id": 142,
+   "type": "Angel"
+  },
+  "shinpa": {
+   "name_ja": "深紅のパシオン",
+   "mst_song_id": 222,
+   "type": "Princess"
+  },
+  "shtstr": {
+   "name_ja": "Shooting Stars",
+   "mst_song_id": 26,
+   "type": "Fairy"
+  },
+  "sjewel": {
+   "name_ja": "シークレットジュエル ～魅惑の金剛石～",
+   "mst_song_id": 217,
+   "type": "Angel"
+  },
+  "skysur": {
+   "name_ja": "Sky Survive",
+   "mst_song_id": 366,
+   "type": "Fairy"
+  },
+  "smile1": {
+   "name_ja": "スマイルいちばん",
+   "mst_song_id": 15,
+   "type": "Princess"
+  },
+  "smokyt": {
+   "name_ja": "SMOKY THRILL",
+   "mst_song_id": 364,
+   "type": "Fairy"
+  },
+  "smstar": {
+   "name_ja": "春風満帆スターティング",
+   "mst_song_id": 296,
+   "type": "All"
+  },
+  "sndofb": {
+   "name_ja": "サウンド・オブ・ビギニング",
+   "mst_song_id": 280,
+   "type": "All"
+  },
+  "sntvns": {
+   "name_ja": "Sentimental Venus",
+   "mst_song_id": 8,
+   "type": "Fairy"
+  },
+  "soleil": {
+   "name_ja": "サニー",
+   "mst_song_id": 196,
+   "type": "All"
+  },
+  "sorabc": {
+   "name_ja": "空色♡ Birthday Card",
+   "mst_song_id": 255,
+   "type": "All"
+  },
+  "sozoha": {
+   "name_ja": "創造は始まりの風を連れて",
+   "mst_song_id": 197,
+   "type": "Princess"
+  },
+  "spadeq": {
+   "name_ja": "スペードのQ",
+   "mst_song_id": 267,
+   "type": "Princess"
+  },
+  "spship": {
+   "name_ja": "Miracle Night",
+   "mst_song_id": 233,
+   "type": "All"
+  },
+  "ssboos": {
+   "name_ja": "Supersonic Booster!",
+   "mst_song_id": 284,
+   "type": "All"
+  },
+  "sspens": {
+   "name_ja": "紙・心・ペン・心 - SHISHINPENSHIN -",
+   "mst_song_id": 250,
+   "type": "Princess"
+  },
+  "sssoul": {
+   "name_ja": "Sweet Sweet Soul",
+   "mst_song_id": 294,
+   "type": "Angel"
+  },
+  "stamel": {
+   "name_ja": "Starry Melody",
+   "mst_song_id": 70,
+   "type": "Princess"
+  },
+  "starim": {
+   "name_ja": "Star Impression",
+   "mst_song_id": 323,
+   "type": "Princess"
+  },
+  "stdalv": {
+   "name_ja": "STANDING ALIVE",
+   "mst_song_id": 40,
+   "type": "Angel"
+  },
+  "stelig": {
+   "name_ja": "Stellar Light",
+   "mst_song_id": 368,
+   "type": "Fairy"
+  },
+  "stickt": {
+   "name_ja": "Stick to my weapon",
+   "mst_song_id": 432,
+   "type": "All"
+  },
+  "stknkk": {
+   "name_ja": "素敵なキセキ",
+   "mst_song_id": 9,
+   "type": "Princess"
+  },
+  "sunrhy": {
+   "name_ja": "サンリズム・オーケストラ♪",
+   "mst_song_id": 67,
+   "type": "Angel"
+  },
+  "sunris": {
+   "name_ja": "SunRiser",
+   "mst_song_id": 342,
+   "type": "Angel"
+  },
+  "sunrun": {
+   "name_ja": "shiny smile",
+   "mst_song_id": 144,
+   "type": "All"
+  },
+  "suppan": {
+   "name_ja": "relations",
+   "mst_song_id": 273,
+   "type": "All"
+  },
+  "swsmil": {
+   "name_ja": "Special Wonderful Smile",
+   "mst_song_id": 156,
+   "type": "Angel"
+  },
+  "tetuha": {
+   "name_ja": "鉄の羽のエクソダス",
+   "mst_song_id": 407,
+   "type": "All"
+  },
+  "texyou": {
+   "name_ja": "Texting you",
+   "mst_song_id": 414,
+   "type": "All"
+  },
+  "thanky": {
+   "name_ja": "Thank You!",
+   "mst_song_id": 1,
+   "type": "All"
+  },
+  "theims": {
+   "name_ja": "THE IDOLM@STER",
+   "mst_song_id": 12,
+   "type": "All"
+  },
+  "tkmkop": {
+   "name_ja": "トキメキの音符になって",
+   "mst_song_id": 10,
+   "type": "Angel"
+  },
+  "tmnprl": {
+   "name_ja": "透明なプロローグ",
+   "mst_song_id": 5,
+   "type": "Princess"
+  },
+  "tobebo": {
+   "name_ja": "飛べない僕は泳いだ",
+   "mst_song_id": 436,
+   "type": "All"
+  },
+  "tompro": {
+   "name_ja": "Tomorrow Program",
+   "mst_song_id": 213,
+   "type": "Princess"
+  },
+  "top000": {
+   "name_ja": "ToP!!!!!!!!!!!!!",
+   "mst_song_id": 65,
+   "type": "All"
+  },
+  "toratt": {
+   "name_ja": "囚われのTeaTime",
+   "mst_song_id": 434,
+   "type": "Fairy"
+  },
+  "towara": {
+   "name_ja": "トワラー",
+   "mst_song_id": 344,
+   "type": "Fairy"
+  },
+  "trenoe": {
+   "name_ja": "トレフル・ド・ノエル",
+   "mst_song_id": 232,
+   "type": "Princess"
+  },
+  "ubugoe": {
+   "name_ja": "産声とクラブ",
+   "mst_song_id": 229,
+   "type": "Angel"
+  },
+  "umicas": {
+   "name_ja": "海風とカスタネット",
+   "mst_song_id": 326,
+   "type": "Princess"
+  },
+  "unamil": {
+   "name_ja": "唸れ！ミリオンアーマー！",
+   "mst_song_id": 373,
+   "type": "All"
+  },
+  "undund": {
+   "name_ja": "Understand? Understand!",
+   "mst_song_id": 257,
+   "type": "Princess"
+  },
+  "union1": {
+   "name_ja": "UNION!!",
+   "mst_song_id": 62,
+   "type": "All"
+  },
+  "unisbt": {
+   "name_ja": "ユニゾン☆ビート",
+   "mst_song_id": 49,
+   "type": "Fairy"
+  },
+  "unkbox": {
+   "name_ja": "Unknown Boxの開き方",
+   "mst_song_id": 340,
+   "type": "Princess"
+  },
+  "unmeil": {
+   "name_ja": "U・N・M・E・I ライブ",
+   "mst_song_id": 395,
+   "type": "All"
+  },
+  "uppdog": {
+   "name_ja": "Upper Dog",
+   "mst_song_id": 349,
+   "type": "Angel"
+  },
+  "varfin": {
+   "name_ja": "EVERYDAY STARS!!",
+   "mst_song_id": 202,
+   "type": "All"
+  },
+  "vavssu": {
+   "name_ja": "Vacation VS Summer ～ナツとヤスミのアンビバレント！～",
+   "mst_song_id": 258,
+   "type": "All"
+  },
+  "vvdclr": {
+   "name_ja": "vivid color",
+   "mst_song_id": 32,
+   "type": "Princess"
+  },
+  "wacook": {
+   "name_ja": "ワールド・アスレチック・COOK-KING ～勝者必食！？スポ食の秋～",
+   "mst_song_id": 224,
+   "type": "All"
+  },
+  "wataha": {
+   "name_ja": "わたしは花、あなたは太陽",
+   "mst_song_id": 360,
+   "type": "All"
+  },
+  "weare1": {
+   "name_ja": "WE ARE ONE!!",
+   "mst_song_id": 90,
+   "type": "Princess"
+  },
+  "welcom": {
+   "name_ja": "Welcome!!",
+   "mst_song_id": 44,
+   "type": "All"
+  },
+  "weprin": {
+   "name_ja": "Prima Princess!!",
+   "mst_song_id": 428,
+   "type": "Princess"
+  },
+  "whitev": {
+   "name_ja": "White Vows",
+   "mst_song_id": 103,
+   "type": "Angel"
+  },
+  "why000": {
+   "name_ja": "WHY?",
+   "mst_song_id": 33,
+   "type": "Fairy"
+  },
+  "ybride": {
+   "name_ja": "夢みがちBride",
+   "mst_song_id": 308,
+   "type": "All"
+  },
+  "ymrain": {
+   "name_ja": "夢にかけるRainbow",
+   "mst_song_id": 261,
+   "type": "All"
+  },
+  "yokase": {
+   "name_ja": "夜に輝く星座のように",
+   "mst_song_id": 379,
+   "type": "Princess"
+  },
+  "zenitu": {
+   "name_ja": "The world is all one !!",
+   "mst_song_id": 260,
+   "type": "All"
+  },
+  "zetbre": {
+   "name_ja": "ZETTAI × BREAK!! トゥインクルリズム",
+   "mst_song_id": 51,
+   "type": "Princess"
+  },
+  "zetper": {
+   "name_ja": "絶対的Performer",
+   "mst_song_id": 152,
+   "type": "Fairy"
+  },
+  "zunzun": {
+   "name_ja": "Honey Heartbeat",
+   "mst_song_id": 246,
+   "type": "All"
+  }
+ },
  "variants": {
   "ahhan+": "ahhan0",
   "amate+": "amater",

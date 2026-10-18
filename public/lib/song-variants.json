@@ -2,7 +2,7 @@
  "schema_version": 1,
  "note": "曲目名称与版本对照。",
  "source": {
-  "asset_version": "1077750"
+  "asset_version": "1077830"
  },
  "songs": {
   "aftspt": {
@@ -3788,6 +3788,12 @@
   ],
   "hanasb": [
    32
+  ],
+  "hapipi": [
+   19,
+   18,
+   45,
+   44
   ],
   "hapiya": [
    24,

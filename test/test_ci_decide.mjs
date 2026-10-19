@@ -1,9 +1,9 @@
-// CI 的"要不要重新生成"判断契约。生产调度移出本仓后这条流水线只剩手动触发，
-// 但跳过判断本身还在用，所以这里同时守着两件事：
-//   1. 自动触发不许被加回来（加回来就会重新开始拉上游、传产物）；
-//   2. 判断逻辑一旦退化（比如读不到标记却当成"没变"）必须红。
+// "要不要重新生成"判断契约。GitHub Pages 部署流水线已于 2026-10-19 删除
+// （生产站托管在仓外），这里只保留判断逻辑本身的单元测试，以及站点数据契约：
+//   1. 判断逻辑一旦退化（比如读不到标记却当成"没变"）必须红；
+//   2. build_data 写出的 portal.json 必须带上三个来源的 HEAD 与 commit。
 //
-// 对应实现：scripts/ci_decide.mjs + .github/workflows/portal.yml
+// 对应实现：scripts/ci_decide.mjs
 
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -30,7 +30,6 @@ function ok(name, fn) {
   }
 }
 
-const workflow = readFileSync(join(root, ".github/workflows/portal.yml"), "utf8");
 const DEPLOYED = {
   sources: {
     assets: { head: "a".repeat(40) },
@@ -47,7 +46,7 @@ ok("push 只改文档/测试 → 不重建（验证照跑）", () => {
 });
 
 ok("push 动了站点输入 → 重建，且原因写清是哪个文件", () => {
-  for (const file of ["public/app.js", "public/lib/data.js", "scripts/build_data.mjs", "package.json", ".github/workflows/portal.yml"]) {
+  for (const file of ["public/app.js", "public/lib/data.js", "scripts/build_data.mjs", "package.json"]) {
     const decision = pushNeedsBuild([file, "README.md"]);
     assert.equal(decision.build, true, `${file} 应当触发重建`);
     assert.ok(decision.reason.includes(file), "原因里应当点名是哪个文件");
@@ -96,7 +95,6 @@ ok("force 一律重建（手动触发时想强制刷新的情况）", () => {
 
 ok("比的是克隆到的 HEAD，不是清单里的内容 commit", () => {
   // 拿内容 commit 去比分支 HEAD 会永远判定"变了"，这正是先踩过的坑
-  assert.match(workflow, /sources\.\*\.head|sources\.assets\.head/);
   const decision = decideBuild({
     event: "schedule",
     deployed: { sources: { assets: { head: "a".repeat(40) }, client: { head: "b".repeat(40) }, portal: { commit: "c".repeat(40) } } },
@@ -104,35 +102,6 @@ ok("比的是克隆到的 HEAD，不是清单里的内容 commit", () => {
     portalCommit: "c".repeat(40),
   });
   assert.equal(decision.build, false);
-});
-
-ok("workflow：verify、build 与 deploy 都受 check 门控", () => {
-  assert.match(workflow, /^ {2}check:/m, "要有 check 任务");
-  assert.match(workflow, /^ {4}outputs:\n {6}build: \$\{\{ steps\.decide\.outputs\.build \}\}/m, "check 要输出 build");
-  assert.equal((workflow.match(/if: needs\.check\.outputs\.build == 'true'/g) || []).length, 3, "verify、build 和 deploy 都应跳过 no-op");
-  assert.match(workflow, /^ {2}verify:\n {4}needs: check\n {4}if: needs\.check\.outputs\.build == 'true'/m, "verify 也应在 no-op 时跳过");
-  assert.match(workflow, /^ {2}build:\n {4}needs: \[check, verify\]/m, "build 要等 check 与 verify");
-  assert.match(workflow, /^ {2}deploy:\n {4}needs: \[check, build\]/m, "deploy 要等 check 与 build");
-});
-
-ok("workflow：自动触发已停用，只剩手动（自托管后不再自动构建与发布）", () => {
-  // 2026-10-10 起站点自托管，这条流水线只在手动触发时跑。自动触发一旦被加回来，
-  // 就会重新开始拉几百 MB 上游、上传几百 MB 产物 —— 这里必须红。
-  const onBlock = workflow.slice(workflow.indexOf("\non:"), workflow.indexOf("\npermissions:"));
-  assert.equal(/^\s{2}push:/m.test(onBlock), false, "不该再有 push 触发");
-  assert.equal(/^\s{2}schedule:/m.test(onBlock), false, "不该再有定时触发");
-  assert.match(onBlock, /^\s{2}workflow_dispatch:/m, "手动触发要保留");
-  assert.match(onBlock, /force:/, "手动触发要保留 force");
-});
-
-ok("workflow：手动触发有 force，且旧任务会被顶掉、每个任务有超时", () => {
-  assert.match(workflow, /workflow_dispatch:\n {4}inputs:\n {6}force:/);
-  assert.match(workflow, /cancel-in-progress: true/);
-  assert.ok((workflow.match(/timeout-minutes:/g) || []).length >= 4, "四个任务都要有超时上限");
-});
-
-ok("workflow：构建时把本仓 commit 写进产物（下次跳过判断的依据）", () => {
-  assert.match(workflow, /--portal-commit "\$GITHUB_SHA"/);
 });
 
 ok("gitHeadOf：真仓库能读到 HEAD，没有 git/目录不存在时返回空串而不是抛错", () => {

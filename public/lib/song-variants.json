@@ -2,7 +2,7 @@
  "schema_version": 1,
  "note": "曲目名称与版本对照。",
  "source": {
-  "asset_version": "1077830"
+  "asset_version": "1077938"
  },
  "songs": {
   "aftspt": {
@@ -5602,6 +5602,9 @@
   ],
   "s04iku": [
    30
+  ],
+  "s04mat": [
+   21
   ],
   "s04miy": [
    42

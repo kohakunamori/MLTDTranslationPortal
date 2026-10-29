@@ -21,6 +21,7 @@ import { pathToFileURL } from "node:url";
 import { decorateLibraryBundles, emitLibrary, emitSearch } from "./library_data.mjs";
 import { buildImageIndex } from "./image_data.mjs";
 import { hydrateImageOriginals } from "./hydrate_image_originals.mjs";
+import { recoverIgpSongTitles } from "./song_title_recovery.mjs";
 
 import { findFiles, relativeFileMap, toPosix } from "./fs-utils.mjs";
 import { collectingSink, writingSink, compareSink, swapIntoPlace, clearStaleStaging } from "./output-sink.mjs";
@@ -68,6 +69,7 @@ const DEFAULTS = {
   // 站点仓（本仓）标识：只作为产物的来源标注，不参与数据读取。
   portalRepo: "kohakunamori/MLTDTranslationPortal",
   portalCommit: "",
+  allowIncompleteSongs: true,
 };
 
 const ASSETS_MANIFEST = "manifests/portal-resource-manifest.json";
@@ -479,12 +481,13 @@ function buildBundleRecord({ bundle, category, rows, channel, repo, ref, assetVe
     record.song = {
       name_ja: song.name_ja || record.base,
       name_zh: song.name_zh || "",
-      type: song.type || "All",
+      type: song.type || (song.title_source ? null : "All"),
       mst_song_id: song.mst_song_id || 0,
       variant_of: song.variant_of || null,
       canonical_key: song.canonical_key,
       default_singer_ids: song.default_singer_ids,
       default_singers: song.default_singers,
+      ...(song.title_source ? { title_source: song.title_source } : {}),
     };
   }
   record.edit = {
@@ -557,6 +560,7 @@ function parseArgs(argv) {
     if (arg === "--check") { options.check = true; continue; }
     if (arg === "--hydrate-originals") { options.hydrateOriginals = true; continue; }
     if (arg === "--allow-incomplete-songs") { options.allowIncompleteSongs = true; continue; }
+    if (arg === "--require-complete-songs") { options.allowIncompleteSongs = false; continue; }
     if (arg === "--strict") { options.strict = true; continue; }
     if (arg === "--help" || arg === "-h") { options.help = true; continue; }
     const key = flags[arg];
@@ -630,6 +634,7 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
 
   const bundles = [];
   let assetsDedupe = null;
+  let recoveredSongTitles = new Map();
   if (settings.assetsRoot) {
     const assetsRead = readRepoRows({
       root: settings.assetsRoot,
@@ -640,9 +645,11 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
       notes,
     });
     assetsDedupe = assetsRead.dedupe;
+    const knownSong = settings.songDetails ? createSongResolver(settings.songDetails) : songFor;
+    recoveredSongTitles = recoverIgpSongTitles(assetsRead.rowsByBundle, knownSong);
     bundles.push(...groupIntoFiles(assetsRead.rowsByBundle, {
       channel: "assets",
-      resolveSong: settings.songDetails ? createSongResolver(settings.songDetails) : songFor,
+      resolveSong: (bundle) => knownSong(bundle) || recoveredSongTitles.get(bundle) || null,
       repo: settings.assetsRepo,
       ref: settings.ref,
       assetVersion,
@@ -797,9 +804,10 @@ export function buildOutputs(options = {}, sink = collectingSink()) {
     total: lyrics.length,
     missing_titles: lyrics.filter((record) => !record.song).map((record) => record.bundle),
     missing_default_singers: lyrics.filter((record) => !record.song?.default_singers?.length).map((record) => record.bundle),
+    recovered_titles: [...recoveredSongTitles.keys()].sort(),
   };
   if (songMetadata.missing_titles.length) {
-    const message = `歌词缺少曲名资料：${songMetadata.missing_titles.join("、")}；请刷新曲目资料或补充已核实的条目`;
+    const message = `歌词缺少曲名资料：${songMetadata.missing_titles.join("、")}；暂显示待确认，等待曲目资料同步`;
     if (!settings.allowIncompleteSongs) throw new BuildError(message);
     warnings.push(message);
   }
@@ -993,7 +1001,8 @@ const HELP = `门户静态数据生成器
   --check                 只比对磁盘现状，不写入；有漂移时退出码 2
   --hydrate-originals     从资源仓固定提交恢复稀疏检出缺少的完整原图（不可与 --check 同用）
   --complete-originals-root <dir>  独立完整原图缓存目录，避免 Git 同步移除媒体
-  --allow-incomplete-songs 预览用：允许歌词缺少曲名（默认拒绝发布）
+  --allow-incomplete-songs 允许歌词缺少曲名（默认）；显示待确认并记录警告
+  --require-complete-songs 缺少曲名时拒绝生成
   --strict                把警告升级为失败
 `;
 

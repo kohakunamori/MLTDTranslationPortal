@@ -183,6 +183,7 @@ export function filterBundles(bundles, { idol = "", status = "", channel = "", k
 /// 列表/标题里显示什么：歌曲用曲名，其余用资源名。
 export function bundleLabel(bundle) {
   if (!bundle) return "—";
+  if (bundle.category === "lyrics" && !bundle.song?.name_ja) return `曲名待确认（${bundle.base || bundle.bundle || "未知资源"}）`;
   if (bundle.title?.name_zh || bundle.title?.name_ja) return bundle.title.name_zh || bundle.title.name_ja;
   const name = bundle.song?.name_ja || bundle.base || bundle.bundle;
   return bundle.song?.name_zh && bundle.song.name_zh !== bundle.song.name_ja

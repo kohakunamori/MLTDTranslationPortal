@@ -24,6 +24,9 @@ export function filterSongPresentation(entries, filters = {}) {
 }
 
 export function readableLabel(entry) {
+  if (entry.category === "lyrics" && !entry.song?.name_ja) {
+    return `曲名待确认（${entry.base || entry.bundle || "未知资源"}）`;
+  }
   return entry.title?.name_zh || entry.title?.name_ja || entry.label
     || entry.song?.name_zh || entry.song?.name_ja || entry.base || "未命名内容";
 }

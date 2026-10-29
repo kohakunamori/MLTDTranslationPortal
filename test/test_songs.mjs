@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { createSongResolver } from "../public/lib/song-metadata.js";
-import { filterBundles, progressPercent } from "../public/lib/data.js";
+import { bundleLabel, filterBundles, progressPercent } from "../public/lib/data.js";
+import { readableLabel } from "../public/lib/library.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary } from "../public/lib/songs.js";
 import { songFor, buildOutputs, main } from "../scripts/build_data.mjs";
 
@@ -96,17 +98,21 @@ try {
   assert.deepEqual(rio.portal.song_metadata.missing_titles, []);
   writeFileSync(join(assetsRoot, "lyrics/songs/scrobj_future.unity3d.jsonl"), lyric.replaceAll("scrobj_smile1", "scrobj_future"));
   const settings = { assetsRoot, clientRoot: "test_helpers/fixtures/client-repo", generatedAt: "2026-01-01T00:00:00Z", maxRowsPerPage: 1 };
-  assert.throws(() => buildOutputs(settings), /歌词缺少曲名资料：scrobj_future.unity3d/);
+  assert.throws(() => buildOutputs({ ...settings, allowIncompleteSongs: false }), /歌词缺少曲名资料：scrobj_future.unity3d/);
   const out = join(work, "published");
   mkdirSync(out);
   writeFileSync(join(out, "sentinel.json"), '{"previous":"published"}');
-  assert.equal(await main(["--assets-root", assetsRoot, "--out", out]), 1);
-  assert.equal(readFileSync(join(out, "sentinel.json"), "utf8"), '{"previous":"published"}', "Failed coverage keeps the previously published output");
+  assert.equal(await main(["--assets-root", assetsRoot, "--out", out, "--require-complete-songs"]), 1);
+  assert.equal(readFileSync(join(out, "sentinel.json"), "utf8"), '{"previous":"published"}', "Strict coverage keeps the previously published output");
   assert.equal(existsSync(`${out}.staging`), false);
-  assert.equal(await main(["--assets-root", assetsRoot, "--out", out, "--allow-incomplete-songs"]), 0);
-  const preview = buildOutputs({ ...settings, allowIncompleteSongs: true });
-  assert.deepEqual(preview.portal.song_metadata.missing_titles, ["scrobj_future.unity3d"], "Coverage counts resources once across pages");
-  assert.ok(preview.portal.song_metadata.missing_default_singers.includes("scrobj_future.unity3d"));
+  assert.equal(await main(["--assets-root", assetsRoot, "--out", out]), 0);
+  const pending = buildOutputs(settings);
+  assert.deepEqual(pending.portal.song_metadata.missing_titles, ["scrobj_future.unity3d"], "Coverage counts resources once across pages");
+  assert.ok(pending.portal.song_metadata.missing_default_singers.includes("scrobj_future.unity3d"));
+  const pendingSong = JSON.parse(pending.files.get("catalogue/lyrics.json")).bundles.find((entry) => entry.bundle === "scrobj_future.unity3d");
+  assert.equal(pendingSong.song, undefined, "An unverified name must not be invented");
+  assert.match(bundleLabel(pendingSong), /^曲名待确认/);
+  assert.match(readableLabel(pendingSong), /^曲名待确认/);
   const generated = buildOutputs({ ...settings, songDetails: captured });
   const catalogue = JSON.parse(generated.files.get("catalogue/lyrics.json"));
   const fresh = catalogue.bundles.find((entry) => entry.bundle === "scrobj_future.unity3d");
@@ -115,6 +121,42 @@ try {
   assert.deepEqual(fresh.song.default_singer_ids, [14]);
   assert.deepEqual(generated.portal.song_metadata.missing_titles, []);
   for (const page of fresh.pages) assert.deepEqual(JSON.parse(generated.files.get(page.file)).song, fresh.song);
+
+  // A title is recovered only when the idol-specific iGP source has a single
+  // official name and that exact name is present in the matching solo's lyrics.
+  const igpRoot = join(work, "igp-assets");
+  cpSync("test_helpers/fixtures/assets-repo", igpRoot, { recursive: true });
+  const digest = (value) => createHash("sha256").update(value).digest("hex");
+  const title = "未来へ続く星空の歌";
+  const line = `歌おう ${title} ずっと`;
+  const sourceFile = join(igpRoot, "locales/master/igp-test.jsonl");
+  const lyricFile = join(igpRoot, "lyrics/songs/scrobj_s04mir.unity3d.jsonl");
+  const sourceRow = { bundle: "igp_014mir_jp.gtx", item_key: "ld_song_name_9999", ja: title,
+    source_sha256: digest(title), asset_version: "1077710" };
+  const lyricRow = { bundle: "scrobj_s04mir.unity3d", index: 1, ja: line, source_sha256: digest(line) };
+  writeFileSync(sourceFile, `${JSON.stringify(sourceRow)}\n`);
+  writeFileSync(lyricFile, `${JSON.stringify(lyricRow)}\n`);
+  const automatic = buildOutputs({ assetsRoot: igpRoot, generatedAt: "2026-01-01T00:00:00Z" });
+  const automaticSong = JSON.parse(automatic.files.get("catalogue/lyrics.json")).bundles.find((entry) => entry.bundle === lyricRow.bundle);
+  assert.equal(automaticSong.song.name_ja, title);
+  assert.equal(automaticSong.song.type, null);
+  assert.deepEqual(automaticSong.song.default_singer_ids, []);
+  assert.deepEqual(automaticSong.song.title_source, { kind: "igp_lyric_match", bundle: sourceRow.bundle, item_key: sourceRow.item_key });
+  assert.deepEqual(automatic.portal.song_metadata.recovered_titles, [lyricRow.bundle]);
+  assert.deepEqual(automatic.portal.song_metadata.missing_titles, []);
+
+  const otherTitle = "もう一つの曲名です";
+  writeFileSync(sourceFile, `${JSON.stringify(sourceRow)}\n${JSON.stringify({ ...sourceRow, item_key: "ld_song_name_9998", ja: otherTitle, source_sha256: digest(otherTitle) })}\n`);
+  const ambiguous = buildOutputs({ assetsRoot: igpRoot, generatedAt: "2026-01-01T00:00:00Z" });
+  assert.deepEqual(ambiguous.portal.song_metadata.recovered_titles, []);
+  assert.deepEqual(ambiguous.portal.song_metadata.missing_titles, [lyricRow.bundle]);
+  assert.equal(JSON.parse(ambiguous.files.get("catalogue/lyrics.json")).bundles.find((entry) => entry.bundle === lyricRow.bundle).song, undefined);
+
+  writeFileSync(sourceFile, `${JSON.stringify(sourceRow)}\n`);
+  const unrelated = "曲名とは一致しない歌詞";
+  writeFileSync(lyricFile, `${JSON.stringify({ ...lyricRow, ja: unrelated, source_sha256: digest(unrelated) })}\n`);
+  const unmatched = buildOutputs({ assetsRoot: igpRoot, generatedAt: "2026-01-01T00:00:00Z" });
+  assert.deepEqual(unmatched.portal.song_metadata.missing_titles, [lyricRow.bundle]);
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

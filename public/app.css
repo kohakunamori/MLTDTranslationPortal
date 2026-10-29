@@ -40,6 +40,17 @@ body {
   flex-direction: column;
 }
 
+.site-footer {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.site-footer p { max-width: 1100px; margin: 0.25rem auto; }
+.site-footer a { color: var(--primary-hover); text-underline-offset: 0.2em; }
+
 /* ---------------------------------------------------------- header */
 
 .app-header {

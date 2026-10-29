@@ -1147,6 +1147,8 @@ export const SONG_MASTER_EXTRA = {
   hapipi: { bundle: "scrobj_hapipi.unity3d", mst_song_id: 0, name_ja: "ハピピス♡", name_zh: "", type: "All", default_singer_ids: [19, 18, 45, 44] },
   // https://www.lantis.jp/imas/release_LACA-15672.html (matched against the lyric bundle)
   s04mat: { bundle: "scrobj_s04mat.unity3d", mst_song_id: 0, name_ja: "プリンセス・アラモード", name_zh: "", type: "Princess", default_singer_ids: [21] },
+  // https://www.lantis.jp/imas/release_SPARKLE2_04.html (matched against the lyric bundle)
+  s04rio: { bundle: "scrobj_s04rio.unity3d", mst_song_id: 0, name_ja: "週末だけのハーレクイン", name_zh: "", type: "Fairy", default_singer_ids: [46] },
   // 2026-09-17 官方放出 MV 的新曲；中文名是暂定译名，可随时改
   ittana: { bundle: "scrobj_ittana.unity3d", mst_song_id: 0, name_ja: "一旦愛して♡", name_zh: "先爱我一次♡", type: "All" },
   // TIntMe! 的曲目；中文名同样是暂定译名

@@ -86,6 +86,14 @@ try {
   const assetsRoot = join(work, "assets");
   cpSync("test_helpers/fixtures/assets-repo", assetsRoot, { recursive: true });
   const lyric = readFileSync(join(assetsRoot, "lyrics/songs/scrobj_smile1.unity3d.jsonl"), "utf8");
+  writeFileSync(join(assetsRoot, "lyrics/songs/scrobj_s04rio.unity3d.jsonl"), lyric.replaceAll("scrobj_smile1", "scrobj_s04rio"));
+  const rio = buildOutputs({ assetsRoot, clientRoot: "test_helpers/fixtures/client-repo", generatedAt: "2026-01-01T00:00:00Z" });
+  const rioCatalogue = JSON.parse(rio.files.get("catalogue/lyrics.json"));
+  const rioSong = rioCatalogue.bundles.find((entry) => entry.bundle === "scrobj_s04rio.unity3d");
+  assert.equal(rioSong.song.name_ja, "週末だけのハーレクイン");
+  assert.equal(rioSong.song.type, "Fairy");
+  assert.deepEqual(rioSong.song.default_singer_ids, [46]);
+  assert.deepEqual(rio.portal.song_metadata.missing_titles, []);
   writeFileSync(join(assetsRoot, "lyrics/songs/scrobj_future.unity3d.jsonl"), lyric.replaceAll("scrobj_smile1", "scrobj_future"));
   const settings = { assetsRoot, clientRoot: "test_helpers/fixtures/client-repo", generatedAt: "2026-01-01T00:00:00Z", maxRowsPerPage: 1 };
   assert.throws(() => buildOutputs(settings), /歌词缺少曲名资料：scrobj_future.unity3d/);

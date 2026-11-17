@@ -81,12 +81,17 @@ function sendJson(response, status, payload) {
   response.end(text);
 }
 
-/// 同一时刻只允许一次写入：git 的工作目录是共享的，并发会互相踩。
-let queue = Promise.resolve();
+/// 按仓库隔离串行队列：同一仓库的 git 工作目录共享，需要互斥；不同仓库互不阻塞。
+const repoQueues = new Map();
 
-function serialize(task) {
-  const run = queue.then(task, task);
-  queue = run.then(() => undefined, () => undefined);
+function serialize(repo, task) {
+  const prev = repoQueues.get(repo) || Promise.resolve();
+  const run = prev.then(task, task);
+  const settle = run.then(() => undefined, () => undefined);
+  repoQueues.set(repo, settle);
+  settle.finally(() => {
+    if (repoQueues.get(repo) === settle) repoQueues.delete(repo);
+  });
   return run;
 }
 
@@ -110,7 +115,7 @@ async function handleEdit(request, response) {
   normalizePath(body.path, PATH_PREFIXES);
 
   const author = await resolveAuthor(token);
-  const result = await serialize(() => commitEdit({ repo, dir, token, body: { ...body, author }, branch: BRANCH, authorName: AUTHOR_NAME, authorEmail: AUTHOR_EMAIL, pathPrefixes: PATH_PREFIXES }));
+  const result = await serialize(repo, () => commitEdit({ repo, dir, token, body: { ...body, author }, branch: BRANCH, authorName: AUTHOR_NAME, authorEmail: AUTHOR_EMAIL, pathPrefixes: PATH_PREFIXES }));
   if (result.changed) {
     log(`写入 ${repo} ${result.path} 第 ${result.lineNumber ?? "-"} 行 -> ${result.commit.sha.slice(0, 8)}`);
   } else {
@@ -161,6 +166,10 @@ const server = createServer((request, response) => {
       });
     });
 });
+
+server.requestTimeout = 60_000;
+server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
 
 /// 当前生效的仓库表：正常启动来自环境变量，测试里可以直接传，免得为了可测性去改环境。
 let activeRepos = REPOS;

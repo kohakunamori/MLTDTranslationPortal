@@ -300,7 +300,12 @@ function dedupeRows(rowsByBundle, repoLabel, notes) {
 
 function readRepoRows({ root, repoLabel, releaseVersion, resolveCategory, warnings, notes }) {
   const rowsByBundle = new Map();
-  const files = findFiles(root, (entry) => entry.name.toLowerCase().endsWith(".jsonl"));
+  const scopedDirs = ["locales", "lyrics"]
+    .map((name) => join(root, name))
+    .filter((dir) => existsSync(dir));
+  const files = (scopedDirs.length
+    ? scopedDirs.flatMap((dir) => findFiles(dir, (entry) => entry.name.toLowerCase().endsWith(".jsonl")))
+    : findFiles(root, (entry) => entry.name.toLowerCase().endsWith(".jsonl"))).sort();
   const newerVersions = new Map();
 
   const noSource = makeCounter(warnings, (n) => `${repoLabel}: ${n} 行缺少 ja/source，已跳过`);
@@ -317,9 +322,14 @@ function readRepoRows({ root, repoLabel, releaseVersion, resolveCategory, warnin
       ? posix.basename(relativePath).replace(/\.jsonl$/i, "")
       : "";
     const text = readFileSync(file, "utf8");
-    const lines = text.split("\n");
-    for (let index = 0; index < lines.length; index += 1) {
-      const raw = lines[index];
+    let pos = 0;
+    let index = -1;
+    while (pos < text.length) {
+      index += 1;
+      const nl = text.indexOf("\n", pos);
+      const end = nl === -1 ? text.length : nl;
+      const raw = text.slice(pos, end);
+      pos = nl === -1 ? text.length : nl + 1;
       if (!raw.trim()) continue;
       let row;
       try {

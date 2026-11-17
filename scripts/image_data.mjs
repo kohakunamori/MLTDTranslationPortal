@@ -1,6 +1,6 @@
 // 已审核清单、已发布原图与覆盖报告共同组成图片目录。只读上游，不猜下载地址。
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readdirSync, readSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, posix } from "node:path";
 import { relativeFileMap } from "./fs-utils.mjs";
 import { IMAGE_CATEGORY_ORDER, IMAGE_CATEGORY_RULES, detectImageCategory } from "../public/lib/taxonomy.js";
@@ -45,11 +45,21 @@ export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoo
   const mediaUrl = (path) => `${base ? `${base}/` : ""}media/${path.slice("images/".length).split("/").map(encodeURIComponent).join("/")}`;
   const files = assetsRoot ? new Map([...relativeFileMap(join(assetsRoot, "images/original"),
     (entry) => /\.(png|jpe?g|webp)$/i.test(entry.name))].map(([path, full]) => [`images/original/${path}`, full])) : new Map();
+  const completePaths = new Set();
+  const hashCachePath = completeOriginalsRoot ? join(completeOriginalsRoot, ".hash-cache.json") : "";
+  let hashCache = {};
+  let hashCacheDirty = false;
   if (completeOriginalsRoot) {
+    try {
+      const parsed = JSON.parse(readFileSync(hashCachePath, "utf8"));
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) hashCache = parsed;
+    } catch { /* 首次运行或缓存损坏时退回重算 */ }
     for (const path of files.keys()) if (path.startsWith("images/original/complete/")) files.delete(path);
     for (const entry of readdirSync(completeOriginalsRoot, { withFileTypes: true })) {
       if (entry.isFile() && /^[a-f0-9]{64}\.webp$/.test(entry.name)) {
-        files.set(`images/original/complete/${entry.name}`, join(completeOriginalsRoot, entry.name));
+        const key = `images/original/complete/${entry.name}`;
+        files.set(key, join(completeOriginalsRoot, entry.name));
+        completePaths.add(key);
       }
     }
   }
@@ -148,7 +158,29 @@ export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoo
     if (!matching.length && textureId && normalized.has(`${bundleBase}.unity3d:${textureId}`)) {
       matching = [normalized.get(`${bundleBase}.unity3d:${textureId}`)];
     }
-    const { sha, header } = hashImageFile(full, imageBuffer);
+    let sha;
+    let header;
+    if (completePaths.has(path)) {
+      const st = statSync(full);
+      const cached = hashCache[path];
+      if (
+        cached
+        && cached.size === st.size
+        && cached.mtimeMs === st.mtimeMs
+        && cached.mtimeMs < Date.now() - 2000
+        && typeof cached.sha === "string"
+        && typeof cached.headerHex === "string"
+      ) {
+        sha = cached.sha;
+        header = Buffer.from(cached.headerHex, "hex");
+      } else {
+        ({ sha, header } = hashImageFile(full, imageBuffer));
+        hashCache[path] = { size: st.size, mtimeMs: st.mtimeMs, sha, headerHex: header.toString("hex") };
+        hashCacheDirty = true;
+      }
+    } else {
+      ({ sha, header } = hashImageFile(full, imageBuffer));
+    }
     if (!matching.length) {
       // 保留完整文件路径作身份，避免无法识别纹理 ID 的文件互相覆盖。
       const row = normalize({ task_id: textureId ? `${bundleBase}.unity3d:${textureId}` : `original:${canonicalPath}`,
@@ -166,6 +198,9 @@ export function buildImageIndex(payload, { assetsRoot = "", completeOriginalsRoo
         row.height = header.readUInt32BE(20);
       }
     }
+  }
+  if (hashCacheDirty && hashCachePath) {
+    try { writeFileSync(hashCachePath, JSON.stringify(hashCache)); } catch { /* 只读挂载时忽略缓存落盘 */ }
   }
 
   const coveragePath = assetsRoot && join(assetsRoot, "manifests/localization-coverage.json");

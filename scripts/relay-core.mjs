@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, posix } from "node:path";
 
-import { WriteError, applyJsonlEdit, applyManifestEdit, normalizeWriteStatus } from "../public/lib/github-write.js";
+import { WriteError, applyJsonlRowEdit, applyManifestEdit, normalizeWriteStatus } from "../public/lib/github-write.js";
 
 const DEFAULT_BRANCH = "main";
 const DEFAULT_AUTHOR_NAME = "MLTD portal relay";
@@ -99,13 +99,18 @@ export function classifyGitError(stderr) {
 }
 
 export function runGit(cwd, args, token, extraEnv = null) {
+  const timeout = Number(process.env.RELAY_GIT_TIMEOUT_MS || 60_000);
   const result = spawnSync("git", args, {
     cwd,
     env: { ...gitEnv(token), ...(extraEnv || {}) },
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
+    timeout,
   });
-  if (result.error) throw fail("git_failed", `git 无法执行：${result.error.message}`);
+  if (result.error) {
+    if (result.error.code === "ETIMEDOUT") throw fail("git_failed", `git ${args[0]} 操作超时`);
+    throw fail("git_failed", `git 无法执行：${result.error.message}`);
+  }
   if (result.status !== 0) {
     const raw = String(result.stderr || result.stdout || "");
     const code = classifyGitError(raw);
@@ -158,27 +163,13 @@ export async function patchText(currentText, body) {
     if (itemKey === undefined || itemKey === null || itemKey === "") {
       throw fail("invalid_edit", "jsonl 编辑需要 item_key");
     }
-    const first = await applyJsonlEdit(currentText, {
+    return applyJsonlRowEdit(currentText, {
       item_key: itemKey,
       source_sha256: requireSha(body.source_sha256),
       identity_field: identityField,
-      field: "translation",
-      value: translation,
+      translation,
+      status: statusValue,
     });
-    let text = first.text;
-    let previousStatus = null;
-    if (statusValue !== null) {
-      const second = await applyJsonlEdit(text, {
-        item_key: itemKey,
-        source_sha256: requireSha(body.source_sha256),
-        identity_field: identityField,
-        field: "status",
-        value: statusValue,
-      });
-      text = second.text;
-      previousStatus = second.previous ?? null;
-    }
-    return { text, lineNumber: first.lineNumber, previous: first.previous, previousStatus };
   }
 
   if (body.kind === "manifest") {
@@ -207,6 +198,7 @@ export async function patchText(currentText, body) {
 export async function resolveAuthor(token) {
   try {
     const response = await fetch("https://api.github.com/user", {
+      signal: AbortSignal.timeout(10_000),
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",

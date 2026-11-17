@@ -36,13 +36,17 @@ import { applyImageReviews, commitImageReview, loadImageReviews } from "./lib/im
 import { applyImageSubmissions, loadImageSubmissions } from "./lib/image-submission.js";
 import { createImageSubmissionUi } from "./lib/image-submission-ui.js";
 import { countLines, readTotals } from "./lib/read-stats.js";
-import { $, clear, el, formatNumber, hideModal, renderRichText, toast } from "./lib/ui.js";
+import { $, clear, contrastInk, el, formatNumber, hideModal, renderRichText, svgIcon, toast } from "./lib/ui.js";
 import { groupSongs, primaryVersion, singerOptions, singerSummary, songKey, versionLabel, versionsOf } from "./lib/songs.js";
 import { CAST_TYPES, castType, filterSongPresentation, matchingVersions } from "./lib/library.js";
 import { createLibraryUi } from "./lib/library-ui.js";
 
 const PAGE_SIZE_CATALOGUE = 24;
 const PAGE_SIZE_READ = 200;
+const THEME_STORAGE_KEY = "mltd.theme";
+const THEME_ORDER = ["system", "light", "dark"];
+const THEME_LABELS = { system: "主题：自动", light: "主题：浅色", dark: "主题：深色" };
+const THEME_ICONS = { system: "contrast", light: "sun", dark: "moon" };
 
 const state = {
   portal: null,
@@ -70,12 +74,63 @@ const state = {
     baseline: null,
     renderId: 0,
     page: 1,
+    totalPages: 1,
     filters: { keyword: "", status: "", display: "both", size: "normal", highlight: true },
   },
   editing: null,
-  images: { data: null, category: "all", status: "all", original: "all", keyword: "", sort: "default", page: 1, reviewBusy: false, reviewUndo: null, reviewMessage: "" },
+  images: { data: null, filteredRows: [], category: "all", status: "all", original: "all", keyword: "", sort: "default", page: 1, reviewBusy: false, reviewUndo: null, reviewMessage: "" },
   lightbox: null,
 };
+
+let imageObserver = null;
+let lastLightboxTrigger = null;
+
+// ------------------------------------------------------------------ 主题与导航抽屉
+
+function getThemePreference() {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return THEME_ORDER.includes(saved) ? saved : "system";
+  } catch (_) {
+    return "system";
+  }
+}
+
+function resolveTheme(pref) {
+  if (pref === "light" || pref === "dark") return pref;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyThemePreference(pref, { persist = false } = {}) {
+  const normalized = THEME_ORDER.includes(pref) ? pref : "system";
+  const resolved = resolveTheme(normalized);
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.themePref = normalized;
+  document.documentElement.style.colorScheme = resolved;
+  if (persist) {
+    try { localStorage.setItem(THEME_STORAGE_KEY, normalized); } catch (_) { /* 隐私模式忽略 */ }
+  }
+  const button = $("theme-toggle");
+  if (button) {
+    clear(button);
+    button.append(svgIcon(THEME_ICONS[normalized], { size: 14 }), el("span", { text: THEME_LABELS[normalized] }));
+    button.setAttribute("aria-label", `切换配色主题（当前：${THEME_LABELS[normalized]}）`);
+  }
+}
+
+function cycleTheme() {
+  const current = getThemePreference();
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(current) + 1) % THEME_ORDER.length];
+  applyThemePreference(next, { persist: true });
+}
+
+function setMobileNavOpen(open) {
+  const nav = $("header-nav");
+  const toggle = $("nav-menu-toggle");
+  if (!nav || !toggle) return;
+  nav.classList.toggle("open", Boolean(open));
+  toggle.setAttribute("aria-expanded", String(Boolean(open)));
+}
 
 // ------------------------------------------------------------------ 路由
 
@@ -84,6 +139,7 @@ const imageSubmissionUi = createImageSubmissionUi({ $, el, state, getToken, toas
   onOpen: closeLightbox, refresh: async () => { if (state.view === "images") await renderImages(parseRoute().params); else renderImageReviewFeedback(); } });
 
 function navigate(view, params = {}) {
+  setMobileNavOpen(false);
   // 路径直接写在 hash 里更好读（`file=bundles/system_ui/x.json`），URLSearchParams 会把 `/`
   // 转义成 %2F，这里只把 `/` 还原回去；其余字符保持转义。
   const query = new URLSearchParams(params).toString().replace(/%2F/gi, "/");
@@ -97,6 +153,7 @@ function parseRoute() {
 }
 
 async function applyRoute() {
+  setMobileNavOpen(false);
   const { view, params } = parseRoute();
   const known = ["overview", "catalogue", "read", "images", "settings", "idols", "idol", "topics", "topic", "personal", "compare", "search"];
   const nextView = known.includes(view) ? view : "overview";
@@ -106,6 +163,9 @@ async function applyRoute() {
   $(`view-${state.view}`).hidden = false;
   for (const button of document.querySelectorAll(".nav-btn")) {
     button.classList.toggle("active", button.dataset.nav === state.view);
+  }
+  if (document.activeElement?.classList?.contains("nav-btn") && document.activeElement.dataset.nav !== state.view) {
+    document.activeElement.blur();
   }
 
   if (state.view === "overview") await renderOverview();
@@ -170,12 +230,12 @@ async function renderOverview() {
   );
 
   const tabs = clear($("domain-tabs"));
-  const domains = [{ id: "all", name: "全部", icon: "✨" }].concat(portal.domains || []);
+  const domains = [{ id: "all", name: "全部", icon: "" }].concat(portal.domains || []);
   for (const domain of domains) {
     tabs.append(el("button", {
       class: `domain-tab${state.domain === domain.id ? " active" : ""}`,
       type: "button",
-      text: `${domain.icon || ""} ${domain.name}`,
+      text: `${domain.icon ? `${domain.icon} ` : ""}${domain.name}`,
       onclick: () => { state.domain = domain.id; renderOverview(); },
     }));
   }
@@ -189,7 +249,7 @@ async function renderOverview() {
   emptyHint.hidden = visible.length > 0;
   emptyHint.textContent = state.domain === "all"
     ? "这次生成的数据里没有任何分类内容。"
-    : `${state.domain} 这个 domain 在这次生成的数据里没有内容，换个 domain 看看。`;
+    : `${state.domain} 这个领域在这次生成的数据里没有内容，换个分类看看。`;
   for (const category of visible) {
     const percent = progressPercent(category);
     grid.append(el("button", {
@@ -198,7 +258,7 @@ async function renderOverview() {
       onclick: () => navigate("catalogue", { category: category.id }),
     }, [
       el("div", { class: "cat-head" }, [
-        el("span", { class: "cat-icon", text: category.icon || "📄" }),
+        el("span", { class: "cat-icon", text: category.icon || "" }),
         el("span", { class: "cat-name", text: category.name }),
       ]),
       el("div", { class: "hint", text: CATEGORY_RULES[category.id]?.description || "" }),
@@ -269,7 +329,7 @@ function renderSongCard(song, idol = "", compact = false, filters = {}) {
   const percent = progressPercent(song);
   const card = el("article", { class: `song-card${compact ? " song-list-card" : ""}` },
     el("button", { class: "song-open", type: "button", onclick: () => navigate("read", { file: primary.file }) }, [
-      el("div", { class: "song-name", text: bundleLabel(primary) }),
+      el("div", { class: "song-name", lang: "ja", text: bundleLabel(primary) }),
       el("div", { class: "song-sub", text: [primary.song?.type, CAST_TYPES[castType(primary)], `${versions.length} 个歌词版本`].filter(Boolean).join(" · ") }),
       el("div", { class: "song-sub song-cast", text: `默认演唱：${singerSummary(primary)}` }),
       idol ? el("span", { class: "pill", text: `${primary.song?.default_singers?.find((singer) => singer.code === idol)?.name_zh || "所选偶像"}参与演唱` }) : null,
@@ -314,7 +374,6 @@ function labelStatusOptions(bundles) {
   for (const option of $("filter-status").options) {
     if (labels[option.value] !== undefined) option.textContent = labels[option.value].replaceAll("个资源", unit);
   }
-  // 来源下拉也带数量——真实数据里 client 只有 1 个资源，一眼就该看出来
   const client = count((bundle) => (bundle.channel || "assets") === "client");
   for (const option of $("filter-channel").options) {
     if (option.value === "") option.textContent = `全部来源（${formatNumber(bundles.length)} 个资源）`;
@@ -350,7 +409,6 @@ async function renderCatalogue(params = {}) {
   $("filter-idol-label").textContent = lyrics ? "默认歌唱偶像" : "偶像";
   const meta = CATEGORY_RULES[category];
   $("catalogue-title").textContent = `${meta.icon} ${meta.name}`;
-  // 分类卡片说"几个资源"；这里再补一句数据文件数（分页后文件数会大于资源数）。
   const categoryMeta = (state.portal.categories || []).find((item) => item.id === category);
   const files = Number(categoryMeta?.files || 0);
   $("catalogue-meta").textContent = [
@@ -407,11 +465,10 @@ async function renderCatalogue(params = {}) {
       el("div", { class: "bundle-main" }, [
         el("div", { class: "bundle-name", text: bundleLabel(bundle) }),
         el("div", { class: "bundle-sub" }, [
-          bundle.idol ? el("span", { class: "pill idol", style: `background:${bundle.idol.color}`, text: bundle.idol.name_ja }) : null,
+          bundle.idol ? el("span", { class: "pill idol", style: `background:${bundle.idol.color};color:${contrastInk(bundle.idol.color)}`, text: bundle.idol.name_ja }) : null,
           el("span", { text: bundle.bundle }),
           bundle.slot_based ? el("span", { text: "按槽位" }) : null,
           bundle.channel === "client" ? el("span", { text: "客户端" }) : null,
-          // 一个大 bundle 被切成多个页面文件时，这里说清楚有几页（阅读页才分页加载）。
           Number(bundle.page_count) > 1 ? el("span", { class: "pill pages", text: `${bundle.page_count} 个数据页` }) : null,
         ]),
       ]),
@@ -450,8 +507,6 @@ function renderPager(host, page, totalPages, onGo) {
 
 // ------------------------------------------------------------------ 对照阅读
 
-/// 一个 bundle 的行可能被切成多个页面文件。目录索引里一个 bundle 只有一条记录：
-/// 整包计数 + `pages[]` 在索引上，行内容在页面文件里，所以阅读页要两者都拿到。
 async function findCatalogueEntry(relativeFile) {
   const category = categoryOfBundleFile(relativeFile);
   if (!category) return null;
@@ -459,7 +514,7 @@ async function findCatalogueEntry(relativeFile) {
   try {
     index = await loadCategoryIndex(category);
   } catch (_) {
-    return null; // 索引不可读就按单页处理，计数退化成这一页的，不猜。
+    return null;
   }
   const base = bundleBaseOfFile(relativeFile);
   const wanted = String(relativeFile);
@@ -469,8 +524,6 @@ async function findCatalogueEntry(relativeFile) {
     (entry.pages || []).some((page) => page?.file === wanted)) || null;
 }
 
-/// URL 里的 `file` 可能是 bundle 文件，也可能是某一页文件；`pageParam` 是显式页号。
-/// 返回要抓的那一个页面文件、页号，以及整包口径的目录条目。
 async function resolveReadTarget(relativeFile, pageParam) {
   const entry = await findCatalogueEntry(relativeFile);
   const explicit = Number.parseInt(pageParam ?? "", 10);
@@ -486,11 +539,9 @@ async function resolveReadTarget(relativeFile, pageParam) {
       bundleFile: entry.file || relativeFile,
     };
   }
-  // 索引里没有它：直接取 URL 给的文件，页信息由文件自己说（page_count 仍在文件里）。
   return { entry: null, pages: [], page: 1, info: null, file: relativeFile, bundleFile: relativeFile };
 }
 
-/// 重渲染（换筛选、翻视图内的行分页）不该重新解析页号：沿用上次的结果。
 function currentReadTarget() {
   return {
     entry: state.read.entry,
@@ -518,7 +569,6 @@ async function renderRead(params = {}) {
   if (request !== state.read.renderId || state.view !== "read") return;
 
   if (target.file !== state.read.loadedFile) {
-    // 换资源或换数据页：只抓这一个页面文件，视图内分页回到第一屏，筛选条件原样保留。
     const loaded = await loadBundle(target.file);
     if (request !== state.read.renderId || state.view !== "read") return;
     state.read.bundle = loaded;
@@ -553,7 +603,6 @@ async function renderRead(params = {}) {
     statBox("已确认", totals.translated, "accepted"),
     statBox("待确认", totals.pending, "pending"),
     statBox("未翻译", totals.untranslated, "untranslated"),
-    // 原文非日文的行（英文歌词）单独一格，省得看的人以为漏译了
     totals.not_needed > 0 ? statBox("无需翻译", totals.not_needed, "not_needed") : null,
   );
   renderReadPageBar();
@@ -586,6 +635,7 @@ async function renderRead(params = {}) {
 
   const page = paginate(rows, state.read.page, PAGE_SIZE_READ);
   state.read.page = page.page;
+  state.read.totalPages = page.totalPages;
 
   for (const line of page.rows) list.append(renderLine(bundle, line));
   renderPager($("read-pager"), page.page, page.totalPages, (nextPage) => {
@@ -593,7 +643,6 @@ async function renderRead(params = {}) {
     renderRead();
   });
 
-  // 视图内的行号是**整包行号**（跨页连续），所以这里报的是真实的行号区间。
   const first = page.rows[0]?.index;
   const last = page.rows[page.rows.length - 1]?.index;
   $("read-window").textContent = rows.length
@@ -602,7 +651,6 @@ async function renderRead(params = {}) {
   await libraryUi.afterRead(bundle, target.entry, params);
 }
 
-/// 数据页控件：bundle 被切成多页时才出现。59 页用 `<select>` 而不是 59 个按钮。
 async function renderReadSongOptions(bundle, entry) {
   const host = $("read-song-options");
   const select = clear($("read-song-version"));
@@ -652,12 +700,27 @@ function renderReadPageBar() {
   $("read-page-info").textContent = parts.join(" · ");
 }
 
-/// 切数据页只改 URL 的 `p`：刷新、前进后退都会落到同一页，且只重新抓那一个页面文件。
 function goToBundlePage(page) {
   const total = Math.max(1, (state.read.pages || []).length);
   const wanted = Math.min(Math.max(1, Math.trunc(Number(page) || 1)), total);
   if (wanted === state.read.bundlePage) return;
   navigate("read", { file: state.read.urlFile || state.read.file, p: wanted });
+}
+
+function stepReadPage(delta) {
+  const nextUiPage = state.read.page + delta;
+  if (nextUiPage >= 1 && nextUiPage <= (state.read.totalPages || 1)) {
+    state.read.page = nextUiPage;
+    renderRead().catch(showError);
+    return;
+  }
+  const pages = state.read.pages || [];
+  if (pages.length > 1) {
+    const nextBundlePage = state.read.bundlePage + delta;
+    if (nextBundlePage >= 1 && nextBundlePage <= pages.length) {
+      goToBundlePage(nextBundlePage);
+    }
+  }
 }
 
 function statusLabel(status) {
@@ -671,8 +734,6 @@ function canEdit(bundle) {
   return Boolean(bundle?.edit?.path && bundle?.edit?.repo);
 }
 
-/// 写入时靠哪个字段定位这一行：`locales/**` 的行用 `item_key`，歌词行用数值 `index`
-/// （生成数据在 `edit.identity_field` 里说清楚）。定位标签两种都要读得懂。
 function identityLabel(bundle, line) {
   const edit = bundle?.edit || {};
   if (edit.kind === "manifest") return `slots[${line.manifest_index}]`;
@@ -681,12 +742,37 @@ function identityLabel(bundle, line) {
   return `${field}=${value}`;
 }
 
+function buildLineShareUrl(line) {
+  const query = new URLSearchParams({
+    file: state.read.urlFile || state.read.file,
+    p: String(state.read.bundlePage || 1),
+    l: String(line.item_key),
+  }).toString().replace(/%2F/gi, "/");
+  return `${location.origin}${location.pathname}#read?${query}`;
+}
+
+async function copyLineLink(line) {
+  const url = buildLineShareUrl(line);
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      toast("已复制本句直达链接", "ok");
+      return;
+    }
+  } catch (_) { /* Fallback below when clipboard API is blocked */ }
+  location.hash = url.split("#")[1];
+  toast("已定位并更新地址栏链接", "ok");
+}
+
 function renderLine(bundle, line) {
   const editing = Boolean(state.editing && state.editing.itemKey === line.item_key);
-  // 原文非日文又没有译文：说清"不用译"，而不是显示成漏译。
   const placeholder = line.status === "not_needed" ? "无需翻译（原文非日文）" : "未翻译";
+  const speakerName = line.idol?.name_zh || line.idol?.name_ja || "";
   const body = el("div", { class: "line-body" }, [
-    el("div", { class: "line-source" }, renderRichText(line.source, { highlight: state.read.filters.highlight })),
+    speakerName ? el("div", { class: "line-meta-row" }, [
+      el("span", { class: "pill speaker-pill", text: speakerName }),
+    ]) : null,
+    el("div", { class: "line-source", lang: "ja" }, renderRichText(line.source, { highlight: state.read.filters.highlight })),
     el("div", {
       class: `line-translation${line.translation ? "" : " missing"}`,
     }, line.translation ? renderRichText(line.translation) : placeholder),
@@ -705,19 +791,27 @@ function renderLine(bundle, line) {
     body,
     el("div", { class: "line-actions" }, [
       el("span", { class: `badge ${line.status}`, text: statusLabel(line.status) }),
-      el("button", {
-        class: "btn btn-ghost",
-        type: "button",
-        text: editing ? "取消" : "修改",
-        disabled: !canEdit(bundle),
-        title: canEdit(bundle) ? "用本机 Token 提交一行修改" : "该资源在上游没有可写位置",
-        onclick: () => toggleEdit(line, editing),
-      }),
+      el("div", { class: "line-action-buttons" }, [
+        el("button", {
+          class: "btn btn-ghost btn-sm",
+          type: "button",
+          title: "复制直达本句的链接",
+          "aria-label": `复制第 ${line.index} 句链接`,
+          onclick: () => copyLineLink(line),
+        }, [svgIcon("link", { size: 13 }), el("span", { text: "链接" })]),
+        el("button", {
+          class: "btn btn-ghost btn-sm",
+          type: "button",
+          text: editing ? "取消" : "修改",
+          disabled: !canEdit(bundle),
+          title: canEdit(bundle) ? "用本机 Token 提交一行修改" : "该资源在上游没有可写位置",
+          onclick: () => toggleEdit(line, editing),
+        }),
+      ]),
     ]),
   ]);
 }
 
-/// 只改本地渲染状态，不动数据。
 function toggleEdit(line, editing) {
   if (editing) {
     state.editing = null;
@@ -764,15 +858,14 @@ function renderEditor(bundle, line) {
   const aiButton = el("button", {
     class: "btn",
     type: "button",
-    text: "✨ AI 草稿",
-    onclick: async (event) => {
+    onclick: async () => {
       const config = getAiConfig();
       if (!config.endpoint || !config.apiKey) {
         toast("先在「设置」里配置 AI endpoint 与 key", "err");
         return;
       }
-      event.target.disabled = true;
-      event.target.textContent = "生成中…";
+      aiButton.disabled = true;
+      clear(aiButton).append(el("span", { text: "生成中…" }));
       try {
         const result = await draftTranslation({
           item: { source: line.source, bundle: bundle.bundle, category: bundle.category },
@@ -784,11 +877,11 @@ function renderEditor(bundle, line) {
       } catch (error) {
         toast(`AI 草稿失败：${error.message}`, "err");
       } finally {
-        event.target.disabled = false;
-        event.target.textContent = "✨ AI 草稿";
+        aiButton.disabled = false;
+        clear(aiButton).append(svgIcon("sparkles", { size: 14 }), el("span", { text: "AI 草稿" }));
       }
     },
-  });
+  }, [svgIcon("sparkles", { size: 14 }), el("span", { text: "AI 草稿" })]);
 
   const wrapper = el("div", { class: "line-editor" }, [
     textarea,
@@ -798,7 +891,7 @@ function renderEditor(bundle, line) {
       statusSelect,
       el("button", { class: "btn btn-primary", type: "button", text: "提交修改", onclick: () => confirmSave(bundle, line) }),
       el("button", { class: "btn btn-ghost", type: "button", text: "取消", onclick: () => { state.editing = null; renderRead(); } }),
-      el("span", { class: "hint", text: `源文 ${line.source.length} 字 · ${identityLabel(bundle, line)}` }),
+      el("span", { class: "hint tabular", text: `源文 ${line.source.length} 字 · ${identityLabel(bundle, line)}` }),
     ]),
   ]);
   queueMicrotask(() => updateEditorValidation(line, textarea.value));
@@ -822,8 +915,6 @@ function updateEditorValidation(line, value) {
   if (result.warnings.length) host.append(el("span", { class: "warn", text: ` · 提醒：${result.warnings.join("；")}` }));
 }
 
-/// 这一行到底该写进哪个上游文件。绝大多数行住在本 bundle 的权威文件里，但增量文件
-/// （`official-<version>-*.jsonl`）覆盖过的行住在自己的文件里，必须按行上带的 edit_path 走。
 function editTargetFor(bundle, line) {
   const edit = bundle.edit;
   const path = line.edit_path || edit.path;
@@ -866,7 +957,6 @@ function confirmSave(bundle, line) {
       line.status = state.editing.status;
       state.editing = null;
       clearCache();
-      // 计数不用在这里重算：renderRead 会拿"整包计数 + 本页增量"重新算一遍。
       await renderRead();
     } catch (error) {
       toast(`提交失败：${error instanceof WriteError ? writeErrorText(error) : error.message}`, "err");
@@ -885,8 +975,6 @@ function writeErrorText(error) {
     case "conflict": return "文件刚被改过（409），请刷新数据后重试";
     case "unauthorized": return "Token 无效";
     case "forbidden": return "Token 权限不足（需要 Contents: Read and write）";
-    // GitHub 的文件接口对超过 1MB 的文件不给内容。自托管那边由服务器代劳，不会走到这里；
-    // 走到这里说明没连上中继，而这一行住在一个大文件里。
     case "unsupported_encoding": return "这个文件太大，浏览器直连改不了（没连上服务器中继）——稍后重试，或换一个较小的文件";
     default: return error.message;
   }
@@ -957,20 +1045,33 @@ async function renderImages(params = {}) {
   $("image-sort").value = filters.sort;
 
   const tabs = clear($("image-category-tabs"));
-  const categories = [{ id: "all", name: "全部", icon: "🖼️", count: data.categories?.all ?? data.total }].concat(
+  const categories = [{ id: "all", name: "全部", icon: "", count: data.categories?.all ?? data.total }].concat(
     IMAGE_CATEGORY_ORDER.map((id) => ({ id, name: IMAGE_CATEGORY_RULES[id].name, icon: IMAGE_CATEGORY_RULES[id].icon, count: data.categories?.[id] || 0 })),
   );
   for (const category of categories) {
     tabs.append(el("button", {
       class: `domain-tab${state.images.category === category.id ? " active" : ""}`,
       type: "button",
-      text: `${category.icon} ${category.name}（${category.count}）`,
+      text: `${category.name}（${category.count}）`,
       "aria-pressed": state.images.category === category.id ? "true" : "false",
       onclick: () => navigateImages({ category: category.id }),
     }));
   }
 
   const rows = filterImageTasks(tasks, filters);
+  state.images.filteredRows = rows;
+
+  imageObserver?.disconnect();
+  imageObserver = typeof IntersectionObserver === "function"
+    ? new IntersectionObserver((entries, observer) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const canvas = entry.target;
+        observer.unobserve(canvas);
+        canvas._loadThumb?.();
+      }
+    }, { rootMargin: "320px 0px" })
+    : null;
 
   const grid = clear($("image-grid"));
   $("image-empty").hidden = rows.length > 0;
@@ -1004,16 +1105,28 @@ function renderImagePreview(task, side) {
   const label = side === "original" ? "日文原图" : !task.localized_url && task.submission ? "汉化投稿（待审核）" : "汉化图片";
   if (imageDisplayReady(task, side)) {
     const canvas = el("canvas", { role: "img", "aria-label": `${task.task_id} ${label}完整图`, hidden: true });
-    const loading = el("span", { class: "thumb-missing", text: "正在拼接完整图…" });
+    const loading = el("span", { class: "thumb-missing", text: "准备加载预览…" });
     thumb.append(canvas, loading);
-    loadDisplayImage(canvas, task, side).then(() => {
-      if (!thumb.isConnected) return;
-      canvas.hidden = false;
-      loading.remove();
-    }).catch(() => {
-      canvas.remove();
-      loading.textContent = `${label}完整图加载失败`;
-    });
+    let started = false;
+    const startLoad = () => {
+      if (started) return;
+      started = true;
+      loading.textContent = "正在拼接完整图…";
+      loadDisplayImage(canvas, task, side).then(() => {
+        if (!thumb.isConnected) return;
+        canvas.hidden = false;
+        loading.remove();
+      }).catch(() => {
+        canvas.remove();
+        loading.textContent = `${label}完整图加载失败`;
+      });
+    };
+    if (imageObserver) {
+      thumb._loadThumb = startLoad;
+      imageObserver.observe(thumb);
+    } else {
+      startLoad();
+    }
   } else {
     thumb.append(el("span", { class: "thumb-missing", text: imageMissingText(task, side) }));
   }
@@ -1039,7 +1152,7 @@ function renderImageCard(task) {
           class: `badge ${status.badge}`,
           text: status.name,
         }),
-        el("span", { text: imageRowLabel(task) }),
+        el("span", { class: "tabular", text: imageRowLabel(task) }),
         el("span", { text: task.category_name || task.category }),
         task.submission ? el("span", { class: "badge pending", text: "汉化投稿待审核" }) : null,
       ]),
@@ -1112,17 +1225,50 @@ async function saveImageReview(task, decision, expected = task.review_decision |
   }
 }
 
-function openLightbox(task) {
-  closeLightbox();
-  state.lightbox = { task, downloads: [] };
+function setLightboxMode(mode) {
+  if (!state.lightbox) return;
+  state.lightbox.mode = mode;
+  $("lightbox-figure-original").hidden = mode === "localized";
+  $("lightbox-figure-localized").hidden = mode === "original";
+  $("lightbox-mode-compare").classList.toggle("active", mode === "compare");
+  $("lightbox-mode-original").classList.toggle("active", mode === "original");
+  $("lightbox-mode-localized").classList.toggle("active", mode === "localized");
+}
+
+function lightboxTaskIndex() {
+  const task = state.lightbox?.task;
+  const rows = state.images.filteredRows || [];
+  if (!task || !rows.length) return -1;
+  return rows.findIndex((row) => row.task_id === task.task_id);
+}
+
+function stepLightbox(delta) {
+  const rows = state.images.filteredRows || [];
+  const index = lightboxTaskIndex();
+  if (index < 0) return;
+  const next = rows[index + delta];
+  if (next) openLightbox(next, { preserveTrigger: true, mode: state.lightbox?.mode || "compare" });
+}
+
+function openLightbox(task, { preserveTrigger = false, mode = "compare" } = {}) {
+  if (!preserveTrigger) lastLightboxTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  for (const url of state.lightbox?.downloads || []) URL.revokeObjectURL(url);
+  state.lightbox = { task, downloads: [], mode };
   $("lightbox").hidden = false;
+  setLightboxMode(mode);
   renderLightbox();
+  $("lightbox-mode-compare").focus();
 }
 
 function closeLightbox() {
   for (const url of state.lightbox?.downloads || []) URL.revokeObjectURL(url);
+  const hadLightbox = Boolean(state.lightbox);
   state.lightbox = null;
   hideModal("lightbox");
+  if (hadLightbox && lastLightboxTrigger && lastLightboxTrigger.isConnected) {
+    lastLightboxTrigger.focus();
+  }
+  if (hadLightbox) lastLightboxTrigger = null;
 }
 
 function renderLightbox() {
@@ -1137,9 +1283,14 @@ function renderLightbox() {
   lightboxImage("lightbox-original", "lightbox-original-missing", task, "original", "lightbox-download-original");
   lightboxImage("lightbox-image", "lightbox-image-missing", task, "localized", "lightbox-download");
 
+  const index = lightboxTaskIndex();
+  const rows = state.images.filteredRows || [];
+  $("lightbox-prev").disabled = index <= 0;
+  $("lightbox-next").disabled = index < 0 || index >= rows.length - 1;
+
   const meta = clear($("lightbox-meta"));
   meta.append(
-    el("span", { text: task.width && task.height ? `${formatNumber(task.width)}×${formatNumber(task.height)}` : "尺寸待确认" }),
+    el("span", { class: "tabular", text: task.width && task.height ? `${formatNumber(task.width)}×${formatNumber(task.height)}` : "尺寸待确认" }),
     el("span", { text: `资源：${task.bundle}` }),
     el("span", { text: `分类：${task.category_name || task.category}` }),
     el("span", { "data-image-status": true, text: `状态：${IMAGE_STATUSES[imageStatus(task)].name}` }),
@@ -1151,10 +1302,8 @@ function renderLightbox() {
     meta.append(el("span", { class: "hint", text: `原图 sha256：${reference.sha || "（未提供）"}` }));
     if (reference.path) meta.append(el("span", { class: "hint", text: `原图路径：${reference.path}` }));
   }
-
 }
 
-/// 灯箱和下载都使用拼接结果；异步加载旧任务不得覆盖新打开的图片。
 async function lightboxImage(canvasId, missingId, task, side, downloadId) {
   const canvas = $(canvasId);
   const missing = $(missingId);
@@ -1194,15 +1343,10 @@ async function lightboxImage(canvasId, missingId, task, side, downloadId) {
 
 // ------------------------------------------------------------------ 设置
 
-/// 两个 Token 入口都指向 GitHub 自己的页面，本站不做任何中转：细粒度新建页按仓库+权限自己勾，
-/// 经典 token 链接预勾 public_repo（公开仓库够用）。具体怎么勾看卡片里的分步说明。
-/// 真 OAuth 在纯静态站点上做不到 —— `github.com/login/oauth/*` 与 `/login/device/code`
-/// 都不返回 `Access-Control-Allow-Origin`，浏览器连设备码都拿不到，换码还需要 client_secret。
 function renderTokenEntry(assetsRepo) {
   const description = encodeURIComponent("MLTD 翻译查阅站（单行提交）");
   $("pat-create-fine").href = "https://github.com/settings/personal-access-tokens/new";
   $("pat-create-classic").href = `https://github.com/settings/tokens/new?scopes=public_repo&description=${description}`;
-  // 分步说明里要勾的仓库名从数据里取，不写死
   $("pat-guide-repo").textContent = assetsRepo || "kohakunamori/MLTDTranslationAssets";
 }
 
@@ -1242,6 +1386,38 @@ function updatePatStatus(text, kind) {
   node.className = `settings-status ${kind}`.trim();
 }
 
+// ------------------------------------------------------------------ 键盘焦点与快捷方式
+
+function viewSearchInput() {
+  switch (state.view) {
+    case "overview": return $("song-search");
+    case "catalogue": return $("filter-keyword");
+    case "read": return $("read-search");
+    case "idols": return $("idols-query");
+    case "topics": return $("topics-query");
+    case "search": return $("search-query");
+    case "images": return $("image-search");
+    default: return null;
+  }
+}
+
+function trapLightboxFocus(event) {
+  const panel = $("lightbox")?.querySelector(".modal-panel");
+  if (!panel) return;
+  const focusables = [...panel.querySelectorAll('a[href]:not([hidden]), button:not(:disabled):not([hidden]), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+    .filter((node) => node.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 // ------------------------------------------------------------------ 事件绑定
 
 function debounce(fn, wait) {
@@ -1255,13 +1431,26 @@ function debounce(fn, wait) {
 function bindEvents() {
   imageSubmissionUi.bind();
   libraryUi.bindEvents();
+  $("theme-toggle").addEventListener("click", cycleTheme);
+  $("nav-menu-toggle").addEventListener("click", () => {
+    const expanded = $("nav-menu-toggle").getAttribute("aria-expanded") === "true";
+    setMobileNavOpen(!expanded);
+  });
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener("change", () => {
+    if (getThemePreference() === "system") applyThemePreference("system");
+  });
+
+  $("lightbox-mode-compare").addEventListener("click", () => setLightboxMode("compare"));
+  $("lightbox-mode-original").addEventListener("click", () => setLightboxMode("original"));
+  $("lightbox-mode-localized").addEventListener("click", () => setLightboxMode("localized"));
+  $("lightbox-prev").addEventListener("click", () => stepLightbox(-1));
+  $("lightbox-next").addEventListener("click", () => stepLightbox(1));
+
   $("logo-home").addEventListener("click", (event) => { event.preventDefault(); navigate("overview"); });
-  // 密码输入框放在 <form> 里 Chrome 才不报 "Password field is not contained in a form"；
-  // 这两行表单不提交到任何地方，只是把输入框圈起来。
   for (const id of ["pat-form", "ai-form"]) {
     $(id).addEventListener("submit", (event) => event.preventDefault());
   }
-  for (const button of document.querySelectorAll(".nav-btn")) {
+  for (const button of document.querySelectorAll("[data-nav]")) {
     button.addEventListener("click", () => navigate(button.dataset.nav));
   }
   for (const node of document.querySelectorAll("[data-close]")) {
@@ -1379,11 +1568,9 @@ function bindEvents() {
           "ok",
         );
       } else {
-        // 说清楚到底缺哪一步，而不是只说"未确认写权限"。
         const why = status.repo?.visible === false
           ? `这个 Token 看不到 ${repo}（经典 Token 需要 public_repo，细粒度 Token 需要在 Repository access 里选中它）`
           : `这个 Token 对 ${repo} 只有 ${status.repo?.permission === "read" ? "读" : "受限"}权限，需要在 Permissions 里把 Contents 设为 Read and write`;
-        // 细粒度 Token 可以直接 Edit 改权限（token 值不变）；经典 Token 的 scope 只能重建。
         updatePatStatus(`✗ 已登录 @${status.login}，但还不能写入：${why}。细粒度 Token 改完保存即可（值不变），经典 Token 需要重新生成。`, "err");
       }
       renderHeader();
@@ -1419,13 +1606,78 @@ function bindEvents() {
     }
   });
 
+  let slashGuard = null;
+
+  document.addEventListener("pointerdown", () => { slashGuard = null; }, true);
+
+  document.addEventListener("beforeinput", (event) => {
+    if (!slashGuard) return;
+    if (performance.now() <= slashGuard.expiresAt && event.target === slashGuard.target && event.data === "/") {
+      event.preventDefault();
+      slashGuard = null;
+    }
+  }, true);
+
+  document.addEventListener("input", (event) => {
+    if (!slashGuard) return;
+    const guard = slashGuard;
+    slashGuard = null;
+    if (performance.now() <= guard.expiresAt && event.target === guard.target && (event.data === "/" || guard.target.value === `${guard.prevValue}/`)) {
+      guard.target.value = guard.prevValue;
+      event.stopImmediatePropagation?.();
+    }
+  }, true);
+
+  document.addEventListener("keyup", (event) => {
+    if (slashGuard && (event.key === "/" || event.code === "Slash")) slashGuard = null;
+  }, true);
+
   document.addEventListener("keydown", (event) => {
+    const lightboxOpen = !$("lightbox").hidden;
+    const modalOpen = lightboxOpen || !$("image-submit-modal").hidden || !$("confirm-modal").hidden;
+
     if (event.key === "Escape") {
+      slashGuard = null;
       if (!$("image-submit-modal").hidden) { imageSubmissionUi.close(); return; }
-      hideModal("confirm");
-      closeLightbox();
+      if (!$("confirm-modal").hidden) { hideModal("confirm"); return; }
+      if (lightboxOpen) { closeLightbox(); return; }
+      setMobileNavOpen(false);
+      return;
+    }
+
+    if (lightboxOpen) {
+      if (event.key === "Tab") { trapLightboxFocus(event); return; }
+      if (event.key === "ArrowLeft") { event.preventDefault(); stepLightbox(-1); return; }
+      if (event.key === "ArrowRight") { event.preventDefault(); stepLightbox(1); return; }
+      return;
+    }
+
+    if (modalOpen || event.ctrlKey || event.metaKey || event.altKey) return;
+    const active = document.activeElement;
+    if (active && (active.matches("input, textarea, select") || active.isContentEditable)) {
+      slashGuard = null;
+      return;
+    }
+
+    if (event.key === "/") {
+      const target = viewSearchInput();
+      if (target) {
+        event.preventDefault();
+        event.stopPropagation();
+        slashGuard = { target, prevValue: target.value, expiresAt: performance.now() + 250 };
+        target.focus();
+        target.scrollIntoView?.({ block: "center" });
+      }
+      return;
+    }
+
+    slashGuard = null;
+    if (state.view === "read") {
+      if (event.key === "[") { event.preventDefault(); stepReadPage(-1); }
+      else if (event.key === "]") { event.preventDefault(); stepReadPage(1); }
     }
   });
+
   window.addEventListener("hashchange", () => { applyRoute().catch(showError); });
 }
 
@@ -1452,6 +1704,7 @@ async function reloadData() {
   clearCache();
   imageSubmissionUi.close();
   state.images.data = null;
+  state.images.filteredRows = [];
   state.images.reviewUndo = null;
   state.images.reviewMessage = "";
   state.read.bundle = null;
@@ -1467,6 +1720,7 @@ async function reloadData() {
 }
 
 async function init() {
+  applyThemePreference(getThemePreference());
   bindEvents();
   try {
     state.portal = await loadPortal();
@@ -1492,12 +1746,11 @@ if (typeof window !== "undefined") {
     renderRichText,
     filterBundles,
     percentOf,
-  progressPercent,
+    progressPercent,
     bundleLabel,
     checkTranslationFormat,
     canEdit,
     navigate,
-    // 分页与图片相关的纯函数，离线测试不用起浏览器也能验。
     resolveReadTarget,
     resolveBundlePage,
     categoryOfBundleFile,

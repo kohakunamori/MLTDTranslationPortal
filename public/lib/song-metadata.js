@@ -3,7 +3,7 @@ import { IDOLS, SPEAKERS, SONG_MASTER, SONG_MASTER_EXTRA, SONG_VARIANT_OVERRIDES
 const masters = { ...SONG_MASTER_EXTRA, ...SONG_MASTER };
 const idols = new Map(IDOLS.map((idol) => [idol.id, idol]));
 for (const [code, speaker] of Object.entries(SPEAKERS)) {
-  if (/^20\d/.test(code)) idols.set(Number(code.slice(0, 3)), { id: Number(code.slice(0, 3)), code, ...speaker, type: "Guest", color: "#7c3aed" });
+  if (/^20\d/.test(code)) idols.set(Number(code.slice(0, 3)), { id: Number(code.slice(0, 3)), code, ...speaker, type: "Guest", color: "#0f766e" });
 }
 
 // Captured facts refresh Japanese titles, IDs and attributes; curated Chinese titles stay local.

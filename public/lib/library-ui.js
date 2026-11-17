@@ -4,6 +4,7 @@ import { groupSongs, primaryVersion, singerSummary, songKey, versionLabel } from
 import { alignLyrics, chapterContext, readableLabel } from "./library.js";
 import { browserPersonalStore, itemId } from "./personal.js";
 import { normalizeSearch, searchCorpus } from "./search-core.js";
+import { contrastInk, svgIcon } from "./ui.js";
 
 const TOPIC_KINDS = { event: "活动", main: "主线", anniversary: "周年", special: "特别企划", birthday: "生日" };
 
@@ -14,14 +15,24 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
   const button = (text, onclick, extra = {}) => el("button", { type: "button", class: "btn", text, onclick, ...extra });
   const bookmark = (entry) => ({ id: entry.id || itemId(entry), file: entry.file, label: entry.label || bundleLabel(entry), category: entry.category });
   const profileLink = (idol) => button(idol.name_zh || idol.name_ja, () => navigate("idol", { id: idol.code }), { class: "idol-link" });
+  function setFavoriteVisual(target, active) {
+    clear(target);
+    target.append(svgIcon("star", { filled: active, size: 14 }), el("span", { text: active ? "已收藏" : "收藏" }));
+    target.classList.toggle("is-favorited", active);
+    target.setAttribute("aria-pressed", String(active));
+  }
   function favoriteButton(entry) {
     const item = bookmark(entry);
-    const target = button(personal.isFavorite(item.id) ? "★ 已收藏" : "☆ 收藏", () => {
-      const persisted = personal.toggleFavorite(item);
-      target.textContent = personal.isFavorite(item.id) ? "★ 已收藏" : "☆ 收藏";
-      target.setAttribute("aria-pressed", String(personal.isFavorite(item.id)));
-      if (!persisted) toast("此浏览器暂时无法保存记录，收藏仅在本次打开期间保留。", "err");
-    }, { class: "btn btn-ghost favorite-button", "aria-pressed": String(personal.isFavorite(item.id)) });
+    const target = el("button", {
+      type: "button",
+      class: "btn btn-ghost favorite-button",
+      onclick: () => {
+        const persisted = personal.toggleFavorite(item);
+        setFavoriteVisual(target, personal.isFavorite(item.id));
+        if (!persisted) toast("此浏览器暂时无法保存记录，收藏仅在本次打开期间保留。", "err");
+      },
+    });
+    setFavoriteVisual(target, personal.isFavorite(item.id));
     return target;
   }
   function openSaved(item) {
@@ -35,7 +46,7 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
       el("p", { class: "hint", text: CATEGORY_RULES[entry.reading_category || entry.category]?.name || "阅读内容" }),
       entry.topic ? el("p", { class: "hint", text: `${entry.topic.label} · ${entry.topic.chapter_label}` }) : null,
       entry.summary ? el("p", { class: "library-excerpt", text: entry.summary }) : null,
-      !saved ? el("p", { class: "hint", text: `${progressPercent(entry)}% · ${entry.total || 0} 句` }) : null,
+      !saved ? el("p", { class: "hint tabular", text: `${progressPercent(entry)}% · ${entry.total || 0} 句` }) : null,
     ]);
     const actions = el("div", { class: "library-actions" }, favoriteButton(entry));
     if (saved && personal.position(entry.id)) actions.append(button("继续阅读", () => openSaved(entry)));
@@ -64,9 +75,9 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
     $("idols-count").textContent = `${entries.length} 位偶像`;
     const host = clear($("idols-list"));
     for (const idol of entries) host.append(el("button", { type: "button", class: "idol-card", onclick: () => navigate("idol", { id: idol.code }) }, [
-      el("span", { class: "idol-avatar", style: `background:${idol.color}`, text: (idol.name_zh || idol.name_ja).slice(0, 1) }),
+      el("span", { class: "idol-avatar", style: `background:${idol.color};color:${contrastInk(idol.color)}`, text: (idol.name_zh || idol.name_ja).slice(0, 1) }),
       el("strong", { text: idol.name_zh || idol.name_ja }),
-      el("span", { class: "hint", text: `${idol.counts.songs} 首歌曲 · ${idol.counts.stories} 篇剧情 · ${idol.counts.birthday} 篇生日内容` }),
+      el("span", { class: "hint tabular", text: `${idol.counts.songs} 首歌曲 · ${idol.counts.stories} 篇剧情 · ${idol.counts.birthday} 篇生日内容` }),
     ]));
     if (!entries.length) host.append(el("p", { class: "empty", text: "没有匹配的偶像。" }));
   }
@@ -98,7 +109,7 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
     const host = clear($("topics-list"));
     pagedList(host, entries, (topic) => el("article", { class: "library-card" }, [
       button(topic.label, () => navigate("topic", { id: topic.id }), { class: "library-open" }),
-      el("p", { class: "hint", text: `${TOPIC_KINDS[topic.kind] || "专题"} · ${topic.count} 篇${topic.continuous ? " · 支持连续阅读" : ""}` }),
+      el("p", { class: "hint tabular", text: `${TOPIC_KINDS[topic.kind] || "专题"} · ${topic.count} 篇${topic.continuous ? " · 支持连续阅读" : ""}` }),
       el("p", { class: "library-excerpt", text: topic.excerpt }),
     ]));
   }
@@ -168,7 +179,7 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
       host.append(el("article", { class: `compare-row diff-${row.kind}` }, [
         el("span", { class: "diff-label", text: label }),
         ...[row.left, row.right].map((line) => el("div", { class: "compare-cell" }, line ? [
-          el("p", { text: line.source }), el("p", { class: "line-translation", text: line.translation || "暂无译文" }),
+          el("p", { lang: "ja", text: line.source }), el("p", { class: "line-translation", text: line.translation || "暂无译文" }),
         ] : el("p", { class: "hint", text: "此版本没有对应段落" }))),
       ]));
     }
@@ -182,15 +193,32 @@ export function createLibraryUi({ $, el, clear, navigate, renderPager, toast, re
     for (const result of searchResults.slice((searchPage - 1) * 20, searchPage * 20)) host.append(el("article", { class: "search-result card" }, [
       button(`${result.label} · 第 ${result.index} 行`, () => navigate("read", { file: result.file, p: result.p, l: result.line }), { class: "library-open" }),
       el("p", { class: "hint", text: CATEGORY_RULES[result.category]?.name || "阅读内容" }),
-      highlighted(result.source), highlighted(result.translation || "暂无译文"),
+      highlighted(result.source, "ja"), highlighted(result.translation || "暂无译文"),
     ]));
     renderPager($("search-pager"), searchPage, Math.max(1, Math.ceil(searchResults.length / 20)), (next) => { searchPage = next; drawSearch(); $("search-status").scrollIntoView(); });
   }
-  function highlighted(value) {
-    const node = el("p", { class: "search-snippet" });
-    const offset = value.toLowerCase().indexOf(searchQuery.toLowerCase());
-    if (offset < 0) node.textContent = value;
-    else node.append(document.createTextNode(value.slice(0, offset)), el("mark", { text: value.slice(offset, offset + searchQuery.length) }), document.createTextNode(value.slice(offset + searchQuery.length)));
+  function highlighted(value, lang = "") {
+    const node = el("p", { class: "search-snippet", ...(lang ? { lang } : {}) });
+    const raw = String(value ?? "");
+    if (!searchQuery) {
+      node.textContent = raw;
+      return node;
+    }
+    const lowerRaw = raw.toLowerCase();
+    const lowerNeedle = searchQuery.toLowerCase();
+    let cursor = 0;
+    let offset = lowerRaw.indexOf(lowerNeedle, cursor);
+    if (offset < 0) {
+      node.textContent = raw;
+      return node;
+    }
+    while (offset >= 0) {
+      if (offset > cursor) node.append(document.createTextNode(raw.slice(cursor, offset)));
+      node.append(el("mark", { text: raw.slice(offset, offset + searchQuery.length) }));
+      cursor = offset + searchQuery.length;
+      offset = lowerRaw.indexOf(lowerNeedle, cursor);
+    }
+    if (cursor < raw.length) node.append(document.createTextNode(raw.slice(cursor)));
     return node;
   }
   async function renderSearch(params) {

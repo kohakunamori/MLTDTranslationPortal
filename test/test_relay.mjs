@@ -516,10 +516,75 @@ await test("relay: 起真服务，HTTP 层的守门与写入都对", async () =>
     assert.equal(fixture.commitCount(), before + 1);
     assert.equal(JSON.parse(fixture.remoteFile().split("\n")[1]).zh, "比昨天更高");
     assert.equal(git(fixture.bare, ["log", "-1", "--format=%an"]), "tester", "提交署名用令牌主人");
+
+    const stagedText = `${JSON.stringify({
+      asset_version: "1079000",
+      bundle: "scrobj_smile1.unity3d",
+      item_key: "3",
+      ja: "三行目",
+      zh: "机翻草稿",
+      status: "pending",
+      translation_stage: "llm_translated",
+    })}\n`;
+    const seededPatched = await patchText(stagedText, {
+      kind: "jsonl",
+      item_key: "3",
+      source_sha256: nodeHash("三行目"),
+      translation: "人工修订",
+      status: "accepted",
+    });
+    assert.equal(JSON.parse(seededPatched.text.trim()).translation_stage, "human_translated");
   } finally {
     globalThis.fetch = realFetch;
     if (server) await new Promise((resolve) => server.close(resolve));
     fixture.cleanup();
+  }
+});
+
+await test("relay: 同一仓库并发写入串行化，不同仓库队列相互独立", async () => {
+  const fixtureA = makeFixture();
+  const fixtureB = makeFixture();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("https://api.github.com/")) {
+      return new Response(JSON.stringify({ login: "tester", id: 1 }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return realFetch(url, init);
+  };
+
+  let server = null;
+  try {
+    server = await start({
+      port: 0,
+      host: "127.0.0.1",
+      repos: new Map([
+        ["kohakunamori/RepoA", fixtureA.work],
+        ["kohakunamori/RepoB", fixtureB.work],
+      ]),
+    });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const post = (repo, overrides) => realFetch(`${base}/api/edit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer test_token" },
+      body: JSON.stringify(editBody({ repo, ...overrides })),
+    });
+
+    const responses = await Promise.all([
+      post("kohakunamori/RepoA", { item_key: "2", source_sha256: nodeHash(JA[1]), translation: "并发一" }),
+      post("kohakunamori/RepoA", { item_key: "1", source_sha256: nodeHash(JA[0]), translation: "并发二" }),
+      post("kohakunamori/RepoB", { item_key: "2", source_sha256: nodeHash(JA[1]), translation: "另一仓库" }),
+    ]);
+    for (const r of responses) assert.equal(r.status, 200, await r.clone().text());
+    assert.equal(fixtureA.commitCount(), 3);
+    assert.equal(fixtureB.commitCount(), 2);
+    assert.equal(JSON.parse(fixtureA.remoteFile().split("\n")[0]).zh, "并发二");
+    assert.equal(JSON.parse(fixtureA.remoteFile().split("\n")[1]).zh, "并发一");
+    assert.equal(JSON.parse(fixtureB.remoteFile().split("\n")[1]).zh, "另一仓库");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (server) await new Promise((resolve) => server.close(resolve));
+    fixtureA.cleanup();
+    fixtureB.cleanup();
   }
 });
 

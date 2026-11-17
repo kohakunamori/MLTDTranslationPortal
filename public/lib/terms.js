@@ -1153,6 +1153,7 @@ export const SONG_MASTER_EXTRA = {
   ittana: { bundle: "scrobj_ittana.unity3d", mst_song_id: 0, name_ja: "一旦愛して♡", name_zh: "先爱我一次♡", type: "All" },
   // TIntMe! 的曲目；中文名同样是暂定译名
   lilact: { bundle: "scrobj_lilact.unity3d", mst_song_id: 0, name_ja: "ライラックにつつまれて", name_zh: "被紫丁香环绕", type: "All" },
+  yoruak: { bundle: "scrobj_yoruak.unity3d", mst_song_id: 452, name_ja: "夜と、明かりと。", name_zh: "", type: "Angel", default_singer_ids: [46, 39] },
 };
 
 /// 扩展版本资源名 -> 主曲目代号。抓包导出的对照（public/lib/song-variants.json）

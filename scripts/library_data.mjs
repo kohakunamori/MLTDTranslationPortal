@@ -5,7 +5,7 @@ import { buildBloom } from "../public/lib/search-core.js";
 
 const people = new Map(IDOLS.map((x) => [x.code, x]));
 for (const [code, value] of Object.entries(SPEAKERS)) if (/^20\d/.test(code)) {
-  people.set(code, { ...value, code, id: Number(code.slice(0, 3)), type: "Guest", color: "#7c3aed" });
+  people.set(code, { ...value, code, id: Number(code.slice(0, 3)), type: "Guest", color: "#0f766e" });
 }
 const stem = (entry) => entry.bundle.replace(/\.unity3d$/i, "").replace(/_jp\.gtx$/i, "");
 const write = (sink, file, doc) => sink.putDocument ? sink.putDocument(file, doc) : sink.put(file, JSON.stringify(doc) + "\n");
@@ -109,17 +109,46 @@ export function emitLibrary(sink, entries) {
       count: topic.chapters.length + topic.related.length, continuous: topic.continuous,
       excerpt: topic.chapters.find((x) => x.summary)?.summary || "" });
   }
+  const compacted = new WeakMap();
+  const compactOnce = (entry) => {
+    let cached = compacted.get(entry);
+    if (!cached) compacted.set(entry, (cached = compact(entry)));
+    return cached;
+  };
   const songs = groupSongs(entries.filter((x) => x.category === "lyrics"));
+  const songsByIdol = new Map();
+  for (const song of songs) {
+    const compactSong = { ...compactOnce(song), versions: song.versions.map(compactOnce) };
+    const seen = new Set();
+    for (const member of song.song?.default_singers || []) {
+      if (seen.has(member.code)) continue;
+      seen.add(member.code);
+      let list = songsByIdol.get(member.code);
+      if (!list) songsByIdol.set(member.code, (list = []));
+      list.push(compactSong);
+    }
+  }
+  const nonLyricByIdol = new Map();
+  for (const entry of entries) {
+    if (entry.category === "lyrics") continue;
+    const seen = new Set();
+    for (const code of entry.participants || []) {
+      if (seen.has(code)) continue;
+      seen.add(code);
+      let list = nonLyricByIdol.get(code);
+      if (!list) nonLyricByIdol.set(code, (list = []));
+      list.push(entry);
+    }
+  }
   const idolIndex = [];
   for (const idol of [...people.values()].sort((a, b) => a.id - b.id)) {
-    const relatedSongs = songs.filter((x) => x.song?.default_singers?.some((member) => member.code === idol.code))
-      .map((x) => ({ ...compact(x), versions: x.versions.map(compact) }));
-    const related = entries.filter((x) => x.category !== "lyrics" && x.participants?.includes(idol.code));
-    const birthday = related.filter((x) => x.domain === "birth").map(compact);
+    const relatedSongs = songsByIdol.get(idol.code) || [];
+    const related = nonLyricByIdol.get(idol.code) || [];
+    const birthday = related.filter((x) => x.domain === "birth").map(compactOnce);
     const isStory = (entry) => entry.topic && ["main", "event", "anniversary", "special"].includes(entry.topic.kind);
     const stories = related.filter(isStory).sort((a, b) => Number(b.topic.kind === "main") - Number(a.topic.kind === "main")
-      || a.topic.id.localeCompare(b.topic.id, "en", { numeric: true }) || (a.topic.order ?? Infinity) - (b.topic.order ?? Infinity)).map(compact);
-    const other = related.filter((x) => !isStory(x) && x.domain !== "birth").map(compact);
+      || a.topic.id.localeCompare(b.topic.id, "en", { numeric: true }) || (a.topic.order ?? Infinity) - (b.topic.order ?? Infinity)).map(compactOnce);
+    const other = related.filter((x) => !isStory(x) && x.domain !== "birth").map(compactOnce);
     const file = `library/idols/${idol.code}.json`;
     write(sink, file, { idol, songs: relatedSongs, stories, birthday, other });
     idolIndex.push({ ...idol, file, counts: { songs: relatedSongs.length, stories: stories.length, birthday: birthday.length, other: other.length } });

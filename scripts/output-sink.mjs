@@ -18,11 +18,16 @@ export function collectingSink() {
 
 export function writingSink(outDir) {
   let written = 0;
+  const createdDirs = new Set();
   return {
     files: null,
     put(relativePath, content) {
       const full = join(outDir, relativePath);
-      mkdirSync(dirname(full), { recursive: true });
+      const dir = dirname(full);
+      if (!createdDirs.has(dir)) {
+        mkdirSync(dir, { recursive: true });
+        createdDirs.add(dir);
+      }
       writeFileSync(full, content, "utf8");
       written += 1;
     },

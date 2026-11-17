@@ -439,7 +439,14 @@ function normalizeItemKey(value, { trim = false } = {}) {
  *   identity_field?: string|null}} options
  * @returns {Promise<{text: string, lineNumber: number, previous: Object, fields: string[]}>}
  */
-async function spliceJsonlLine(text, { item_key, source_sha256, entries, identity_field }) {
+async function spliceJsonlLine(text, {
+  item_key,
+  source_sha256,
+  entries,
+  identity_field,
+  autoHumanStage = false,
+  stageValue = "human_translated",
+}) {
   if (typeof text !== "string") throw fail("invalid_edit", "jsonl text is not a string");
   const wantedKey = normalizeItemKey(item_key);
   if (wantedKey === null) {
@@ -451,33 +458,49 @@ async function spliceJsonlLine(text, { item_key, source_sha256, entries, identit
     throw fail("invalid_edit", "line.source_sha256 must be 64 hex characters");
   }
 
-  const lines = text.split("\n");
-  const rows = new Array(lines.length).fill(null);
   const keyHits = [];
   const hashHits = [];
+  let matched = null;
 
-  for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i];
-    if (raw.trim() === "") continue; // a trailing newline is expected, not a row
+  let pos = 0;
+  let lineIndex = 0;
+  while (pos < text.length) {
+    const nl = text.indexOf("\n", pos);
+    const end = nl === -1 ? text.length : nl;
+    const raw = text.slice(pos, end);
+    const nextPos = nl === -1 ? text.length : nl + 1;
+    lineIndex += 1;
+
+    if (raw.trim() === "") {
+      pos = nextPos;
+      continue;
+    }
+
     let row;
     try {
       row = JSON.parse(raw);
     } catch {
       // Fail closed: a file we cannot fully read is a file we must not rewrite.
-      throw fail("invalid_json", `line ${i + 1} of the JSONL file is not valid JSON`, { line: i + 1 });
+      throw fail("invalid_json", `line ${lineIndex} of the JSONL file is not valid JSON`, { line: lineIndex });
     }
     if (row === null || typeof row !== "object" || Array.isArray(row)) {
-      throw fail("invalid_json", `line ${i + 1} of the JSONL file is not a JSON object`, { line: i + 1 });
+      throw fail("invalid_json", `line ${lineIndex} of the JSONL file is not a JSON object`, { line: lineIndex });
     }
-    rows[i] = row;
+
     // 行没有这个身份字段就不可能是目标行（lyrics 行没有 item_key、locales 行没有
     // index），用错字段只会得到 not_found，绝不会改到别的行上。
-    if (!Object.prototype.hasOwnProperty.call(row, identityField)) continue;
-    if (String(row[identityField]) !== wantedKey) continue;
-    keyHits.push(i);
-    const source = rowSourceText(row);
-    if (source === null) continue;
-    if (sha256Hex(source) === expectedHash) hashHits.push(i);
+    if (Object.prototype.hasOwnProperty.call(row, identityField) && String(row[identityField]) === wantedKey) {
+      keyHits.push(lineIndex);
+      const source = rowSourceText(row);
+      if (source !== null && sha256Hex(source) === expectedHash) {
+        hashHits.push(lineIndex);
+        if (matched === null) {
+          matched = { start: pos, end, lineNumber: lineIndex, raw, row };
+        }
+      }
+    }
+
+    pos = nextPos;
   }
 
   if (hashHits.length === 0) {
@@ -488,8 +511,8 @@ async function spliceJsonlLine(text, { item_key, source_sha256, entries, identit
         {
           item_key: wantedKey,
           identity_field: identityField,
-          line: keyHits[0] + 1,
-          lines: keyHits.map((i) => i + 1),
+          line: keyHits[0],
+          lines: keyHits,
         },
       );
     }
@@ -502,24 +525,36 @@ async function spliceJsonlLine(text, { item_key, source_sha256, entries, identit
     throw fail(
       "ambiguous",
       `${hashHits.length} rows match ${identityField} ${wantedKey} and source_sha256`,
-      { item_key: wantedKey, identity_field: identityField, lines: hashHits.map((i) => i + 1) },
+      { item_key: wantedKey, identity_field: identityField, lines: hashHits },
     );
   }
 
-  const index = hashHits[0];
-  const row = rows[index];
+  const { start, end, lineNumber, raw, row } = matched;
+  const effectiveEntries = [...entries];
+  if (
+    autoHumanStage
+    && Object.prototype.hasOwnProperty.call(row, "translation_stage")
+    && !effectiveEntries.some((entry) => entry.field === "translation_stage")
+  ) {
+    effectiveEntries.push({ field: "translation_stage", value: stageValue });
+  }
+
   const previous = {};
   const fields = [];
-  let lineText = lines[index];
-  for (const entry of entries) {
+  let lineText = raw;
+  for (const entry of effectiveEntries) {
     const field = resolveFieldName(row, entry.field);
     previous[field] = typeof row[field] === "string" ? row[field] : null;
     lineText = replaceJsonStringField(lineText, field, entry.value);
     fields.push(field);
   }
-  lines[index] = lineText;
 
-  return { text: lines.join("\n"), lineNumber: index + 1, previous, fields };
+  return {
+    text: text.slice(0, start) + lineText + text.slice(end),
+    lineNumber,
+    previous,
+    fields,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -553,6 +588,33 @@ export async function applyJsonlEdit(text, options) {
     text: result.text,
     lineNumber: result.lineNumber,
     previous: result.previous[name] ?? null,
+  };
+}
+
+/**
+ * 在同一遍扫描里更新译文字段与可选 status，并在行内已声明 `translation_stage` 时
+ * 自动同步为 `human_translated`（清空恢复为 untranslated 时同步为 `untranslated`）。
+ */
+export async function applyJsonlRowEdit(text, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const nextTranslation = opts.translation === null || opts.translation === undefined ? "" : String(opts.translation);
+  const statusValue = opts.status === undefined || opts.status === null ? null : String(opts.status);
+  const entries = [{ field: "translation", value: nextTranslation }];
+  if (statusValue !== null) entries.push({ field: "status", value: statusValue });
+  const isReset = nextTranslation === "" && statusValue === "untranslated";
+  const applied = await spliceJsonlLine(text, {
+    item_key: opts.item_key,
+    source_sha256: opts.source_sha256,
+    identity_field: opts.identity_field,
+    entries,
+    autoHumanStage: opts.autoHumanStage !== false,
+    stageValue: isReset ? "untranslated" : "human_translated",
+  });
+  return {
+    text: applied.text,
+    lineNumber: applied.lineNumber,
+    previous: applied.previous[applied.fields[0]] ?? null,
+    previousStatus: statusValue !== null ? (applied.previous.status ?? null) : null,
   };
 }
 
@@ -934,18 +996,17 @@ export async function commitLineEdit(options) {
   let previousStatus = null;
 
   if (target.kind === "jsonl") {
-    const entries = [{ field: "translation", value: nextTranslation }];
-    if (statusValue !== null) entries.push({ field: "status", value: statusValue });
-    const applied = await spliceJsonlLine(currentText, {
+    const applied = await applyJsonlRowEdit(currentText, {
       item_key: target.item_key,
       source_sha256: target.source_sha256,
       identity_field: target.identity_field,
-      entries,
+      translation: nextTranslation,
+      status: statusValue,
     });
     nextText = applied.text;
     lineNumber = applied.lineNumber;
-    previous = applied.previous[applied.fields[0]] ?? null;
-    if (statusValue !== null) previousStatus = applied.previous.status ?? null;
+    previous = applied.previous;
+    previousStatus = applied.previousStatus;
   } else {
     const applied = await applyManifestEdit(currentText, {
       manifest_index: target.manifest_index,

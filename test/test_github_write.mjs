@@ -13,6 +13,7 @@ import {
   PAT_STORAGE_KEY,
   WriteError,
   applyJsonlEdit,
+  applyJsonlRowEdit,
   applyManifestEdit,
   commitLineEdit,
   getToken,
@@ -1108,6 +1109,69 @@ await test("write status: optional values, historical vocabulary and adapter dia
   }
   assert.throws(() => normalizeWriteStatus(" not_needed "),
     (error) => error.code === "invalid_edit" && error.message === "not_needed 是本站派生状态，写回上游请用 accepted 或 pending");
+});
+
+await test("applyJsonlRowEdit & commitLineEdit: auto-updates translation_stage to human_translated when key exists", async () => {
+  const withStage = [
+    JSON.stringify({ item_key: "1", ja: "原文一", zh: "AI草稿", status: "pending", translation_stage: "llm_translated" }),
+    JSON.stringify({ item_key: "2", ja: "原文二", zh: "已有", status: "accepted" }),
+  ].join("\n") + "\n";
+
+  const singlePass = await applyJsonlRowEdit(withStage, {
+    item_key: "1",
+    source_sha256: nodeHash("原文一"),
+    translation: "人工定稿",
+    status: "accepted",
+  });
+  const updated1 = JSON.parse(singlePass.text.split("\n")[0]);
+  assert.equal(updated1.zh, "人工定稿");
+  assert.equal(updated1.status, "accepted");
+  assert.equal(updated1.translation_stage, "human_translated");
+  assert.equal(singlePass.text.split("\n")[1], withStage.split("\n")[1], "unrelated row untouched byte-for-byte");
+
+  const resetRow = await applyJsonlRowEdit(withStage, {
+    item_key: "1",
+    source_sha256: nodeHash("原文一"),
+    translation: "",
+    status: "untranslated",
+  });
+  assert.equal(JSON.parse(resetRow.text.split("\n")[0]).translation_stage, "untranslated");
+
+  const legacyUnchanged = await applyJsonlRowEdit(withStage, {
+    item_key: "2",
+    source_sha256: nodeHash("原文二"),
+    translation: "新译",
+    status: "accepted",
+  });
+  assert.equal(Object.hasOwn(JSON.parse(legacyUnchanged.text.split("\n")[1]), "translation_stage"), false);
+
+  let putRow = null;
+  const { fetchImpl } = stubFetch([
+    {
+      method: "GET",
+      match: "/contents/locales/master/stage.jsonl",
+      reply: () => jsonResponse(200, { sha: "abc123", encoding: "base64", content: wrappedBase64(withStage) }),
+    },
+    {
+      method: "PUT",
+      match: "/contents/locales/master/stage.jsonl",
+      reply: (req) => {
+        const written = Buffer.from(req.body.content, "base64").toString("utf8");
+        putRow = JSON.parse(written.split("\n")[0]);
+        return jsonResponse(200, { content: { sha: "d".repeat(40) }, commit: { sha: "d".repeat(40), html_url: "https://example.invalid/def456" } });
+      },
+    },
+  ]);
+  const committed = await commitLineEdit({
+    token: "ghp_testtoken_12345678901234567890",
+    edit: { repo: "kohakunamori/MLTDTranslationAssets", ref: "main", kind: "jsonl", path: "locales/master/stage.jsonl" },
+    line: { item_key: "1", source_sha256: nodeHash("原文一") },
+    translation: "人工定稿",
+    status: "accepted",
+    fetchImpl,
+  });
+  assert.equal(committed.changed, true);
+  assert.equal(putRow.translation_stage, "human_translated");
 });
 
 if (failures.length > 0) {

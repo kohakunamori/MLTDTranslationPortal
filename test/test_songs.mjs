@@ -80,6 +80,10 @@ assert.equal(songFor("scrobj_hapipi.unity3d").name_ja, "ハピピス♡");
 assert.deepEqual(songFor("scrobj_hapipi.unity3d").default_singer_ids, [19, 18, 45, 44]);
 assert.equal(songFor("scrobj_s04mat.unity3d").name_ja, "プリンセス・アラモード");
 assert.deepEqual(songFor("scrobj_s04mat.unity3d").default_singer_ids, [21]);
+assert.equal(songFor("scrobj_yoruak.unity3d").name_ja, "夜と、明かりと。");
+assert.equal(songFor("scrobj_yoruak.unity3d").mst_song_id, 452);
+assert.equal(songFor("scrobj_yoruak.unity3d").type, "Angel");
+assert.deepEqual(songFor("scrobj_yoruak.unity3d").default_singer_ids, [46, 39]);
 assert.deepEqual(createSongResolver({ default_singers: { hapipi: [18] } })("scrobj_hapipi.unity3d").default_singer_ids, [18],
   "Captured cast supersedes the temporary curated fallback");
 

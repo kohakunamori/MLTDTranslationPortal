@@ -5,29 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MLTD 翻译查阅站</title>
 <meta name="description" content="MLTD 中文化翻译查阅：按分类浏览源文与译文对照，支持单行修改。" />
+<script>
+(() => {
+  try {
+    const pref = localStorage.getItem("mltd.theme") || "system";
+    const resolved = pref === "light" || pref === "dark"
+      ? pref
+      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.dataset.themePref = pref;
+    document.documentElement.style.colorScheme = resolved;
+  } catch (_) {
+    document.documentElement.dataset.theme = "light";
+  }
+})();
+</script>
 <link rel="stylesheet" href="app.css" />
 </head>
 <body>
 
+<a class="skip-link" href="#main">跳到正文</a>
+
 <header class="app-header">
   <div class="header-container">
-    <a class="logo-group" href="#overview" id="logo-home">
-      <span class="logo-badge">MLTD</span>
-      <span class="logo-title">
-        <h1>翻译查阅站</h1>
-        <p id="header-subtitle">正在载入数据…</p>
-      </span>
-    </a>
-    <nav class="header-actions" id="header-nav">
-      <button class="nav-btn" data-nav="overview">概览</button>
-      <button class="nav-btn" data-nav="catalogue">全部资源</button>
-      <button class="nav-btn" data-nav="idols">偶像</button>
-      <button class="nav-btn" data-nav="topics">专题</button>
-      <button class="nav-btn" data-nav="search">搜索</button>
-      <button class="nav-btn" data-nav="personal">我的收藏</button>
-      <button class="nav-btn" data-nav="images">图片汉化</button>
-      <button class="nav-btn" data-nav="settings">设置</button>
-      <span class="write-chip" id="write-chip" title="未配置 GitHub Token，只能查看"></span>
+    <div class="header-brand-bar">
+      <a class="logo-group" href="#overview" id="logo-home">
+        <span class="logo-badge">MLTD</span>
+        <span class="logo-title">
+          <h1>翻译查阅站</h1>
+          <p id="header-subtitle">正在载入数据…</p>
+        </span>
+      </a>
+      <button class="btn nav-menu-toggle" id="nav-menu-toggle" type="button" aria-expanded="false" aria-controls="header-nav" aria-label="展开或收起导航菜单">
+        <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <span>导航</span>
+      </button>
+    </div>
+    <nav class="header-actions" id="header-nav" aria-label="主导航">
+      <button class="nav-btn" type="button" data-nav="overview">概览</button>
+      <button class="nav-btn" type="button" data-nav="catalogue">全部资源</button>
+      <button class="nav-btn" type="button" data-nav="idols">偶像</button>
+      <button class="nav-btn" type="button" data-nav="topics">专题</button>
+      <button class="nav-btn" type="button" data-nav="search">搜索</button>
+      <button class="nav-btn" type="button" data-nav="personal">我的收藏</button>
+      <button class="nav-btn" type="button" data-nav="images">图片汉化</button>
+      <button class="nav-btn" type="button" data-nav="settings">设置</button>
+      <div class="header-utilities">
+        <button class="btn btn-utility" id="theme-toggle" type="button" title="切换浅色 / 深色 / 跟随系统主题" aria-label="切换配色主题">主题：自动</button>
+        <span class="write-chip" id="write-chip" title="未配置 GitHub Token，只能查看"></span>
+      </div>
     </nav>
   </div>
 </header>
@@ -40,7 +66,7 @@
   </p>
 </div>
 
-<main id="main">
+<main id="main" tabindex="-1">
 
   <!-- ============================ 概览 ============================ -->
   <section class="view" id="view-overview">
@@ -55,9 +81,18 @@
         <div class="stat-row" id="stat-row"></div>
       </div>
       <div class="hero-side">
-        <button class="btn btn-primary" id="hero-random-song">🎲 随机一首歌</button>
-        <button class="btn" id="hero-untranslated">🔍 只看未翻译</button>
-        <button class="btn" id="btn-reload-data">↻ 重新拉取数据</button>
+        <button class="btn btn-primary" id="hero-random-song" type="button">
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <span>随机一首歌</span>
+        </button>
+        <button class="btn" id="hero-untranslated" type="button">
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <span>只看未翻译</span>
+        </button>
+        <button class="btn" id="btn-reload-data" type="button">
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+          <span>重新拉取数据</span>
+        </button>
       </div>
     </div>
 
@@ -78,11 +113,11 @@
       <label class="field"><span>默认歌唱偶像</span>
         <select class="input" id="song-idol"><option value="">全部偶像</option></select>
       </label>
-      <label class="field checkbox"><input id="song-group" type="checkbox" checked />同曲合并展示</label>
+      <label class="field checkbox"><input id="song-group" type="checkbox" checked /><span>同曲合并展示</span></label>
       <label class="field"><span>歌曲属性</span><select class="input" id="song-attribute"><option value="">全部属性</option><option>Princess</option><option>Fairy</option><option>Angel</option><option value="All">全属性</option></select></label>
       <label class="field"><span>演唱形式</span><select class="input" id="song-cast"><option value="">全部形式</option><option value="solo">独唱</option><option value="unit">组合</option><option value="all">全员</option><option value="unknown">资料待补充</option></select></label>
     </div>
-    <p class="hint" id="song-grid-count" role="status" aria-live="polite"></p>
+    <p class="hint tabular" id="song-grid-count" role="status" aria-live="polite"></p>
     <div class="song-grid" id="song-grid"></div>
     <div class="pager" id="song-grid-pager"></div>
     <p class="empty" id="song-grid-empty" hidden>没有匹配的歌曲。</p>
@@ -91,7 +126,7 @@
   <!-- ============================ 索引浏览 ============================ -->
   <section class="view" id="view-catalogue" hidden>
     <div class="view-head card">
-      <button class="btn btn-back" id="catalogue-back">← 返回概览</button>
+      <button class="btn btn-back" id="catalogue-back" type="button">← 返回概览</button>
       <div class="view-title">
         <h2 id="catalogue-title">全部资源</h2>
         <p class="hero-meta" id="catalogue-meta"></p>
@@ -138,12 +173,12 @@
           <option value="name">名称</option>
         </select>
       </label>
-      <label class="field checkbox" id="filter-song-group-field"><input id="filter-song-group" type="checkbox" checked />同曲合并展示</label>
+      <label class="field checkbox" id="filter-song-group-field"><input id="filter-song-group" type="checkbox" checked /><span>同曲合并展示</span></label>
       <label class="field" id="filter-song-attribute-field"><span>歌曲属性</span><select class="input" id="filter-song-attribute"><option value="">全部属性</option><option>Princess</option><option>Fairy</option><option>Angel</option><option value="All">全属性</option></select></label>
       <label class="field" id="filter-song-cast-field"><span>演唱形式</span><select class="input" id="filter-song-cast"><option value="">全部形式</option><option value="solo">独唱</option><option value="unit">组合</option><option value="all">全员</option><option value="unknown">资料待补充</option></select></label>
     </div>
 
-    <p class="hint" id="catalogue-results" role="status" aria-live="polite"></p>
+    <p class="hint tabular" id="catalogue-results" role="status" aria-live="polite"></p>
 
     <p class="empty" id="catalogue-empty" hidden>没有匹配的资源。</p>
     <div class="bundle-list" id="bundle-list"></div>
@@ -153,7 +188,7 @@
   <!-- ============================ 对照阅读 ============================ -->
   <section class="view" id="view-read" hidden>
     <div class="view-head card">
-      <button class="btn btn-back" id="read-back">← 返回列表</button>
+      <button class="btn btn-back" id="read-back" type="button">← 返回列表</button>
       <div class="view-title">
         <h2 id="read-title">—</h2>
         <p class="hero-meta" id="read-meta"></p>
@@ -174,6 +209,7 @@
         <span class="page-info" id="read-page-info"></span>
       </div>
       <span class="page-window" id="read-window"></span>
+      <span class="kbd-hint" aria-hidden="true">快捷键：<kbd>/</kbd> 搜索 · <kbd>[</kbd> <kbd>]</kbd> 翻页</span>
     </div>
 
     <div class="filters card" id="read-song-options" hidden>
@@ -200,7 +236,8 @@
       <label class="field">
         <span>显示</span>
         <select class="input" id="read-display">
-          <option value="both">日中对照</option>
+          <option value="both">日中对照（上下）</option>
+          <option value="split">左右并排对照</option>
           <option value="source">仅日文</option>
           <option value="translation">仅中文</option>
         </select>
@@ -225,36 +262,36 @@
   </section>
 
   <section class="view" id="view-idols" hidden>
-    <div class="view-head card"><h2>偶像主页</h2><p class="hint">从偶像出发，浏览歌曲、剧情和生日纪念。</p></div>
+    <div class="view-head card"><div class="view-title"><h2>偶像主页</h2><p class="hint">从偶像出发，浏览歌曲、剧情和生日纪念。</p></div></div>
     <form class="filters card" id="idols-form"><label class="field grow"><span>寻找偶像</span><input class="input" id="idols-query" type="search" placeholder="中文或日文名字" /></label><button class="btn btn-primary" type="submit">查找</button></form>
-    <p class="hint" id="idols-count" role="status"></p><div class="idol-grid" id="idols-list"></div>
+    <p class="hint tabular" id="idols-count" role="status"></p><div class="idol-grid" id="idols-list"></div>
   </section>
   <section class="view" id="view-idol" hidden>
-    <div class="view-head card"><button class="btn" data-nav="idols">← 全部偶像</button><div><h2 id="idol-name">偶像主页</h2><p class="hint" id="idol-description"></p></div></div>
+    <div class="view-head card"><button class="btn btn-back" type="button" data-nav="idols">← 全部偶像</button><div class="view-title"><h2 id="idol-name">偶像主页</h2><p class="hint" id="idol-description"></p></div></div>
     <div class="domain-tabs library-tabs" id="idol-tabs"></div><div id="idol-content"></div>
   </section>
   <section class="view" id="view-topics" hidden>
-    <div class="view-head card"><h2>专题与连续阅读</h2><p class="hint">按活动、主线、周年与生日纪念浏览；有明确顺序的故事可连续阅读。</p></div>
+    <div class="view-head card"><div class="view-title"><h2>专题与连续阅读</h2><p class="hint">按活动、主线、周年与生日纪念浏览；有明确顺序的故事可连续阅读。</p></div></div>
     <form class="filters card" id="topics-form"><label class="field grow"><span>寻找专题</span><input class="input" id="topics-query" type="search" placeholder="标题或故事简介" /></label><label class="field"><span>类型</span><select class="input" id="topics-kind"><option value="">全部专题</option><option value="event">活动</option><option value="main">主线</option><option value="anniversary">周年</option><option value="special">特别企划</option><option value="birthday">生日</option></select></label><button class="btn btn-primary" type="submit">查找</button></form>
-    <p class="hint" id="topics-count" role="status"></p><div id="topics-list"></div>
+    <p class="hint tabular" id="topics-count" role="status"></p><div id="topics-list"></div>
   </section>
   <section class="view" id="view-topic" hidden>
-    <div class="view-head card"><button class="btn" data-nav="topics">← 全部专题</button><div><h2 id="topic-name">专题</h2><p class="hint" id="topic-description"></p></div></div><div id="topic-content"></div>
+    <div class="view-head card"><button class="btn btn-back" type="button" data-nav="topics">← 全部专题</button><div class="view-title"><h2 id="topic-name">专题</h2><p class="hint" id="topic-description"></p></div></div><div id="topic-content"></div>
   </section>
   <section class="view" id="view-personal" hidden>
-    <div class="view-head card"><h2>我的收藏与阅读</h2><p class="hint" id="personal-note"></p></div>
+    <div class="view-head card"><div class="view-title"><h2>我的收藏与阅读</h2><p class="hint" id="personal-note"></p></div></div>
     <div class="filters card"><button class="btn" id="personal-export" type="button">导出备份</button><label class="btn import-label">导入备份<input id="personal-import" type="file" accept="application/json,.json" /></label><button class="btn" id="personal-clear" type="button">清空阅读记录</button></div>
-    <h3 id="personal-favorites-count">收藏</h3><div id="personal-favorites"></div><h3 id="personal-recent-count">最近阅读</h3><div id="personal-recent"></div>
+    <h3 class="subsection-title" id="personal-favorites-count">收藏</h3><div id="personal-favorites"></div><h3 class="subsection-title" id="personal-recent-count">最近阅读</h3><div id="personal-recent"></div>
   </section>
   <section class="view" id="view-compare" hidden>
-    <div class="view-head card"><button class="btn" data-nav="catalogue">← 歌曲目录</button><div><h2 id="compare-title">多版本歌词对照</h2><p class="hint">按歌词段落对应，重复的副歌也会保留各自的位置。</p></div></div>
-    <div class="filters card"><label class="field grow"><span>左侧版本</span><select class="input" id="compare-left"></select></label><label class="field grow"><span>右侧版本</span><select class="input" id="compare-right"></select></label><label class="field checkbox"><input id="compare-only" type="checkbox" />只看差异</label><label class="field checkbox"><input id="compare-whitespace" type="checkbox" />忽略原文空白差异</label></div>
-    <p class="hint" id="compare-summary" role="status"></p><div id="compare-lines"></div>
+    <div class="view-head card"><button class="btn btn-back" type="button" data-nav="catalogue">← 歌曲目录</button><div class="view-title"><h2 id="compare-title">多版本歌词对照</h2><p class="hint">按歌词段落对应，重复的副歌也会保留各自的位置。</p></div></div>
+    <div class="filters card"><label class="field grow"><span>左侧版本</span><select class="input" id="compare-left"></select></label><label class="field grow"><span>右侧版本</span><select class="input" id="compare-right"></select></label><label class="field checkbox"><input id="compare-only" type="checkbox" /><span>只看差异</span></label><label class="field checkbox"><input id="compare-whitespace" type="checkbox" /><span>忽略原文空白差异</span></label></div>
+    <p class="hint tabular" id="compare-summary" role="status"></p><div id="compare-lines"></div>
   </section>
   <section class="view" id="view-search" hidden>
-    <div class="view-head card"><h2>全站正文搜索</h2><p class="hint">搜索日文原文与中文译文，点击结果可直达对应段落。</p></div>
+    <div class="view-head card"><div class="view-title"><h2>全站正文搜索</h2><p class="hint">搜索日文原文与中文译文，点击结果可直达对应段落。</p></div></div>
     <form class="filters card" id="search-form"><label class="field grow"><span>正文关键词</span><input class="input" id="search-query" type="search" maxlength="100" required placeholder="中文或日文正文" /></label><label class="field"><span>范围</span><select class="input" id="search-scope"><option value="all">全站</option><option value="lyrics">歌词</option><option value="story">剧情</option><option value="card">卡片内容</option><option value="dialogue">剧场日常</option><option value="birth">生日</option><option value="system">界面与系统</option></select></label><label class="field"><span>相关偶像</span><select class="input" id="search-idol"><option value="">全部偶像</option></select></label><label class="field"><span>翻译状态</span><select class="input" id="search-state"><option value="">全部</option><option value="accepted">已确认</option><option value="untranslated">未翻译</option><option value="pending">待确认</option><option value="not_needed">无需翻译</option></select></label><button class="btn btn-primary" type="submit">搜索</button><button class="btn" id="search-cancel" type="button" disabled>停止搜索</button></form>
-    <p class="hint" id="search-status" role="status" aria-live="polite"></p><div id="search-results"></div><div class="pager" id="search-pager"></div>
+    <p class="hint tabular" id="search-status" role="status" aria-live="polite"></p><div id="search-results"></div><div class="pager" id="search-pager"></div>
   </section>
 
   <!-- ============================ 图片 ============================ -->
@@ -308,7 +345,7 @@
 
     <p class="hint">确认原图无需汉化后可点击标记，支持撤销。标记保存到资源仓库，需要在设置中配置 GitHub Token。</p>
     <p class="hint" id="image-review-feedback" role="status" aria-live="polite" hidden></p>
-    <p class="hint" id="image-results" role="status" aria-live="polite"></p>
+    <p class="hint tabular" id="image-results" role="status" aria-live="polite"></p>
     <div class="image-columns" aria-hidden="true"><span>图片信息</span><span>日文原图</span><span>汉化图片</span></div>
     <div class="image-grid" id="image-grid"></div>
     <p class="empty" id="image-empty" hidden>没有匹配的图片任务。</p>
@@ -337,7 +374,7 @@
         <a class="btn" id="pat-create-classic" href="#" target="_blank" rel="noopener">或：用经典 Token（勾好权限）</a>
       </div>
       <form class="settings-row" id="pat-form">
-        <input class="input grow" id="pat-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…（只保存在本机）" />
+        <input class="input grow" id="pat-input" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…（只保存在本机）" aria-label="GitHub Personal Access Token" />
         <button class="btn" id="pat-toggle-vis" type="button">显示</button>
         <button class="btn btn-primary" id="pat-save" type="button">保存</button>
         <button class="btn" id="pat-verify" type="button">验证</button>
@@ -380,11 +417,11 @@
         自带 endpoint 与 key，浏览器直连服务商；只用来生成草稿，不会自动提交。
       </p>
       <div class="settings-row">
-        <input class="input grow" id="ai-endpoint" type="url" placeholder="https://api.example.com/v1/chat/completions" />
+        <input class="input grow" id="ai-endpoint" type="url" placeholder="https://api.example.com/v1/chat/completions" aria-label="AI 接口地址" />
       </div>
       <form class="settings-row" id="ai-form">
-        <input class="input grow" id="ai-key" type="password" autocomplete="off" placeholder="API Key" />
-        <input class="input" id="ai-model" placeholder="model" />
+        <input class="input grow" id="ai-key" type="password" autocomplete="off" placeholder="API Key" aria-label="AI API Key" />
+        <input class="input" id="ai-model" placeholder="model" aria-label="AI 模型名称" />
         <button class="btn btn-primary" id="ai-save" type="button">保存</button>
         <button class="btn" id="ai-test" type="button">测试连接</button>
         <button class="btn btn-danger" id="ai-clear" type="button">清除</button>
@@ -396,7 +433,7 @@
       <h3>数据来源</h3>
       <dl class="kv" id="settings-sources"></dl>
       <div class="settings-row">
-        <button class="btn" id="settings-reload">↻ 重新拉取数据</button>
+        <button class="btn" id="settings-reload" type="button">重新拉取数据</button>
         <span class="hint">内容会定期更新；刚保存的修改将在下次更新后出现在页面里。</span>
       </div>
     </div>
@@ -404,8 +441,8 @@
     <div class="card settings-card">
       <h3>怎么用</h3>
       <ul class="help-list">
-        <li>从分类、偶像主页或专题进入，浏览日中对照内容；正文搜索可以直达匹配段落。</li>
-        <li>歌词可按属性和演唱形式筛选，同曲的不同版本可切换阅读或并排对照。</li>
+        <li>从分类、偶像主页或专题进入，浏览日中对照内容；正文搜索（快捷键 <code>/</code>）可以直达匹配段落。</li>
+        <li>歌词可按属性和演唱形式筛选，同曲的不同版本可切换阅读或并排对照；阅读页按 <code>[</code> / <code>]</code> 翻页。</li>
         <li>点击收藏保存喜欢的内容；「我的收藏」也会记录最近阅读和阅读位置，可导入、导出备份。</li>
         <li>有明确章节顺序的专题支持上一章、下一章；生日与周年纪念也可单独浏览。</li>
         <li>维护者可在阅读页修改译文；提交前会核对原文，避免覆盖已经变化的内容。</li>
@@ -426,12 +463,19 @@
 </footer>
 
 <!-- ============================ 图片灯箱 ============================ -->
-<div class="modal" id="lightbox" hidden>
+<div class="modal" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lightbox-title" hidden>
   <div class="modal-backdrop" data-close="lightbox"></div>
   <div class="modal-panel lightbox-panel">
     <div class="modal-head">
       <h3 id="lightbox-title">—</h3>
-      <button class="btn btn-ghost" data-close="lightbox">关闭</button>
+      <div class="lightbox-head-controls">
+        <div class="lightbox-mode-group" role="group" aria-label="对照视图模式">
+          <button class="btn btn-sm active" id="lightbox-mode-compare" type="button">并排对照</button>
+          <button class="btn btn-sm" id="lightbox-mode-original" type="button">仅原图</button>
+          <button class="btn btn-sm" id="lightbox-mode-localized" type="button">仅汉化图</button>
+        </div>
+        <button class="btn btn-ghost" type="button" data-close="lightbox">关闭</button>
+      </div>
     </div>
     <div class="lightbox-body">
       <div class="lightbox-compare">
@@ -450,6 +494,8 @@
     <div class="modal-foot">
       <div class="lightbox-meta" id="lightbox-meta"></div>
       <div class="lightbox-actions">
+        <button class="btn btn-sm" id="lightbox-prev" type="button" title="上一张（←）">‹ 上一张</button>
+        <button class="btn btn-sm" id="lightbox-next" type="button" title="下一张（→）">下一张 ›</button>
         <span id="lightbox-review-actions"></span>
         <a class="btn btn-ghost" id="lightbox-download-original" href="#" download>下载原图</a>
         <a class="btn" id="lightbox-download" href="#" download>下载汉化图</a>
@@ -484,25 +530,25 @@
 </div>
 
 <!-- ============================ 写入确认 ============================ -->
-<div class="modal" id="confirm-modal" hidden>
+<div class="modal" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
   <div class="modal-backdrop" data-close="confirm"></div>
   <div class="modal-panel">
     <div class="modal-head">
-      <h3>确认提交到 GitHub</h3>
-      <button class="btn btn-ghost" data-close="confirm">取消</button>
+      <h3 id="confirm-title">确认提交到 GitHub</h3>
+      <button class="btn btn-ghost" type="button" data-close="confirm">取消</button>
     </div>
     <div class="modal-body" id="confirm-body"></div>
     <div class="modal-foot">
       <span class="hint" id="confirm-hint">提交会直接写入目标仓库的默认分支（或数据里记录的分支）。</span>
       <div class="lightbox-actions">
-        <button class="btn" data-close="confirm">取消</button>
-        <button class="btn btn-primary" id="confirm-ok">确认提交</button>
+        <button class="btn" type="button" data-close="confirm">取消</button>
+        <button class="btn btn-primary" id="confirm-ok" type="button">确认提交</button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script type="module">
 // 入口用"带版本号的地址"加载，而不是直接写 app.js。

@@ -2,7 +2,7 @@
  "schema_version": 1,
  "note": "曲目名称与版本对照。",
  "source": {
-  "asset_version": "1078850"
+  "asset_version": "1079000"
  },
  "songs": {
   "aftspt": {
@@ -5876,6 +5876,13 @@
    28,
    19,
    48
+  ],
+  "soutei": [
+   48,
+   20,
+   50,
+   28,
+   52
   ],
   "sozoha": [
    26,
